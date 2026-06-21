@@ -45490,259 +45490,1075 @@ var help = createHelp({
 Chain.createProxy(math);
 
 // main.ts
-function normalizarEntrada(expr) {
-  let e3 = expr;
-  e3 = e3.replace(/\^\{([^}]+)\}/g, (_, exp3) => {
-    return /^-?[a-zA-Z0-9]+$/.test(exp3.trim()) ? "^" + exp3.trim() : "^(" + exp3.trim() + ")";
-  });
-  e3 = e3.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)");
-  e3 = e3.replace(/\\sqrt\{([^}]+)\}/g, "sqrt($1)");
-  e3 = e3.replace(/\\cdot/g, "*");
-  e3 = e3.replace(/\\([a-zA-Z]+)/g, "$1");
-  return e3;
+var FUNCIONES_TRIG = ["sin", "cos", "tan", "sec", "csc", "cot"];
+var FUNCIONES_LATEX = "sin|cos|tan|sec|csc|cot|log|ln";
+function encontrarParentesisCierre(texto, inicio) {
+  let profundidad = 0;
+  for (let i2 = inicio; i2 < texto.length; i2++) {
+    if (texto[i2] === "(")
+      profundidad++;
+    else if (texto[i2] === ")") {
+      profundidad--;
+      if (profundidad === 0)
+        return i2;
+    }
+  }
+  return -1;
+}
+function argumentoTrigonometrico(arg2) {
+  return /^[+-]?\d+(\.\d+)?$/.test(arg2.trim()) ? arg2.trim() + "*pi/180" : arg2.trim();
+}
+function normalizarTrigonometria(expr) {
+  let resultado = expr;
+  for (const fn of FUNCIONES_TRIG) {
+    let desde = 0;
+    while (desde < resultado.length) {
+      const idx = resultado.indexOf(fn + "(", desde);
+      if (idx === -1)
+        break;
+      const inicioArg = idx + fn.length;
+      const finArg = encontrarParentesisCierre(resultado, inicioArg);
+      if (finArg === -1)
+        break;
+      const arg2 = resultado.slice(inicioArg + 1, finArg);
+      const argNorm = argumentoTrigonometrico(arg2);
+      resultado = resultado.slice(0, inicioArg + 1) + argNorm + resultado.slice(finArg);
+      desde = inicioArg + argNorm.length + 2;
+    }
+  }
+  return resultado;
+}
+function normalizarEntrada(raw) {
+  let expr = raw;
+  expr = expr.replace(/π/g, "pi");
+  expr = expr.replace(/√/g, "sqrt");
+  expr = expr.replace(/[·×]/g, "*");
+  expr = expr.replace(/÷/g, "/");
+  expr = expr.replace(/²/g, "^2");
+  expr = expr.replace(/³/g, "^3");
+  expr = expr.replace(/∞/g, "Infinity");
+  expr = expr.replace(/\\left/g, "");
+  expr = expr.replace(/\\right/g, "");
+  expr = expr.replace(
+    /\(\s*\{\\frac\{([^}]+)\}\{([^}]+)\}\s*\}\s*\)/g,
+    "(($1)/($2))"
+  );
+  expr = expr.replace(/\(\s*\{([^{}]+)\}\s*\)/g, "($1)");
+  expr = expr.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)");
+  expr = expr.replace(
+    /\^\{([^}]+)\}/g,
+    (_, exp3) => /^-?[a-zA-Z0-9]+$/.test(exp3.trim()) ? "^" + exp3.trim() : "^(" + exp3.trim() + ")"
+  );
+  expr = expr.replace(/\\log_\{([^{}]+)\}\s*\{([^{}]+)\}/g, "log($2,$1)");
+  expr = expr.replace(/\\log_\{([^{}]+)\}\s*\(([^()]+)\)/g, "log($2,$1)");
+  expr = expr.replace(/\\log_([a-zA-Z0-9.]+)\s*\{([^{}]+)\}/g, "log($2,$1)");
+  expr = expr.replace(/\\log_([a-zA-Z0-9.]+)\s*\(([^()]+)\)/g, "log($2,$1)");
+  expr = expr.replace(/\\ln\s*\{([^{}]+)\}/g, "log($1)");
+  expr = expr.replace(/\\ln\s*\(([^()]+)\)/g, "log($1)");
+  expr = expr.replace(/\\log\s*\{([^{}]+)\}/g, "log($1)");
+  const TRIG_PATRON = "sin|cos|tan|sec|csc|cot";
+  expr = expr.replace(
+    new RegExp(`\\\\(${TRIG_PATRON})\\s*\\{\\\\frac\\{([^}]+)\\}\\{([^}]+)\\}\\}`, "g"),
+    "$1(($2)/($3))"
+  );
+  expr = expr.replace(
+    new RegExp(`\\\\(${TRIG_PATRON})\\s*\\\\frac\\{([^}]+)\\}\\{([^}]+)\\}`, "g"),
+    "$1(($2)/($3))"
+  );
+  expr = expr.replace(
+    new RegExp(`\\\\(${TRIG_PATRON})\\s*\\{([^{}]+)\\}`, "g"),
+    "$1($2)"
+  );
+  expr = expr.replace(
+    new RegExp(`\\\\(${TRIG_PATRON})\\s+([+-]?\\d+(\\.\\d+)?)`, "g"),
+    "$1($2)"
+  );
+  expr = expr.replace(/\\sqrt\{([^}]+)\}/g, "sqrt($1)");
+  expr = expr.replace(/\\cdot/g, "*");
+  expr = expr.replace(/\\([a-zA-Z]+)/g, "$1");
+  expr = normalizarTrigonometria(expr);
+  return expr;
+}
+function limpiarTex(tex) {
+  let resultado = tex;
+  resultado = resultado.replace(/~\s*/g, "");
+  resultado = resultado.replace(/\{\s*([a-zA-Z0-9])\s*\}/g, "$1");
+  resultado = resultado.replace(/(\d)\s+([a-zA-Z\\])/g, "$1$2");
+  return resultado.trim();
+}
+function agregarParentesisFuncionesLatex(tex) {
+  let resultado = tex;
+  const fn = FUNCIONES_LATEX;
+  resultado = resultado.replace(
+    new RegExp(`\\\\(${fn})\\s*\\{(\\\\frac\\{[^{}]+\\}\\{[^{}]+\\})\\}`, "g"),
+    "\\$1\\left($2\\right)"
+  );
+  resultado = resultado.replace(
+    new RegExp(`\\\\(${fn})\\s*\\{([^{}]+)\\}`, "g"),
+    "\\$1\\left($2\\right)"
+  );
+  resultado = resultado.replace(
+    new RegExp(
+      `\\\\operatorname\\{(${fn})\\}\\s*(\\\\frac\\{[^{}]+\\}\\{[^{}]+\\})`,
+      "g"
+    ),
+    "\\operatorname{$1}\\left($2\\right)"
+  );
+  resultado = resultado.replace(
+    new RegExp(`\\\\operatorname\\{(${fn})\\}\\s*([a-zA-Z0-9]+)`, "g"),
+    "\\operatorname{$1}\\left($2\\right)"
+  );
+  resultado = resultado.replace(
+    new RegExp(`\\\\(${fn})\\s*(\\\\frac\\{[^{}]+\\}\\{[^{}]+\\})`, "g"),
+    "\\$1\\left($2\\right)"
+  );
+  resultado = resultado.replace(
+    new RegExp(`\\\\(${fn})\\s+([a-zA-Z0-9]+)`, "g"),
+    "\\$1\\left($2\\right)"
+  );
+  return resultado;
+}
+function quitarLlavesExternas(texto) {
+  let resultado = texto.trim();
+  while (resultado.startsWith("{") && resultado.endsWith("}")) {
+    let profundidad = 0;
+    let envuelveTodo = true;
+    for (let i2 = 0; i2 < resultado.length; i2++) {
+      if (resultado[i2] === "{")
+        profundidad++;
+      else if (resultado[i2] === "}")
+        profundidad--;
+      if (profundidad === 0 && i2 < resultado.length - 1) {
+        envuelveTodo = false;
+        break;
+      }
+    }
+    if (!envuelveTodo)
+      break;
+    resultado = resultado.slice(1, -1).trim();
+  }
+  return resultado;
+}
+function ecuacionALatex(ecuacion, alineada = false) {
+  try {
+    const partes = ecuacion.split("=");
+    if (partes.length !== 2)
+      return ecuacion;
+    const lhsNorm = normalizarEntrada(partes[0].trim());
+    const rhsOriginal = partes[1].trim();
+    const rhsNorm = normalizarEntrada(rhsOriginal);
+    const texLhs = agregarParentesisFuncionesLatex(
+      limpiarTex(parse2(lhsNorm).toTex({ parenthesis: "keep" }))
+    );
+    const texRhs = rhsOriginal.includes("\\") ? agregarParentesisFuncionesLatex(rhsOriginal.trim()) : agregarParentesisFuncionesLatex(
+      limpiarTex(parse2(rhsNorm).toTex({ parenthesis: "keep" }))
+    );
+    const signo = alineada ? "&=" : "=";
+    return texLhs + signo + texRhs;
+  } catch (e3) {
+    return ecuacion;
+  }
+}
+function parsearSistemaCases(source) {
+  var _a;
+  const texto = source.trim();
+  const matchCases = texto.match(/^\\begin\{cases\}([\s\S]*)\\end\{cases\}$/);
+  if (!matchCases) {
+    return {
+      ecuaciones: texto.split("\n").map((l) => l.trim()).filter(Boolean),
+      espacios: [],
+      usaCases: false
+    };
+  }
+  const partes = matchCases[1].trim().split(/\\\\(?:\s*\[([^\]]+)\])?/g);
+  const ecuaciones = [];
+  const espacios = [];
+  for (let i2 = 0; i2 < partes.length; i2 += 2) {
+    const ecuacion = quitarLlavesExternas(partes[i2]);
+    if (!ecuacion)
+      continue;
+    ecuaciones.push(ecuacion);
+    if (i2 + 1 < partes.length) {
+      const espacio = (_a = partes[i2 + 1]) == null ? void 0 : _a.trim();
+      espacios.push(espacio ? `[${espacio}]` : "[1.5ex]");
+    }
+  }
+  return { ecuaciones, espacios, usaCases: true };
+}
+function sistemaCasesALatex(ecuaciones, espacios) {
+  const lineas = ecuaciones.map((ec) => ecuacionALatex(ec, true));
+  const contenido = lineas.map(
+    (linea, i2) => {
+      var _a;
+      return i2 < lineas.length - 1 ? linea + "\\\\" + ((_a = espacios[i2]) != null ? _a : "[1.5ex]") : linea;
+    }
+  ).join("");
+  return `\\begin{cases}\\begin{aligned}${contenido}\\end{aligned}\\end{cases}`;
 }
 function parsearEcuacionLineal(ecuacion) {
+  var _a;
   try {
     const partes = ecuacion.split("=");
     if (partes.length !== 2)
       return null;
-    const lhsRaw = normalizarEntrada(partes[0].trim());
-    const rhsRaw = normalizarEntrada(partes[1].trim());
-    let rhs;
-    try {
-      rhs = evaluate(rhsRaw);
-    } catch (e3) {
-      return null;
-    }
-    if (!isFinite(rhs))
-      return null;
-    const lhs = lhsRaw;
-    const vars = {};
-    const lhsNormalizado = lhs.replace(/^\s*([^+-])/, "+$1");
-    const terminos = lhsNormalizado.match(/[+-][^+-]+/g);
-    if (!terminos)
-      return null;
-    for (const termino of terminos) {
-      const t = termino.trim();
-      const matchVar = t.match(/^([+-]?\s*\d*\.?\d*)\s*([a-zA-Z])$/);
-      if (matchVar) {
-        let coefStr = matchVar[1].replace(/\s/g, "");
-        const variable = matchVar[2];
-        let coef;
-        if (coefStr === "" || coefStr === "+")
-          coef = 1;
-        else if (coefStr === "-")
-          coef = -1;
-        else
-          coef = parseFloat(coefStr);
-        if (isNaN(coef))
-          coef = 1;
-        vars[variable] = (vars[variable] || 0) + coef;
+    const lhs = normalizarEntrada(partes[0].trim());
+    const rhs = normalizarEntrada(partes[1].trim());
+    const exprDiferencia = `(${lhs})-(${rhs})`;
+    const nodo = parse2(exprDiferencia);
+    const variables = /* @__PURE__ */ new Set();
+    nodo.traverse((n) => {
+      if (n.type !== "SymbolNode")
+        return;
+      try {
+        evaluate(n.name);
+      } catch (e3) {
+        variables.add(n.name);
       }
-    }
-    if (Object.keys(vars).length === 0)
+    });
+    const nombresVars = Array.from(variables).sort();
+    const scopeCero = Object.fromEntries(
+      nombresVars.map((v) => [v, 0])
+    );
+    const constante = evaluate(exprDiferencia, scopeCero);
+    if (!isFinite(constante))
       return null;
-    return { vars, rhs };
+    const coefs = {};
+    for (const v of nombresVars) {
+      const valorConUno = evaluate(exprDiferencia, { ...scopeCero, [v]: 1 });
+      if (!isFinite(valorConUno))
+        return null;
+      const coef = valorConUno - constante;
+      if (Math.abs(coef) > 1e-10)
+        coefs[v] = coef;
+    }
+    for (const v of nombresVars) {
+      const valorConDos = evaluate(exprDiferencia, { ...scopeCero, [v]: 2 });
+      const esperado = constante + 2 * ((_a = coefs[v]) != null ? _a : 0);
+      if (!isFinite(valorConDos) || Math.abs(valorConDos - esperado) > 1e-8)
+        return null;
+    }
+    return { vars: coefs, rhs: -constante };
   } catch (e3) {
     return null;
   }
+}
+function rangoMatriz(matrizOriginal) {
+  var _a, _b;
+  const m = matrizOriginal.map((fila) => fila.slice());
+  const filas = m.length;
+  const cols = (_b = (_a = m[0]) == null ? void 0 : _a.length) != null ? _b : 0;
+  let rango = 0;
+  for (let col = 0; col < cols && rango < filas; col++) {
+    let maxFila = rango;
+    for (let f = rango + 1; f < filas; f++) {
+      if (Math.abs(m[f][col]) > Math.abs(m[maxFila][col]))
+        maxFila = f;
+    }
+    if (Math.abs(m[maxFila][col]) < 1e-10)
+      continue;
+    [m[rango], m[maxFila]] = [m[maxFila], m[rango]];
+    const pivote = m[rango][col];
+    for (let j = col; j < cols; j++)
+      m[rango][j] /= pivote;
+    for (let f = 0; f < filas; f++) {
+      if (f === rango)
+        continue;
+      const factor = m[f][col];
+      for (let j = col; j < cols; j++)
+        m[f][j] -= factor * m[rango][j];
+    }
+    rango++;
+  }
+  return rango;
 }
 function resolverSistema(ecuaciones) {
   const parseadas = ecuaciones.map(parsearEcuacionLineal);
   if (parseadas.some((p) => p === null))
     return "No se pudo parsear una o mas ecuaciones";
-  const conjuntoVars = /* @__PURE__ */ new Set();
-  for (const p of parseadas)
-    for (const v of Object.keys(p.vars))
-      conjuntoVars.add(v);
-  const variables = Array.from(conjuntoVars).sort();
-  const n = variables.length;
-  if (parseadas.length < n)
-    return "Sistema subdeterminado: hay mas variables que ecuaciones";
-  const matriz = parseadas.slice(0, n).map((p) => {
-    const fila = variables.map((v) => p.vars[v] || 0);
-    fila.push(p.rhs);
-    return fila;
-  });
-  for (let col = 0; col < n; col++) {
+  const todasVars = Array.from(
+    new Set(parseadas.flatMap((p) => Object.keys(p.vars)))
+  ).sort();
+  const numVars = todasVars.length;
+  const matrizAumentada = parseadas.map((p) => [
+    ...todasVars.map((v) => {
+      var _a;
+      return (_a = p.vars[v]) != null ? _a : 0;
+    }),
+    p.rhs
+  ]);
+  const matrizCoefs = matrizAumentada.map((fila) => fila.slice(0, numVars));
+  const rangoCoefs = rangoMatriz(matrizCoefs);
+  const rangoAumentada = rangoMatriz(matrizAumentada);
+  if (rangoAumentada > rangoCoefs)
+    return "Sistema inconsistente: no tiene solucion";
+  if (numVars === 0)
+    return "Sistema consistente y dependiente: todas las ecuaciones son identidades; hay infinitas soluciones";
+  if (rangoCoefs < numVars)
+    return "Sistema consistente y dependiente: infinitas soluciones";
+  const filasIndep = [];
+  for (const p of parseadas) {
+    const fila = [...todasVars.map((v) => {
+      var _a;
+      return (_a = p.vars[v]) != null ? _a : 0;
+    }), p.rhs];
+    const candidato = [...filasIndep.map((f) => f.slice(0, numVars)), fila.slice(0, numVars)];
+    if (rangoMatriz(candidato) > filasIndep.length)
+      filasIndep.push(fila);
+    if (filasIndep.length === numVars)
+      break;
+  }
+  const m = filasIndep;
+  for (let col = 0; col < numVars; col++) {
     let maxFila = col;
-    for (let fila = col + 1; fila < n; fila++) {
-      if (Math.abs(matriz[fila][col]) > Math.abs(matriz[maxFila][col]))
-        maxFila = fila;
+    for (let f = col + 1; f < numVars; f++) {
+      if (Math.abs(m[f][col]) > Math.abs(m[maxFila][col]))
+        maxFila = f;
     }
-    [matriz[col], matriz[maxFila]] = [matriz[maxFila], matriz[col]];
-    if (Math.abs(matriz[col][col]) < 1e-10)
+    [m[col], m[maxFila]] = [m[maxFila], m[col]];
+    if (Math.abs(m[col][col]) < 1e-10)
       return "El sistema no tiene solucion unica";
-    for (let fila = col + 1; fila < n; fila++) {
-      const factor = matriz[fila][col] / matriz[col][col];
-      for (let j = col; j <= n; j++)
-        matriz[fila][j] -= factor * matriz[col][j];
+    for (let f = col + 1; f < numVars; f++) {
+      const factor = m[f][col] / m[col][col];
+      for (let j = col; j <= numVars; j++)
+        m[f][j] -= factor * m[col][j];
     }
   }
-  const solucion = new Array(n).fill(0);
-  for (let i2 = n - 1; i2 >= 0; i2--) {
-    solucion[i2] = matriz[i2][n];
-    for (let j = i2 + 1; j < n; j++)
-      solucion[i2] -= matriz[i2][j] * solucion[j];
-    solucion[i2] /= matriz[i2][i2];
+  const solucion = new Array(numVars).fill(0);
+  for (let i2 = numVars - 1; i2 >= 0; i2--) {
+    solucion[i2] = m[i2][numVars];
+    for (let j = i2 + 1; j < numVars; j++)
+      solucion[i2] -= m[i2][j] * solucion[j];
+    solucion[i2] /= m[i2][i2];
   }
-  const resultado = {};
-  for (let i2 = 0; i2 < n; i2++)
-    resultado[variables[i2]] = solucion[i2];
-  return resultado;
+  return Object.fromEntries(todasVars.map((v, i2) => [v, solucion[i2]]));
 }
-function limpiarTex(tex) {
-  let t = tex;
-  t = t.replace(/~\s*/g, "");
-  t = t.replace(/\{\s*([a-zA-Z0-9])\s*\}/g, "$1");
-  t = t.replace(/(\d)\s+([a-zA-Z\\])/g, "$1$2");
-  t = t.trim();
-  return t;
-}
-function ecuacionALatex(ecuacion) {
-  try {
-    const partes = ecuacion.split("=");
-    if (partes.length !== 2)
-      return ecuacion;
-    const lhs = normalizarEntrada(partes[0].trim());
-    const rhs = partes[1].trim();
-    const nodoLhs = parse2(lhs);
-    const texLhs = limpiarTex(nodoLhs.toTex({ parenthesis: "keep" }));
-    const nodoRhs = parse2(rhs);
-    const texRhs = limpiarTex(nodoRhs.toTex({ parenthesis: "keep" }));
-    return texLhs + "=" + texRhs;
-  } catch (e3) {
-    return ecuacion;
+var RANGO_X = { min: -10, max: 10, pasos: 200 };
+var UMBRAL_PENDIENTE = 50;
+function analizarFuncion(evaluar) {
+  const { min: min3, max: max3, pasos } = RANGO_X;
+  const delta = (max3 - min3) / pasos;
+  const raices = [];
+  const vertices = [];
+  let xPrev = min3;
+  let yPrev = evaluar(xPrev);
+  let xCurr = min3 + delta;
+  let yCurr = evaluar(xCurr);
+  for (let i2 = 2; i2 <= pasos; i2++) {
+    const xNext = min3 + i2 * delta;
+    const yNext = evaluar(xNext);
+    if (isFinite(yPrev) && isFinite(yCurr) && isFinite(yNext)) {
+      const pendiente = Math.abs((yNext - yPrev) / delta);
+      const dAntes = yCurr - yPrev;
+      const dDespues = yNext - yCurr;
+      if (pendiente < UMBRAL_PENDIENTE) {
+        if (dAntes < 0 && dDespues > 0)
+          vertices.push({ x: xCurr, y: yCurr, tipo: "min" });
+        else if (dAntes > 0 && dDespues < 0)
+          vertices.push({ x: xCurr, y: yCurr, tipo: "max" });
+        if (yPrev === 0) {
+          raices.push(xPrev);
+        } else if (yPrev * yCurr < 0) {
+          raices.push(xPrev - yPrev * (xCurr - xPrev) / (yCurr - yPrev));
+        }
+      }
+    }
+    xPrev = xCurr;
+    yPrev = yCurr;
+    xCurr = xNext;
+    yCurr = yNext;
   }
+  return { raices, vertices };
+}
+function crearShader(gl, tipo, fuente) {
+  const shader = gl.createShader(tipo);
+  gl.shaderSource(shader, fuente);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+    throw new Error("Shader: " + gl.getShaderInfoLog(shader));
+  return shader;
+}
+function crearPrograma(gl) {
+  const vert = crearShader(gl, gl.VERTEX_SHADER, `
+    attribute vec2 a_pos;
+    void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }
+  `);
+  const frag = crearShader(gl, gl.FRAGMENT_SHADER, `
+    precision mediump float;
+    uniform vec4 u_color;
+    void main() { gl_FragColor = u_color; }
+  `);
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vert);
+  gl.attachShader(prog, frag);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+    throw new Error("Programa WebGL: " + gl.getProgramInfoLog(prog));
+  return prog;
+}
+function construirQuadStrip(puntos, grosorClip) {
+  const verts = [];
+  const n = puntos.length / 2;
+  if (n < 2)
+    return new Float32Array(0);
+  for (let i2 = 0; i2 < n - 1; i2++) {
+    const x0 = puntos[i2 * 2], y0 = puntos[i2 * 2 + 1];
+    const x1 = puntos[(i2 + 1) * 2], y1 = puntos[(i2 + 1) * 2 + 1];
+    let dx = x1 - x0, dy = y1 - y0;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1e-10)
+      continue;
+    dx /= len;
+    dy /= len;
+    const nx = -dy * grosorClip, ny = dx * grosorClip;
+    verts.push(
+      x0 + nx,
+      y0 + ny,
+      x0 - nx,
+      y0 - ny,
+      x1 + nx,
+      y1 + ny,
+      x1 - nx,
+      y1 - ny,
+      x1 + nx,
+      y1 + ny,
+      x0 - nx,
+      y0 - ny
+    );
+  }
+  return new Float32Array(verts);
 }
 var ObsiMathPlugin = class extends import_obsidian.Plugin {
+  constructor() {
+    super(...arguments);
+    // Flag temporal: pon en `true` para reactivar el bloque obs-sistema.
+    this.OBS_SISTEMA_HABILITADO = false;
+  }
   async onload() {
+    let obsMathUpdateCount = 0;
+    let obsSistemaUpdateCount = 0;
     console.log("Obsi Math: plugin cargado");
     new import_obsidian.Notice("\xA1Obsi Math se ha cargado correctamente!");
-    this.registerMarkdownCodeBlockProcessor("obs-math", async (source, el, ctx) => {
-      const contenedor = el.createDiv({ cls: "obsi-math-container" });
-      const textoOriginal = source.trim();
-      try {
-        const partes = textoOriginal.split("=");
-        const expresion = normalizarEntrada(partes.length > 1 ? partes[1].trim() : partes[0].trim());
-        let latex = "f(x)=" + expresion;
+    this.registerMarkdownCodeBlockProcessor(
+      "obs-math",
+      async (source, el, ctx) => {
+        const contenedor = el.createDiv({ cls: "obsi-math-container" });
         try {
-          const nodoParseado = parse2(expresion);
-          let tex = nodoParseado.toTex({ parenthesis: "keep" });
-          tex = limpiarTex(tex);
-          latex = "f(x)=" + tex;
-        } catch (e3) {
-        }
-        let formaSimplificada = "";
-        try {
-          const nodoSimplificado = simplify(expresion);
-          formaSimplificada = nodoSimplificado.toString();
-        } catch (e3) {
-        }
-        const contenedorLatex = contenedor.createDiv({ cls: "obsi-math-latex" });
-        await import_obsidian.MarkdownRenderer.render(this.app, "$$" + latex + "$$", contenedorLatex, ctx.sourcePath, this);
-        const esConstanteCero = formaSimplificada === "0";
-        const evaluarEnX = (valorX) => evaluate(expresion, { x: valorX });
-        const infoBox = contenedor.createDiv({ cls: "obsi-math-info" });
-        if (esConstanteCero) {
-          infoBox.createEl("p", { text: "Interseccion Y: (0, 0.0000)" });
-          infoBox.createEl("p", { text: "Todos los valores de x son raices (funcion identicamente cero)" });
-        } else {
-          const interseccionY = evaluarEnX(0);
-          const minX = -10;
-          const maxX = 10;
-          const pasos = 200;
-          const delta = (maxX - minX) / pasos;
-          const UMBRAL_PENDIENTE = 50;
-          const raices = [];
-          const vertices = [];
-          let xAnterior = minX;
-          let yAnterior = evaluarEnX(xAnterior);
-          let xActualLoop = minX + delta;
-          let yActualLoop = evaluarEnX(xActualLoop);
-          for (let i2 = 2; i2 <= pasos; i2++) {
-            const xSiguiente = minX + i2 * delta;
-            const ySiguiente = evaluarEnX(xSiguiente);
-            if (isFinite(yAnterior) && isFinite(yActualLoop) && isFinite(ySiguiente)) {
-              const pendiente = Math.abs((ySiguiente - yAnterior) / delta);
-              const derivadaAntes = yActualLoop - yAnterior;
-              const derivadaDespues = ySiguiente - yActualLoop;
-              if (derivadaAntes < 0 && derivadaDespues > 0 && pendiente < UMBRAL_PENDIENTE) {
-                vertices.push({ x: xActualLoop, y: yActualLoop, tipo: "Vertice min" });
-              } else if (derivadaAntes > 0 && derivadaDespues < 0 && pendiente < UMBRAL_PENDIENTE) {
-                vertices.push({ x: xActualLoop, y: yActualLoop, tipo: "Vertice max" });
+          const partes = source.trim().split("=");
+          const exprRaw = partes.length > 1 ? partes[1].trim() : partes[0].trim();
+          const expr = normalizarEntrada(exprRaw);
+          let latex = "f(x)=" + expr;
+          try {
+            const tex = limpiarTex(parse2(expr).toTex({ parenthesis: "keep" }));
+            latex = "f(x)=" + tex;
+          } catch (e3) {
+            console.warn("ObsiMath: no se pudo generar LaTeX para", expr, e3);
+          }
+          const contenedorLatex = contenedor.createDiv({ cls: "obsi-math-latex" });
+          await import_obsidian.MarkdownRenderer.render(
+            this.app,
+            "$$" + latex + "$$",
+            contenedorLatex,
+            ctx.sourcePath,
+            this
+          );
+          const W = 600, H = 280;
+          const dpr = Math.ceil(window.devicePixelRatio || 1);
+          const wrapGrafica = contenedor.createDiv({ cls: "obsi-math-grafica" });
+          wrapGrafica.style.cssText = `position:relative; width:100%; height:${H}px;`;
+          const canvasGL = wrapGrafica.createEl("canvas");
+          const canvas2D = wrapGrafica.createEl("canvas");
+          canvasGL.width = W * dpr;
+          canvasGL.height = H * dpr;
+          canvasGL.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%;`;
+          canvas2D.width = W * dpr;
+          canvas2D.height = H * dpr;
+          canvas2D.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;`;
+          const gl = canvasGL.getContext("webgl", { antialias: true });
+          const ctx2d = canvas2D.getContext("2d");
+          const evalX = (x) => evaluate(expr, { x });
+          if (!gl || !ctx2d) {
+            wrapGrafica.createEl("p", { text: "Error: WebGL no disponible" });
+          } else {
+            ctx2d.scale(dpr, dpr);
+            let domX = [-7, 7];
+            let domY = [-7, 7];
+            const sx = (x) => (x - domX[0]) / (domX[1] - domX[0]) * W;
+            const sy = (y) => H - (y - domY[0]) / (domY[1] - domY[0]) * H;
+            const generarTicks = (min3, max3, maxTicks = 10) => {
+              var _a;
+              const rango = max3 - min3;
+              const paso = Math.pow(10, Math.floor(Math.log10(rango / maxTicks)));
+              const pasos = [1, 2, 5, 10].map((m) => m * paso);
+              const pasoFinal = (_a = pasos.find((p) => rango / p <= maxTicks)) != null ? _a : pasos[pasos.length - 1];
+              const ticks = [];
+              const inicio = Math.ceil(min3 / pasoFinal) * pasoFinal;
+              for (let t = inicio; t <= max3 + 1e-9; t += pasoFinal)
+                ticks.push(parseFloat(t.toPrecision(10)));
+              return ticks;
+            };
+            const formatearNumero = (n) => {
+              if (Math.abs(n) < 1e-9)
+                return "0";
+              if (Math.abs(n) >= 1e3 || Math.abs(n) < 0.01 && n !== 0)
+                return n.toExponential(1);
+              return parseFloat(n.toPrecision(4)).toString();
+            };
+            const dibujarOverlay = () => {
+              ctx2d.clearRect(0, 0, W, H);
+              const ticksX = generarTicks(domX[0], domX[1]);
+              const ticksY = generarTicks(domY[0], domY[1]);
+              ctx2d.strokeStyle = "rgba(130,130,150,0.12)";
+              ctx2d.lineWidth = 0.5;
+              for (const x of ticksX) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(sx(x), 0);
+                ctx2d.lineTo(sx(x), H);
+                ctx2d.stroke();
               }
-              if (yAnterior === 0) {
-                raices.push(xAnterior);
-              } else if (yAnterior * yActualLoop < 0 && pendiente < UMBRAL_PENDIENTE) {
-                const raizAprox = xAnterior - yAnterior * (xActualLoop - xAnterior) / (yActualLoop - yAnterior);
-                raices.push(raizAprox);
+              for (const y of ticksY) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(0, sy(y));
+                ctx2d.lineTo(W, sy(y));
+                ctx2d.stroke();
               }
+              ctx2d.strokeStyle = "rgba(160,160,170,0.7)";
+              ctx2d.lineWidth = 1;
+              if (domY[0] <= 0 && domY[1] >= 0) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(0, sy(0));
+                ctx2d.lineTo(W, sy(0));
+                ctx2d.stroke();
+              }
+              if (domX[0] <= 0 && domX[1] >= 0) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(sx(0), 0);
+                ctx2d.lineTo(sx(0), H);
+                ctx2d.stroke();
+              }
+              ctx2d.fillStyle = "rgba(160,160,170,0.85)";
+              ctx2d.font = `${11}px monospace`;
+              const ceroY = Math.max(4, Math.min(H - 4, sy(0)));
+              const ceroX = Math.max(4, Math.min(W - 4, sx(0)));
+              ctx2d.textAlign = "center";
+              ctx2d.textBaseline = "top";
+              for (const x of ticksX) {
+                if (Math.abs(x) < 1e-9)
+                  continue;
+                const px = sx(x);
+                if (px < 10 || px > W - 10)
+                  continue;
+                ctx2d.strokeStyle = "rgba(160,160,170,0.5)";
+                ctx2d.lineWidth = 0.75;
+                ctx2d.beginPath();
+                ctx2d.moveTo(px, ceroY - 3);
+                ctx2d.lineTo(px, ceroY + 3);
+                ctx2d.stroke();
+                ctx2d.fillText(formatearNumero(x), px, ceroY + 5);
+              }
+              ctx2d.textAlign = "right";
+              ctx2d.textBaseline = "middle";
+              for (const y of ticksY) {
+                if (Math.abs(y) < 1e-9)
+                  continue;
+                const py = sy(y);
+                if (py < 10 || py > H - 10)
+                  continue;
+                ctx2d.strokeStyle = "rgba(160,160,170,0.5)";
+                ctx2d.lineWidth = 0.75;
+                ctx2d.beginPath();
+                ctx2d.moveTo(ceroX - 3, py);
+                ctx2d.lineTo(ceroX + 3, py);
+                ctx2d.stroke();
+                ctx2d.fillText(formatearNumero(y), ceroX - 6, py);
+              }
+            };
+            const programa = crearPrograma(gl);
+            const aPos = gl.getAttribLocation(programa, "a_pos");
+            const uColor = gl.getUniformLocation(programa, "u_color");
+            const buffer = gl.createBuffer();
+            const aspectoInicial = (domY[1] - domY[0]) / (domX[1] - domX[0]);
+            const dibujarCurvaGL = (motivo) => {
+              obsMathUpdateCount++;
+              console.log("Actualizaciones motor gr\xE1fico (obs-math): " + obsMathUpdateCount);
+              gl.viewport(0, 0, W * dpr, H * dpr);
+              gl.clearColor(0.118, 0.118, 0.118, 1);
+              gl.clear(gl.COLOR_BUFFER_BIT);
+              gl.useProgram(programa);
+              gl.uniform4f(uColor, 0.31, 0.62, 1, 1);
+              gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+              gl.enableVertexAttribArray(aPos);
+              gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+              const cx = (x) => (x - domX[0]) / (domX[1] - domX[0]) * 2 - 1;
+              const cy = (y) => (y - domY[0]) / (domY[1] - domY[0]) * 2 - 1;
+              const MUESTRAS = Math.min(8e3, Math.max(2e3, Math.floor((domX[1] - domX[0]) * 50)));
+              const dx = (domX[1] - domX[0]) / MUESTRAS;
+              const GROSOR_CLIP = 4e-3;
+              let segmento = [];
+              let yPrev = null;
+              let xPrev = null;
+              const flushSegmento = () => {
+                if (segmento.length < 4) {
+                  segmento = [];
+                  return;
+                }
+                const quads = construirQuadStrip(segmento, GROSOR_CLIP);
+                if (quads.length === 0) {
+                  segmento = [];
+                  return;
+                }
+                gl.bufferData(gl.ARRAY_BUFFER, quads, gl.DYNAMIC_DRAW);
+                gl.drawArrays(gl.TRIANGLES, 0, quads.length / 2);
+                segmento = [];
+              };
+              let contadorDetecciones = 0;
+              const detectarAsintota = (xa, ya, xb, yb, profundidad) => {
+                contadorDetecciones++;
+                if (profundidad === 0)
+                  return true;
+                const paso = (xb - xa) / 10;
+                let xPrevD = xa, yPrevD = ya;
+                for (let k = 1; k <= 10; k++) {
+                  const xK = xa + k * paso;
+                  const yK = evalX(xK);
+                  if (!isFinite(yK) || Math.abs(yK) > 1e15)
+                    return true;
+                  const salto = Math.abs(yK - yPrevD) / (domY[1] - domY[0]);
+                  if (salto > 0.15)
+                    return detectarAsintota(xPrevD, yPrevD, xK, yK, profundidad - 1);
+                  xPrevD = xK;
+                  yPrevD = yK;
+                }
+                return false;
+              };
+              const dibujarAsintota = (xAsintota) => {
+                const px = sx(xAsintota);
+                if (px < 0 || px > W)
+                  return;
+                ctx2d.save();
+                ctx2d.setLineDash([4, 6]);
+                ctx2d.strokeStyle = "rgba(100, 150, 255, 0.3)";
+                ctx2d.lineWidth = 1;
+                ctx2d.beginPath();
+                ctx2d.moveTo(px, 0);
+                ctx2d.lineTo(px, H);
+                ctx2d.stroke();
+                ctx2d.restore();
+              };
+              for (let i2 = 0; i2 <= MUESTRAS; i2++) {
+                const x = domX[0] + i2 * dx;
+                const y = evalX(x);
+                if (!isFinite(y) || Math.abs(y) > 1e15) {
+                  flushSegmento();
+                  yPrev = null;
+                  xPrev = null;
+                  continue;
+                }
+                if (yPrev !== null && xPrev !== null) {
+                  const rangoY = domY[1] - domY[0];
+                  const saltoRelativo = Math.abs(y - yPrev) / rangoY;
+                  if (saltoRelativo > 0.05) {
+                    console.log(`[ObsiMath] x=${x.toFixed(3)} y=${y.toFixed(3)} yPrev=${yPrev.toFixed(3)} saltoRelativo=${saltoRelativo.toFixed(3)} domY=[${domY[0].toFixed(1)},${domY[1].toFixed(1)}]`);
+                  }
+                  if (saltoRelativo > 0.15 && yPrev * y < 0) {
+                    if (detectarAsintota(xPrev, yPrev, x, y, 1)) {
+                      dibujarAsintota((xPrev + x) / 2);
+                      segmento.push(cx(xPrev), cy(yPrev));
+                      flushSegmento();
+                      yPrev = null;
+                      xPrev = null;
+                      continue;
+                    }
+                  }
+                }
+                segmento.push(cx(x), cy(y));
+                yPrev = y;
+                xPrev = x;
+              }
+              console.log(`[ObsiMath] Total llamadas a detectarAsintota: ${contadorDetecciones}`);
+              flushSegmento();
+            };
+            dibujarOverlay();
+            dibujarCurvaGL("inicio");
+            let isDragging = false;
+            let lastPointer = { x: 0, y: 0 };
+            let rafPendiente = false;
+            let motivoPendiente = "pan";
+            const programarRedibujo = (motivo) => {
+              if (motivo === "zoom")
+                motivoPendiente = "zoom";
+              else if (!rafPendiente)
+                motivoPendiente = "pan";
+              if (!rafPendiente) {
+                rafPendiente = true;
+                requestAnimationFrame(() => {
+                  rafPendiente = false;
+                  dibujarOverlay();
+                  dibujarCurvaGL(motivoPendiente);
+                  motivoPendiente = "pan";
+                });
+              }
+            };
+            canvasGL.addEventListener("pointerdown", (e3) => {
+              isDragging = true;
+              lastPointer = { x: e3.offsetX, y: e3.offsetY };
+              canvasGL.setPointerCapture(e3.pointerId);
+            });
+            canvasGL.addEventListener("pointermove", (e3) => {
+              if (!isDragging)
+                return;
+              const dx = e3.offsetX - lastPointer.x;
+              const dy = e3.offsetY - lastPointer.y;
+              lastPointer = { x: e3.offsetX, y: e3.offsetY };
+              const rx = (domX[1] - domX[0]) / W;
+              const ry = (domY[1] - domY[0]) / H;
+              domX = [domX[0] - dx * rx, domX[1] - dx * rx];
+              domY = [domY[0] + dy * ry, domY[1] + dy * ry];
+              programarRedibujo("pan");
+            });
+            canvasGL.addEventListener("pointerup", (e3) => {
+              isDragging = false;
+              canvasGL.releasePointerCapture(e3.pointerId);
+            });
+            canvasGL.addEventListener("wheel", (e3) => {
+              e3.preventDefault();
+              const factor = e3.deltaY > 0 ? 1.05 : 0.95;
+              const mx = domX[0] + e3.offsetX / W * (domX[1] - domX[0]);
+              const my = domY[1] - e3.offsetY / H * (domY[1] - domY[0]);
+              domX = [mx + (domX[0] - mx) * factor, mx + (domX[1] - mx) * factor];
+              domY = [my + (domY[0] - my) * factor, my + (domY[1] - my) * factor];
+              programarRedibujo("zoom");
+            }, { passive: false });
+          }
+          const infoBox = contenedor.createDiv({ cls: "obsi-math-info" });
+          let formaSimplificada = "";
+          try {
+            formaSimplificada = simplify(expr).toString();
+          } catch (e3) {
+            console.warn("ObsiMath: no se pudo simplificar", expr, e3);
+          }
+          if (formaSimplificada === "0") {
+            infoBox.createEl("p", { text: "Interseccion Y: (0, 0.0000)" });
+            infoBox.createEl("p", { text: "Todos los valores de x son raices (funcion identicamente cero)" });
+          } else {
+            const interseccionY = evalX(0);
+            infoBox.createEl("p", {
+              text: isFinite(interseccionY) ? `Interseccion Y: (0, ${interseccionY.toFixed(4)})` : "Interseccion Y: no definida (discontinuidad en x=0)"
+            });
+            const { raices, vertices } = analizarFuncion(evalX);
+            if (raices.length > 0) {
+              infoBox.createEl("p", { text: "Raices: " + raices.map((r) => r.toFixed(4)).join(", ") });
+            } else {
+              infoBox.createEl("p", { text: "No hay raices reales" });
             }
-            xAnterior = xActualLoop;
-            yAnterior = yActualLoop;
-            xActualLoop = xSiguiente;
-            yActualLoop = ySiguiente;
+            for (const v of vertices) {
+              infoBox.createEl("p", {
+                text: `Vertice ${v.tipo}: (${v.x.toFixed(4)}, ${v.y.toFixed(4)})`
+              });
+            }
           }
-          if (isFinite(interseccionY)) {
-            infoBox.createEl("p", { text: "Interseccion Y: (0, " + interseccionY.toFixed(4) + ")" });
-          } else {
-            infoBox.createEl("p", { text: "Interseccion Y: no definida (discontinuidad en x=0)" });
-          }
-          if (raices.length > 0) {
-            infoBox.createEl("p", { text: "Raices: " + raices.map((r) => r.toFixed(4)).join(", ") });
-          } else {
-            infoBox.createEl("p", { text: "No hay raices reales" });
-          }
-          for (const v of vertices) {
-            infoBox.createEl("p", { text: v.tipo + ": (" + v.x.toFixed(4) + ", " + v.y.toFixed(4) + ")" });
-          }
+        } catch (error) {
+          contenedor.createEl("p", { text: "Error: " + error.message });
         }
-      } catch (error) {
-        contenedor.createEl("p", { text: "Error: " + error.message });
       }
-    });
+    );
     this.registerMarkdownCodeBlockProcessor("obs-sistema", async (source, el, ctx) => {
       const contenedor = el.createDiv({ cls: "obsi-math-container" });
+      if (!this.OBS_SISTEMA_HABILITADO) {
+        contenedor.createEl("p", {
+          text: "\u26A0\uFE0F obs-sistema est\xE1 deshabilitado temporalmente."
+        });
+        return;
+      }
       try {
-        const ecuaciones = source.trim().split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+        const { ecuaciones, espacios } = parsearSistemaCases(source);
         if (ecuaciones.length < 2) {
           contenedor.createEl("p", { text: "Error: se necesitan al menos 2 ecuaciones" });
           return;
         }
-        const infoBox = contenedor.createDiv({ cls: "obsi-math-info" });
-        for (let i2 = 0; i2 < ecuaciones.length; i2++) {
-          const fila = infoBox.createDiv();
-          fila.style.display = "flex";
-          fila.style.alignItems = "center";
-          fila.style.gap = "6px";
-          fila.style.marginBottom = "4px";
-          fila.createSpan({ text: "Ecuacion " + (i2 + 1) + ":" });
-          const contenedorLatexEc = fila.createSpan();
-          const latexEc = ecuacionALatex(ecuaciones[i2]);
-          await import_obsidian.MarkdownRenderer.render(this.app, "$" + latexEc + "$", contenedorLatexEc, ctx.sourcePath, this);
+        const infoBox = contenedor.createDiv({ cls: "obsi-math-latex" });
+        const contenedorCases = infoBox.createDiv();
+        await import_obsidian.MarkdownRenderer.render(
+          this.app,
+          "$$" + sistemaCasesALatex(ecuaciones, espacios) + "$$",
+          contenedorCases,
+          ctx.sourcePath,
+          this
+        );
+        const W = 600, H = 280;
+        const dpr = window.devicePixelRatio || 1;
+        const wrapGrafica = contenedor.createDiv({ cls: "obsi-math-grafica" });
+        wrapGrafica.style.cssText = `position:relative; width:100%; height:${H}px;`;
+        const canvasGL = wrapGrafica.createEl("canvas");
+        const canvas2D = wrapGrafica.createEl("canvas");
+        canvasGL.width = W * dpr;
+        canvasGL.height = H * dpr;
+        canvasGL.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%;`;
+        canvas2D.width = W * dpr;
+        canvas2D.height = H * dpr;
+        canvas2D.style.cssText = `position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;`;
+        const gl = canvasGL.getContext("webgl", { antialias: true });
+        const ctx2d = canvas2D.getContext("2d");
+        if (!gl || !ctx2d) {
+          wrapGrafica.createEl("p", { text: "Error: WebGL no disponible" });
+          return;
         }
-        infoBox.createEl("br");
+        ctx2d.scale(dpr, dpr);
+        let domX = [-7, 7];
+        let domY = [-7, 7];
+        const sx = (x) => (x - domX[0]) / (domX[1] - domX[0]) * W;
+        const sy = (y) => H - (y - domY[0]) / (domY[1] - domY[0]) * H;
+        const generarTicks = (min3, max3, maxTicks = 10) => {
+          var _a;
+          const rango = max3 - min3;
+          const paso = Math.pow(10, Math.floor(Math.log10(rango / maxTicks)));
+          const pasos = [1, 2, 5, 10].map((m) => m * paso);
+          const pasoFinal = (_a = pasos.find((p) => rango / p <= maxTicks)) != null ? _a : pasos[pasos.length - 1];
+          const ticks = [];
+          const inicio = Math.ceil(min3 / pasoFinal) * pasoFinal;
+          for (let t = inicio; t <= max3 + 1e-9; t += pasoFinal)
+            ticks.push(parseFloat(t.toPrecision(10)));
+          return ticks;
+        };
+        const formatearNumero = (n) => {
+          if (Math.abs(n) < 1e-9)
+            return "0";
+          if (Math.abs(n) >= 1e3 || Math.abs(n) < 0.01 && n !== 0)
+            return n.toExponential(1);
+          return parseFloat(n.toPrecision(4)).toString();
+        };
         const resultado = resolverSistema(ecuaciones);
-        if (typeof resultado === "string") {
-          infoBox.createEl("p", { text: "Error: " + resultado });
-        } else {
-          const filaSolucion = infoBox.createDiv();
-          filaSolucion.style.display = "flex";
-          filaSolucion.style.alignItems = "center";
-          filaSolucion.style.gap = "6px";
-          filaSolucion.createSpan({ text: "Solucion:" });
-          const contenedorSolucion = filaSolucion.createSpan();
-          const latexSolucion = Object.entries(resultado).map(([v, val]) => v + "=" + val.toFixed(4)).join(",\\;");
-          await import_obsidian.MarkdownRenderer.render(this.app, "$" + latexSolucion + "$", contenedorSolucion, ctx.sourcePath, this);
-        }
+        const evalEcuacion = (ec, x) => {
+          try {
+            const partes = ec.split("=");
+            if (partes.length !== 2)
+              return NaN;
+            const lhs = normalizarEntrada(partes[0].trim());
+            const rhs = normalizarEntrada(partes[1].trim());
+            const yCoef = evaluate(`(${lhs})-(${rhs})`, { x: 0, y: 1 }) - evaluate(`(${lhs})-(${rhs})`, { x: 0, y: 0 });
+            if (Math.abs(yCoef) < 1e-10)
+              return NaN;
+            const constante = evaluate(`(${lhs})-(${rhs})`, { x, y: 0 });
+            return -constante / yCoef;
+          } catch (e3) {
+            return NaN;
+          }
+        };
+        const dibujarOverlay = () => {
+          var _a, _b;
+          ctx2d.clearRect(0, 0, W, H);
+          const ticksX = generarTicks(domX[0], domX[1]);
+          const ticksY = generarTicks(domY[0], domY[1]);
+          ctx2d.strokeStyle = "rgba(130,130,150,0.12)";
+          ctx2d.lineWidth = 0.5;
+          for (const x of ticksX) {
+            ctx2d.beginPath();
+            ctx2d.moveTo(sx(x), 0);
+            ctx2d.lineTo(sx(x), H);
+            ctx2d.stroke();
+          }
+          for (const y of ticksY) {
+            ctx2d.beginPath();
+            ctx2d.moveTo(0, sy(y));
+            ctx2d.lineTo(W, sy(y));
+            ctx2d.stroke();
+          }
+          ctx2d.strokeStyle = "rgba(160,160,170,0.7)";
+          ctx2d.lineWidth = 1;
+          if (domY[0] <= 0 && domY[1] >= 0) {
+            ctx2d.beginPath();
+            ctx2d.moveTo(0, sy(0));
+            ctx2d.lineTo(W, sy(0));
+            ctx2d.stroke();
+          }
+          if (domX[0] <= 0 && domX[1] >= 0) {
+            ctx2d.beginPath();
+            ctx2d.moveTo(sx(0), 0);
+            ctx2d.lineTo(sx(0), H);
+            ctx2d.stroke();
+          }
+          const ceroY = Math.max(4, Math.min(H - 4, sy(0)));
+          const ceroX = Math.max(4, Math.min(W - 4, sx(0)));
+          ctx2d.fillStyle = "rgba(160,160,170,0.85)";
+          ctx2d.font = "11px monospace";
+          ctx2d.textAlign = "center";
+          ctx2d.textBaseline = "top";
+          for (const x of ticksX) {
+            if (Math.abs(x) < 1e-9)
+              continue;
+            const px = sx(x);
+            if (px < 10 || px > W - 10)
+              continue;
+            ctx2d.strokeStyle = "rgba(160,160,170,0.5)";
+            ctx2d.lineWidth = 0.75;
+            ctx2d.beginPath();
+            ctx2d.moveTo(px, ceroY - 3);
+            ctx2d.lineTo(px, ceroY + 3);
+            ctx2d.stroke();
+            ctx2d.fillStyle = "rgba(160,160,170,0.85)";
+            ctx2d.fillText(formatearNumero(x), px, ceroY + 5);
+          }
+          ctx2d.textAlign = "right";
+          ctx2d.textBaseline = "middle";
+          for (const y of ticksY) {
+            if (Math.abs(y) < 1e-9)
+              continue;
+            const py = sy(y);
+            if (py < 10 || py > H - 10)
+              continue;
+            ctx2d.strokeStyle = "rgba(160,160,170,0.5)";
+            ctx2d.lineWidth = 0.75;
+            ctx2d.beginPath();
+            ctx2d.moveTo(ceroX - 3, py);
+            ctx2d.lineTo(ceroX + 3, py);
+            ctx2d.stroke();
+            ctx2d.fillStyle = "rgba(160,160,170,0.85)";
+            ctx2d.fillText(formatearNumero(y), ceroX - 6, py);
+          }
+          if (typeof resultado !== "string") {
+            const vars = Object.keys(resultado);
+            const xVar = (_a = vars.find((v) => v === "x")) != null ? _a : vars[0];
+            const yVar = (_b = vars.find((v) => v === "y")) != null ? _b : vars[1];
+            if (xVar && yVar) {
+              const px = sx(resultado[xVar]);
+              const py = sy(resultado[yVar]);
+              if (px >= 0 && px <= W && py >= 0 && py <= H) {
+                const r = 5 * dpr;
+                ctx2d.save();
+                ctx2d.scale(1 / dpr, 1 / dpr);
+                ctx2d.shadowColor = "rgba(255,255,255,0.4)";
+                ctx2d.shadowBlur = 6;
+                ctx2d.beginPath();
+                ctx2d.arc(px * dpr, py * dpr, r + 1.5, 0, Math.PI * 2);
+                ctx2d.fillStyle = "white";
+                ctx2d.fill();
+                ctx2d.shadowBlur = 0;
+                ctx2d.beginPath();
+                ctx2d.arc(px * dpr, py * dpr, r - 1, 0, Math.PI * 2);
+                ctx2d.fillStyle = "black";
+                ctx2d.fill();
+                ctx2d.restore();
+              }
+            }
+          }
+        };
+        const programa = crearPrograma(gl);
+        const aPos = gl.getAttribLocation(programa, "a_pos");
+        const uColor = gl.getUniformLocation(programa, "u_color");
+        const buffer = gl.createBuffer();
+        const COLORES = [
+          [0.31, 0.62, 1, 1],
+          // azul
+          [1, 0.63, 0.2, 1]
+          // naranja
+        ];
+        const dibujarCurvas = () => {
+          var _a;
+          obsSistemaUpdateCount++;
+          console.log("Actualizaciones motor gr\xE1fico (obs-sistema): " + obsSistemaUpdateCount);
+          gl.viewport(0, 0, W * dpr, H * dpr);
+          gl.clearColor(0.118, 0.118, 0.118, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.useProgram(programa);
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.enableVertexAttribArray(aPos);
+          gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+          const cx = (x) => (x - domX[0]) / (domX[1] - domX[0]) * 2 - 1;
+          const cy = (y) => (y - domY[0]) / (domY[1] - domY[0]) * 2 - 1;
+          const MUESTRAS = 2e3;
+          const rangoX = domX[1] - domX[0];
+          const GROSOR_CLIP = Math.min(9e-3, Math.max(3e-3, 55e-4 * (10 / rangoX)));
+          const dx = rangoX / MUESTRAS;
+          for (let e3 = 0; e3 < Math.min(ecuaciones.length, 2); e3++) {
+            const color = (_a = COLORES[e3]) != null ? _a : COLORES[0];
+            gl.uniform4f(uColor, color[0], color[1], color[2], color[3]);
+            let segmento = [];
+            const flushSegmento = () => {
+              if (segmento.length < 4) {
+                segmento = [];
+                return;
+              }
+              const quads = construirQuadStrip(segmento, GROSOR_CLIP);
+              if (quads.length === 0) {
+                segmento = [];
+                return;
+              }
+              gl.bufferData(gl.ARRAY_BUFFER, quads, gl.DYNAMIC_DRAW);
+              gl.drawArrays(gl.TRIANGLES, 0, quads.length / 2);
+              segmento = [];
+            };
+            let yPrev = null;
+            for (let i2 = 0; i2 <= MUESTRAS; i2++) {
+              const x = domX[0] + i2 * dx;
+              const y = evalEcuacion(ecuaciones[e3], x);
+              if (!isFinite(y) || Math.abs(y) > 1e15) {
+                flushSegmento();
+                yPrev = null;
+                continue;
+              }
+              segmento.push(cx(x), cy(y));
+              yPrev = y;
+            }
+            flushSegmento();
+          }
+        };
+        dibujarOverlay();
+        dibujarCurvas();
+        let isDragging = false;
+        let lastPointer = { x: 0, y: 0 };
+        let rafPendiente = false;
+        let motivoPendiente = "pan";
+        const programarRedibujo = (motivo) => {
+          if (motivo === "zoom")
+            motivoPendiente = "zoom";
+          else if (!rafPendiente)
+            motivoPendiente = "pan";
+          if (!rafPendiente) {
+            rafPendiente = true;
+            requestAnimationFrame(() => {
+              rafPendiente = false;
+              dibujarOverlay();
+              dibujarCurvas();
+              motivoPendiente = "pan";
+            });
+          }
+        };
+        canvasGL.addEventListener("pointerdown", (e3) => {
+          isDragging = true;
+          lastPointer = { x: e3.offsetX, y: e3.offsetY };
+          canvasGL.setPointerCapture(e3.pointerId);
+        });
+        canvasGL.addEventListener("pointermove", (e3) => {
+          if (!isDragging)
+            return;
+          const dx = e3.offsetX - lastPointer.x;
+          const dy = e3.offsetY - lastPointer.y;
+          lastPointer = { x: e3.offsetX, y: e3.offsetY };
+          const rx = (domX[1] - domX[0]) / W;
+          const ry = (domY[1] - domY[0]) / H;
+          domX = [domX[0] - dx * rx, domX[1] - dx * rx];
+          domY = [domY[0] + dy * ry, domY[1] + dy * ry];
+          programarRedibujo("pan");
+        });
+        canvasGL.addEventListener("pointerup", (e3) => {
+          isDragging = false;
+          canvasGL.releasePointerCapture(e3.pointerId);
+        });
+        canvasGL.addEventListener("wheel", (e3) => {
+          e3.preventDefault();
+          const factor = e3.deltaY > 0 ? 1.05 : 0.95;
+          const mx = domX[0] + e3.offsetX / W * (domX[1] - domX[0]);
+          const my = domY[1] - e3.offsetY / H * (domY[1] - domY[0]);
+          domX = [mx + (domX[0] - mx) * factor, mx + (domX[1] - mx) * factor];
+          domY = [my + (domY[0] - my) * factor, my + (domY[1] - my) * factor];
+          programarRedibujo("zoom");
+        }, { passive: false });
       } catch (error) {
         contenedor.createEl("p", { text: "Error: " + error.message });
       }
     });
   }
   onunload() {
-    console.log("Obsi Math: plugin descargado");
+    console.log("Obsi Math: plugin descargado:");
   }
 };
 /*! Bundled license information:

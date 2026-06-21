@@ -5,7 +5,7 @@
     "inlineSourceMap": true,
     "inlineSources": true,
     "module": "ESNext",
-    "target": "ES2018",
+    "target": "ES2019",
     "allowJs": true,
     "noImplicitAny": true,
     "moduleResolution": "node",
@@ -17,7 +17,8 @@
       "ES5",
       "ES6",
       "ES7",
-      "ES2017"
+      "ES2017",
+      "ES2019"
     ]
   },
   "include": [
