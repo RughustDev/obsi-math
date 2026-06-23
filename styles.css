@@ -6,7 +6,8 @@
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  min-height: 280px;
+  min-height: 261px;
+  margin: 16px;
 }
 
 .obsi-math-latex {
@@ -16,16 +17,16 @@
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
-  font-size: 16px !important;
+  font-size: 24px !important;
 }
 
 .obsi-math-latex .katex {
-  font-size: 1.4em !important;
+  font-size: 1.6em !important;
 }
 
 .obsi-math-grafica {
   width: 50%;
-  height: 280px;
+  height: 261px;
   position: relative;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
@@ -34,4 +35,10 @@
 
 .obsi-math-info {
   display: none;
+}
+
+.obsi-math-aviso {
+  width: 100%;
+  text-align: center;
+  font-size: 24px;
 }

@@ -1,6 +1,6 @@
 {
   "name": "obsi-math",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "description": "Plugin de Obsidian para visualizar funciones matematicas",
   "main": "main.js",
   "scripts": {
@@ -14,13 +14,11 @@
   "author": "Lenin",
   "license": "MIT",
   "devDependencies": {
-    "@types/three": "^0.184.1",
     "esbuild": "^0.20.0",
     "obsidian": "latest",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "mathjs": "^12.0.0",
-    "three": "^0.184.0"
+    "mathjs": "^12.0.0"
   }
 }

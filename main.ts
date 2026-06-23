@@ -58,6 +58,35 @@ function normalizarTrigonometria(expr: string): string {
   return resultado;
 }
 
+/**
+ * Convierte exponentes `^{...}` a `^(...)` respetando llaves balanceadas y
+ * exponentes anidados (p.ej. `x^{3^{\pi}}` → `x^(3^(\pi))`). La versión anterior
+ * usaba una regex plana `\^\{([^}]+)\}` que cortaba en la primera `}` y dejaba
+ * llaves descuadradas (`x^(3^{pi)}`), que mathjs interpretaba como objeto.
+ */
+function convertirExponentes(expr: string): string {
+  let out = "";
+  for (let i = 0; i < expr.length; i++) {
+    if (expr[i] === "^" && expr[i + 1] === "{") {
+      let profundidad = 0;
+      let j = i + 1;
+      for (; j < expr.length; j++) {
+        if (expr[j] === "{") profundidad++;
+        else if (expr[j] === "}") {
+          profundidad--;
+          if (profundidad === 0) break;
+        }
+      }
+      if (profundidad !== 0) { out += expr[i]; continue; } // sin cierre: se deja igual
+      out += "^(" + convertirExponentes(expr.slice(i + 2, j)) + ")";
+      i = j; // salta hasta la `}` de cierre
+    } else {
+      out += expr[i];
+    }
+  }
+  return out;
+}
+
 /** Convierte sintaxis LaTeX/Unicode a sintaxis que MathJS pueda evaluar. */
 function normalizarEntrada(raw: string): string {
   let expr = raw;
@@ -83,10 +112,8 @@ function normalizarEntrada(raw: string): string {
   expr = expr.replace(/\(\s*\{([^{}]+)\}\s*\)/g, "($1)");
   expr = expr.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1)/($2)");
 
-  // — Exponentes con llaves —
-  expr = expr.replace(/\^\{([^}]+)\}/g, (_, exp) =>
-    /^-?[a-zA-Z0-9]+$/.test(exp.trim()) ? "^" + exp.trim() : "^(" + exp.trim() + ")"
-  );
+  // — Exponentes con llaves (incluye anidados como x^{3^{\pi}}) —
+  expr = convertirExponentes(expr);
 
   // — Logaritmos y logaritmo natural —
   expr = expr.replace(/\\log_\{([^{}]+)\}\s*\{([^{}]+)\}/g, "log($2,$1)");
@@ -117,6 +144,11 @@ function normalizarEntrada(raw: string): string {
   );
 
   // — Miscelánea LaTeX —
+  // Raíz n-ésima: \sqrt[3]{8} → nthRoot(8,3). El corchete es el índice (índice 3
+  // = raíz cúbica). Debe ir ANTES de \sqrt{…}. El radicando usa [^}]+ porque las
+  // llaves internas (exponentes, fracciones) ya se convirtieron arriba; nthRoot
+  // da además la raíz real para índices impares con radicando negativo (∛-8=-2).
+  expr = expr.replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, "nthRoot($2,$1)");
   expr = expr.replace(/\\sqrt\{([^}]+)\}/g, "sqrt($1)");
   expr = expr.replace(/\\cdot/g, "*");
   expr = expr.replace(/\\([a-zA-Z]+)/g, "$1"); // comandos LaTeX residuales
@@ -135,7 +167,12 @@ function normalizarEntrada(raw: string): string {
 function limpiarTex(tex: string): string {
   let resultado = tex;
   resultado = resultado.replace(/~\s*/g, "");
-  resultado = resultado.replace(/\{\s*([a-zA-Z0-9])\s*\}/g, "$1");
+  // Colapsa SÓLO grupos `{x}` sueltos (artefactos de mathjs). No toca los que
+  // son argumento de un comando (`\sqrt{x}`) ni de un sub/superíndice (`_{x}`,
+  // `^{x}`) ni de una raíz n-ésima (`\sqrt[3]{x}`, llave tras `]`): si se
+  // quitaran, `\sqrt{x}` se volvería `\sqrtx` (comando inválido → KaTeX lo pinta
+  // en rojo) y `\frac{x}{2}` se rompería.
+  resultado = resultado.replace(/(^|[^a-zA-Z\\^_}\]])\{\s*([a-zA-Z0-9])\s*\}/g, "$1$2");
   resultado = resultado.replace(/(\d)\s+([a-zA-Z\\])/g, "$1$2");
   return resultado.trim();
 }
@@ -560,7 +597,7 @@ function construirQuadStrip(puntos: number[], grosorClip: number): Float32Array 
 }
 
 export default class ObsiMathPlugin extends Plugin {
-  // Flag temporal: pon en `true` para reactivar el bloque obs-sistema.
+  // Flag temporal: pon en `true` para reactivar el bloque obs-system.
   private readonly OBS_SISTEMA_HABILITADO = false;
 
   async onload() {
@@ -569,9 +606,9 @@ export default class ObsiMathPlugin extends Plugin {
     console.log("Obsi Math: plugin cargado");
     new Notice("¡Obsi Math se ha cargado correctamente!");
 
-    // ── Bloque obs-math ───────────────────────
+    // ── Bloque obs-graph ───────────────────────
     this.registerMarkdownCodeBlockProcessor(
-      "obs-math",
+      "obs-graph",
       async (source, el, ctx) => {
         const contenedor = el.createDiv({ cls: "obsi-math-container" });
 
@@ -583,7 +620,10 @@ export default class ObsiMathPlugin extends Plugin {
           // Renderizar LaTeX
           let latex = "f(x)=" + expr;
           try {
-            const tex = limpiarTex(parse(expr).toTex({ parenthesis: "keep" }));
+            // "auto": mathjs pone sólo los paréntesis necesarios. Con "keep"
+            // conservaba los redundantes y x^{3^{\pi}} salía como
+            // x^{\left(3^{\left(\pi\right)}\right)} en vez de x^{3^{\pi}}.
+            const tex = limpiarTex(parse(expr).toTex({ parenthesis: "auto" }));
             latex = "f(x)=" + tex;
           } catch (e) {
             console.warn("ObsiMath: no se pudo generar LaTeX para", expr, e);
@@ -595,7 +635,9 @@ export default class ObsiMathPlugin extends Plugin {
           );
 
 // ── Motor gráfico ─────────────────────────
-          const W = 600, H = 280;
+          // W se mide del tamaño real en pantalla (ver redimensionar()); 768 es
+          // solo un valor inicial de respaldo. H es la altura fija del panel.
+          let W = 768; const H = 261;
           const dpr = Math.ceil(window.devicePixelRatio || 1);
           const wrapGrafica = contenedor.createDiv({ cls: "obsi-math-grafica" });
           wrapGrafica.style.cssText = `position:relative; width:100%; height:${H}px;`;
@@ -614,12 +656,16 @@ export default class ObsiMathPlugin extends Plugin {
           const gl = canvasGL.getContext("webgl", { antialias: true });
           const ctx2d = canvas2D.getContext("2d");
 
-          const evalX = (x: number) => evaluate(expr, { x });
+          const exprCompilada = parse(expr).compile();
+const evalX = (x: number) => {
+  try { return exprCompilada.evaluate({ x }); } catch { return NaN; }
+};
 
           if (!gl || !ctx2d) {
             wrapGrafica.createEl("p", { text: "Error: WebGL no disponible" });
           } else {
-            ctx2d.scale(dpr, dpr);
+            // La escala dpr del contexto 2D se aplica en redimensionar(), porque
+            // cada vez que se reasigna canvas2D.width el transform se reinicia.
 
             let domX: [number, number] = [-7, 7];
             let domY: [number, number] = [-7, 7];
@@ -715,7 +761,7 @@ export default class ObsiMathPlugin extends Plugin {
 
 const dibujarCurvaGL = (motivo: "inicio" | "zoom" | "pan") => {
   obsMathUpdateCount++;
-  console.log('Actualizaciones motor gráfico (obs-math): ' + obsMathUpdateCount);
+  console.log('Actualizaciones motor gráfico (obs-graph): ' + obsMathUpdateCount);
   gl.viewport(0, 0, W * dpr, H * dpr);
   gl.clearColor(0.118, 0.118, 0.118, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
@@ -726,88 +772,174 @@ const dibujarCurvaGL = (motivo: "inicio" | "zoom" | "pan") => {
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
   const cx = (x: number) => ((x - domX[0]) / (domX[1] - domX[0])) * 2 - 1;
-  const cy = (y: number) => ((y - domY[0]) / (domY[1] - domY[0])) * 2 - 1;
+const cy = (y: number) => ((y - domY[0]) / (domY[1] - domY[0])) * 2 - 1;
 
-  const MUESTRAS = Math.min(8000, Math.max(2000, Math.floor((domX[1] - domX[0]) * 50)));
-  const dx = (domX[1] - domX[0]) / MUESTRAS;
-  const GROSOR_CLIP = 0.004;
-  let segmento: number[] = [];
-  let yPrev: number | null = null;
-  let xPrev: number | null = null;
+const interactivo = (motivo === "pan" || motivo === "zoom");
+const MUESTRAS = interactivo
+  ? Math.min(2000, Math.max(1000, Math.floor((domX[1] - domX[0]) * 20)))
+  : Math.min(8000, Math.max(2000, Math.floor((domX[1] - domX[0]) * 50)));
+const dx = (domX[1] - domX[0]) / MUESTRAS;
+const GROSOR_CLIP = 0.004;
+const rangoY = domY[1] - domY[0];
 
-  const flushSegmento = () => {
-    if (segmento.length < 4) { segmento = []; return; }
-    const quads = construirQuadStrip(segmento, GROSOR_CLIP);
-    if (quads.length === 0) { segmento = []; return; }
-    gl.bufferData(gl.ARRAY_BUFFER, quads, gl.DYNAMIC_DRAW);
-    gl.drawArrays(gl.TRIANGLES, 0, quads.length / 2);
-    segmento = [];
-  };
-let contadorDetecciones = 0;
-const detectarAsintota = (xa: number, ya: number, xb: number, yb: number, profundidad: number): boolean => {
-  contadorDetecciones++;
-  if (profundidad === 0) return true;
-  const paso = (xb - xa) / 10;
-  let xPrevD = xa, yPrevD = ya;
-  for (let k = 1; k <= 10; k++) {
-    const xK = xa + k * paso;
-    const yK = evalX(xK);
-    if (!isFinite(yK) || Math.abs(yK) > 1e15) return true;
-    const salto = Math.abs(yK - yPrevD) / (domY[1] - domY[0]);
-    if (salto > 0.15) return detectarAsintota(xPrevD, yPrevD, xK, yK, profundidad - 1);
-    xPrevD = xK; yPrevD = yK;
-  }
-  return false;
+const SALTO_PX_MAX = 8;   // si dos puntos saltan más de 8px en Y, refinamos
+// En movimiento bisecamos poco (rápido, suficiente para que la línea no
+// desaparezca); en la pasada final refinamos a fondo para precisión al pixel.
+const PROF_MAX = interactivo ? 8 : 18;
+
+let segmento: number[] = [];
+
+const flush = () => {
+  if (segmento.length < 4) { segmento = []; return; }
+  const quads = construirQuadStrip(segmento, GROSOR_CLIP);
+  if (quads.length === 0) { segmento = []; return; }
+  gl.bufferData(gl.ARRAY_BUFFER, quads, gl.DYNAMIC_DRAW);
+  gl.drawArrays(gl.TRIANGLES, 0, quads.length / 2);
+  segmento = [];
 };
 
-const dibujarAsintota = (xAsintota: number) => {
-  const px = sx(xAsintota);
+// Emite un punto recortando valores extremos: deja que salga del viewport
+// (para tocar el borde) pero sin generar geometría astronómica.
+const emit = (x: number, y: number) => {
+  // Recorta en CLIP SPACE, no en coordenadas de datos. El viewport visible es
+  // clip-y ∈ [-1, 1]; recortar a ±3 tapa de sobra el borde y mantiene la
+  // geometría numéricamente sana (sin esto, lejos del eje X los valores clip
+  // se disparan a miles y construirQuadStrip degenera los quads).
+  let cyVal = cy(y);
+  if (!Number.isFinite(cyVal)) cyVal = y > 0 ? 3 : -3;
+  cyVal = Math.max(-3, Math.min(3, cyVal));
+  segmento.push(cx(x), cyVal);
+};
+// Emite un punto en el polo forzándolo al borde (±3 en clip) según hacia dónde
+// dispara la rama. El signo de y da la dirección. Así la rama TREPA hasta el
+// borde aunque la última muestra finita no sea enorme (bisección poco profunda
+// o presupuesto bajo). Es la idea de function-plot, pero por signo en vez de
+// por magnitud, para no depender de que `ya` ya sea gigantesco.
+const emitPolo = (x: number, y: number) => {
+  segmento.push(cx(x), y >= 0 ? 3 : -3);
+};
+const dibujarAsintota = (xa: number) => {
+  const px = sx(xa);
   if (px < 0 || px > W) return;
   ctx2d.save();
   ctx2d.setLineDash([4, 6]);
   ctx2d.strokeStyle = "rgba(100, 150, 255, 0.3)";
   ctx2d.lineWidth = 1;
-  ctx2d.beginPath();
-  ctx2d.moveTo(px, 0);
-  ctx2d.lineTo(px, H);
-  ctx2d.stroke();
+  ctx2d.beginPath(); ctx2d.moveTo(px, 0); ctx2d.lineTo(px, H); ctx2d.stroke();
   ctx2d.restore();
 };
-  for (let i = 0; i <= MUESTRAS; i++) {
-    const x = domX[0] + i * dx;
-    const y = evalX(x);
 
-    if (!isFinite(y) || Math.abs(y) > 1e15) {
-      flushSegmento(); yPrev = null; xPrev = null; continue;
+// Procesa el intervalo (xa, xb]. NO emite (xa,ya): lo asume ya emitido.
+// Subdivide donde la pendiente en píxeles es grande y CORTA al localizar un polo.
+const tramo = (xa: number, ya: number, xb: number, yb: number, prof: number) => {
+  const finA = Number.isFinite(ya), finB = Number.isFinite(yb);
+  const pyA = finA ? sy(ya) : (ya > 0 ? -1e7 : 1e7);
+  const pyB = finB ? sy(yb) : (yb > 0 ? -1e7 : 1e7);
+  const saltoPx = Math.abs(pyB - pyA);
+
+  // No subdividir cuando AMBOS extremos quedan fuera del MISMO lado del viewport
+  // (ambos por encima del tope o ambos por debajo del piso): entre ellos la curva
+  // no entra en la banda visible, así que refinar no aporta detalle y, para
+  // funciones muy empinadas (p.ej. x^(3^pi) ≈ x^31.5), dispara una recursión
+  // exponencial que congela Obsidian y desborda los arrays ("Invalid array
+  // length"). Un POLO deja un extremo arriba y el otro abajo (caso `cruza`), que
+  // NO cae aquí y se sigue refinando para localizarlo; y la zona de transición
+  // (un extremo dentro, otro fuera) también se sigue refinando, de forma lineal.
+  const fueraMismoLado =
+    (ya > domY[1] && yb > domY[1]) || (ya < domY[0] && yb < domY[0]);
+
+  // Refinamos mientras el salto en pantalla sea grande. (Refinar aun con ambos
+  // extremos fuera —salvo el caso `fueraMismoLado` de arriba— es necesario: si
+  // hay un polo entre dos muestras, la curva atraviesa la banda visible aunque
+  // AMBAS estén fuera, y sin refinar la línea desaparecería.)
+  if (prof < PROF_MAX && saltoPx > SALTO_PX_MAX && !fueraMismoLado) {
+    const xm = (xa + xb) / 2;
+    const ym = evalX(xm);
+    tramo(xa, ya, xm, ym, prof + 1);
+    tramo(xm, ym, xb, yb, prof + 1);
+    return;
+  }
+
+  // Caso base. Hay discontinuidad si un extremo es no-finito, o si el tramo
+  // entra por arriba del viewport y sale por abajo (o viceversa).
+  const cruza = (ya > domY[1] && yb < domY[0]) || (ya < domY[0] && yb > domY[1]);
+  const algunNoFinito = !finA || !finB;
+  if (cruza || algunNoFinito) {
+    // Distinguir un POLO real (asíntota vertical: la función DIVERGE, |f|→∞) de
+    // un BORDE DE DOMINIO (f indefinida a un lado pero con límite finito, p.ej.
+    // sqrt(x) o x^8.82 en x=0, que NO son asíntotas).
+    //
+    // `cruza` (ambos extremos finitos en lados opuestos del viewport) ya es un
+    // polo claro. Si hay un lado indefinido (NaN/∞) y el otro finito, NO basta
+    // con mirar si el lado finito quedó fuera del viewport: con la vista
+    // desplazada del eje X un valor finito acotado (p.ej. 0) cae "fuera" sin que
+    // la función diverja (este era el bug del falso polo con la vista subida).
+    // Por eso, además de exigir que el lado finito esté fuera, SONDEAMOS un punto
+    // más adentro de la rama definida: si al acercarse al borde |f| crece es polo;
+    // si decrece (converge a un límite) es borde de dominio. El sondeo es barato
+    // (sólo ocurre en discontinuidades) e independiente de dónde esté la vista.
+    let esPolo = cruza;
+    if (!esPolo && finA !== finB) {
+      const xf = finA ? xa : xb;
+      const yf = finA ? ya : yb;
+      const xn = finA ? xb : xa;
+      const fueraView = yf > domY[1] || yf < domY[0];
+      if (fueraView) {
+        const yp = evalX(xf + 8 * (xf - xn)); // más adentro de la rama definida
+        esPolo = !Number.isFinite(yp) || Math.abs(yf) > Math.abs(yp);
+      }
     }
 
-    if (yPrev !== null && xPrev !== null) {
-      const rangoY = domY[1] - domY[0];
-      const saltoRelativo = Math.abs(y - yPrev) / rangoY;
-      if (saltoRelativo > 0.05) {
-  console.log(`[ObsiMath] x=${x.toFixed(3)} y=${y.toFixed(3)} yPrev=${yPrev.toFixed(3)} saltoRelativo=${saltoRelativo.toFixed(3)} domY=[${domY[0].toFixed(1)},${domY[1].toFixed(1)}]`);
-}
-if (saltoRelativo > 0.15 && yPrev * y < 0) {
-  if (detectarAsintota(xPrev, yPrev, x, y, 1)) {
-    dibujarAsintota((xPrev + x) / 2);
-    segmento.push(cx(xPrev), cy(yPrev));
-    flushSegmento();
-    yPrev = null; xPrev = null;
-    continue;
-  }
-}
+    if (esPolo) {
+      if (finA) { emit(xa, ya); emitPolo(xa, ya); }   // trepa hasta el borde por la izquierda
+      dibujarAsintota((xa + xb) / 2);                 // marca el polo, ya muy localizado
+      flush();                                        // CORTE: rompe la curva
+      if (finB) { emitPolo(xb, yb); emit(xb, yb); }   // baja desde el borde por la derecha
+    } else {
+      // Borde de dominio o hueco acotado: corta la curva SIN dibujar asíntota,
+      // dejando que la rama definida llegue hasta el borde.
+      if (finA) emit(xa, ya);
+      flush();
+      if (finB) emit(xb, yb);
     }
-
-    segmento.push(cx(x), cy(y));
-    yPrev = y; xPrev = x;
+  } else {
+    emit(xb, yb);
   }
-  console.log(`[ObsiMath] Total llamadas a detectarAsintota: ${contadorDetecciones}`);
-  flushSegmento();
 };
 
-dibujarOverlay();
-dibujarCurvaGL("inicio");
-          
+// Muestreo uniforme grueso + refinamiento adaptativo.
+let x0 = domX[0];
+let y0 = evalX(x0);
+if (Number.isFinite(y0)) emit(x0, y0);
+for (let i = 1; i <= MUESTRAS; i++) {
+  const x1 = domX[0] + i * dx;
+  const y1 = evalX(x1);
+  tramo(x0, y0, x1, y1, 0);
+  x0 = x1; y0 = y1;
+}
+flush();
+};
+
+// Ajusta la resolución interna de ambos canvas al tamaño REAL que ocupan en
+// pantalla. Sin esto, el bitmap (768px de ancho) se estira al ancho del panel y
+// aplasta horizontalmente el texto y el plano. Se llama al inicio y cada vez que
+// el panel cambia de tamaño.
+let dibujado = false;
+const redimensionar = () => {
+  const ancho = Math.max(1, Math.round(wrapGrafica.clientWidth || W));
+  if (dibujado && ancho === W) return;
+  W = ancho;
+  dibujado = true;
+  canvasGL.width = W * dpr; canvasGL.height = H * dpr;
+  canvas2D.width = W * dpr; canvas2D.height = H * dpr;
+  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  dibujarOverlay();
+  dibujarCurvaGL("inicio");
+};
+redimensionar();
+const observadorTamano = new ResizeObserver(() => redimensionar());
+observadorTamano.observe(wrapGrafica);
+
           // ── Zoom / Pan ─────────────────────────
             let isDragging = false;
             let lastPointer = { x: 0, y: 0 };
@@ -831,6 +963,16 @@ const programarRedibujo = (motivo: "zoom" | "pan") => {
   }
 };
 
+let timerFinal: number | null = null;
+const programarFinal = () => {
+  if (timerFinal !== null) clearTimeout(timerFinal);
+  timerFinal = window.setTimeout(() => {
+    timerFinal = null;
+    dibujarOverlay();
+    dibujarCurvaGL("inicio");   // pasada completa, máxima calidad
+  }, 150);
+};
+
 canvasGL.addEventListener("pointerdown", e => {
   isDragging = true;
   lastPointer = { x: e.offsetX, y: e.offsetY };
@@ -852,6 +994,7 @@ canvasGL.addEventListener("pointermove", e => {
 canvasGL.addEventListener("pointerup", e => {
   isDragging = false;
   canvasGL.releasePointerCapture(e.pointerId);
+  programarFinal();             // al soltar el arrastre, refina
 });
 
 canvasGL.addEventListener("wheel", e => {
@@ -862,6 +1005,7 @@ canvasGL.addEventListener("wheel", e => {
   domX = [mx + (domX[0] - mx) * factor, mx + (domX[1] - mx) * factor];
   domY = [my + (domY[0] - my) * factor, my + (domY[1] - my) * factor];
   programarRedibujo("zoom");
+  programarFinal();             // cada rueda reinicia el debounce; al parar, refina
 }, { passive: false });
             // ── Fin zoom/pan ───────────────────────
           } // cierre del else (WebGL disponible)
@@ -905,13 +1049,14 @@ canvasGL.addEventListener("wheel", e => {
       }
     );
 
-    // ── Bloque obs-sistema ────────────────────
-    this.registerMarkdownCodeBlockProcessor("obs-sistema", async (source, el, ctx) => {
+    // ── Bloque obs-system ────────────────────
+    this.registerMarkdownCodeBlockProcessor("obs-system", async (source, el, ctx) => {
   const contenedor = el.createDiv({ cls: "obsi-math-container" });
   if (!this.OBS_SISTEMA_HABILITADO) {
     contenedor.createEl("p", {
-      text: "⚠️ obs-sistema está deshabilitado temporalmente.",
-    });
+  text: "⚠️ obs-system está deshabilitado temporalmente.",
+  cls: "obsi-math-aviso",
+});
     return;
   }
 
@@ -934,7 +1079,7 @@ canvasGL.addEventListener("wheel", e => {
     );
 
     // ── Motor gráfico ────────────────────────
-    const W = 600, H = 280;
+    const W = 768, H = 261;
     const dpr = window.devicePixelRatio || 1;
     const wrapGrafica = contenedor.createDiv({ cls: "obsi-math-grafica" });
     wrapGrafica.style.cssText = `position:relative; width:100%; height:${H}px;`;
@@ -1086,7 +1231,7 @@ canvasGL.addEventListener("wheel", e => {
 
     const dibujarCurvas = () => {
       obsSistemaUpdateCount++;
-      console.log('Actualizaciones motor gráfico (obs-sistema): ' + obsSistemaUpdateCount);
+      console.log('Actualizaciones motor gráfico (obs-system): ' + obsSistemaUpdateCount);
       gl.viewport(0, 0, W * dpr, H * dpr);
       gl.clearColor(0.118, 0.118, 0.118, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
