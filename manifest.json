@@ -1,7 +1,7 @@
 {
   "id": "obsi-math",
   "name": "Obsi Math",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "minAppVersion": "0.15.0",
   "description": "Visualiza funciones matematicas en bloques obs-graph.",
   "author": "Lenin",
