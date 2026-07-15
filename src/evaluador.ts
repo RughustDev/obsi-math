@@ -1,6 +1,6 @@
 import { parse } from "mathjs";
 
-import { FUNCIONES_INVERSAS_EXTRA } from "./constantes";
+import { FUNCIONES_INVERSAS_EXTRA, FUNCIONES_ESCALON_RAPIDAS, FUNCIONES_SIGNO } from "./constantes";
 
 // ─────────────────────────────────────────────
 // Evaluador (compartido por obs-graph y obs-system)
@@ -16,8 +16,16 @@ export function compilarExpresion(
   expr: string
 ): (scope: Record<string, number>) => any {
   const compilada = parse(expr).compile();
+  // FUNCIONES_ESCALON_RAPIDAS sombrea floor/ceil de mathjs (12× más caras por el
+  // dispatch typed-function; ver constantes.ts) — mismo mecanismo que las inversas.
   return (scope) => {
-    try { return compilada.evaluate({ ...scope, ...FUNCIONES_INVERSAS_EXTRA }); }
+    try {
+      // FUNCIONES_SIGNO (pm/mp) da valor a la rama PRINCIPAL del doble signo: sin ellas
+      // `±` sería un símbolo libre y toda la expresión evaluaría NaN (ver constantes.ts).
+      return compilada.evaluate({
+        ...scope, ...FUNCIONES_INVERSAS_EXTRA, ...FUNCIONES_ESCALON_RAPIDAS, ...FUNCIONES_SIGNO,
+      });
+    }
     catch { return NaN; }
   };
 }

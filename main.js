@@ -2815,7 +2815,7 @@ __export(main_exports, {
   default: () => ObsiMathPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/engines/obs-graph/GraphEngine.ts
 var import_obsidian = require("obsidian");
@@ -15863,7 +15863,7 @@ var createRotationMatrix = /* @__PURE__ */ factory(name102, dependencies102, (_r
     multiplyScalar: multiplyScalar2,
     addScalar: addScalar2,
     unaryMinus: unaryMinus2,
-    norm: norm2,
+    norm: norm3,
     BigNumber: BigNumber2,
     matrix: matrix2,
     DenseMatrix: DenseMatrix2,
@@ -15934,7 +15934,7 @@ var createRotationMatrix = /* @__PURE__ */ factory(name102, dependencies102, (_r
     return data;
   }
   function _rotationMatrix3x3(theta, v, format5) {
-    var normV = norm2(v);
+    var normV = norm3(v);
     if (normV === 0) {
       throw new RangeError("Rotation around zero vector");
     }
@@ -36134,7 +36134,7 @@ function createComplexEigs(_ref) {
       } catch (_unused) {
         continue;
       }
-      if (larger2(norm2(b), largeNum)) {
+      if (larger2(norm3(b), largeNum)) {
         break;
       }
     }
@@ -36144,7 +36144,7 @@ function createComplexEigs(_ref) {
     i2 = 0;
     while (true) {
       var c = usolve2(A, b);
-      if (smaller2(norm2(orthogonalComplement(b, [c])), prec)) {
+      if (smaller2(norm3(orthogonalComplement(b, [c])), prec)) {
         break;
       }
       if (++i2 >= 10) {
@@ -36175,14 +36175,14 @@ function createComplexEigs(_ref) {
     }
     return v;
   }
-  function norm2(v) {
+  function norm3(v) {
     return abs3(sqrt3(dot2(v, v)));
   }
   function normalize(v, type) {
     var big = type === "BigNumber";
     var cplx = type === "Complex";
     var one = big ? bignumber2(1) : cplx ? complex2(1) : 1;
-    return multiply2(divideScalar2(one, norm2(v)), v);
+    return multiply2(divideScalar2(one, norm3(v)), v);
   }
   return complexEigs;
 }
@@ -36945,7 +36945,7 @@ var createSchur = /* @__PURE__ */ factory(name248, dependencies248, (_ref) => {
     identity: identity2,
     multiply: multiply2,
     qr: qr2,
-    norm: norm2,
+    norm: norm3,
     subtract: subtract2
   } = _ref;
   return typed3(name248, {
@@ -36976,7 +36976,7 @@ var createSchur = /* @__PURE__ */ factory(name248, dependencies248, (_ref) => {
       if (k++ > 100) {
         break;
       }
-    } while (norm2(subtract2(A, A0)) > 1e-4);
+    } while (norm3(subtract2(A, A0)) > 1e-4);
     return {
       U,
       T: A
@@ -45499,6 +45499,24 @@ var FUNCIONES_INVERSAS_EXTRA = {
   asec: (x) => Math.acos(1 / x),
   acot: (x) => Math.PI / 2 - Math.atan(x)
 };
+var FUNCIONES_SIGNO = {
+  pm: (u) => u,
+  mp: (u) => -u
+};
+var enteroCercano = (x) => {
+  const r = Math.round(x);
+  return Math.abs(x - r) <= 1e-12 * Math.max(1, Math.abs(x)) ? r : null;
+};
+var FUNCIONES_ESCALON_RAPIDAS = {
+  floor: (x) => {
+    var _a;
+    return typeof x === "number" ? (_a = enteroCercano(x)) != null ? _a : Math.floor(x) : NaN;
+  },
+  ceil: (x) => {
+    var _a;
+    return typeof x === "number" ? (_a = enteroCercano(x)) != null ? _a : Math.ceil(x) : NaN;
+  }
+};
 
 // src/parser.ts
 function encontrarParentesisCierre(texto, inicio) {
@@ -45550,7 +45568,8 @@ function convertirFracciones(expr) {
   return expr;
 }
 function argumentoTrigonometrico(arg2) {
-  return /^[+-]?\d+(\.\d+)?$/.test(arg2.trim()) ? arg2.trim() + "*pi/180" : arg2.trim();
+  const NUM = "[+-]?\\(?[+-]?\\d+(\\.\\d+)?\\)?";
+  return new RegExp(`^${NUM}(/${NUM})?$`).test(arg2.trim()) ? arg2.trim() + "*pi/180" : arg2.trim();
 }
 function normalizarTrigonometria(expr) {
   let resultado = expr;
@@ -45617,6 +45636,31 @@ function reemplazarComandoLlaves(expr, comando, envolver) {
   }
   return expr;
 }
+var ENVOLTORIOS_DESENVUELVEN = ["operatorname", "mathrm", "mathbf", "mathit", "mathsf", "boldsymbol"];
+var ENVOLTORIOS_BORRAN = ["text", "textrm", "textit", "mbox", "label"];
+function quitarEnvoltoriosTipograficos(expr) {
+  for (const cmd of ENVOLTORIOS_DESENVUELVEN)
+    expr = reemplazarComandoLlaves(expr, cmd, (a) => a);
+  for (const cmd of ENVOLTORIOS_BORRAN)
+    expr = reemplazarComandoLlaves(expr, cmd, () => "");
+  return expr;
+}
+var SIMBOLOS_DIRECTOS = [
+  [/[−‒–—]/g, "-"],
+  // − – — (menos y guiones tipográficos)
+  [/\\times|\\ast|\\star|\\bullet/g, "*"],
+  [/\\div/g, "/"],
+  [/\\infty/g, "Infinity"],
+  // el Unicode ∞ ya se traduce aparte
+  [/°|\\degree|\\deg/g, "*(pi/180)"],
+  // grados → radianes (30° = 30·π/180)
+  [/\\lvert|\\rvert|\\vert|\\mid/g, "|"],
+  // valor absoluto en su forma con comando
+  [/\\,|\\;|\\:|\\!|\\quad|\\qquad|\\ /g, " "],
+  // espaciados: no son matemática
+  [/\\displaystyle|\\textstyle|\\limits|\\nolimits/g, ""]
+  // directivas de composición
+];
 function convertirRaices(expr) {
   let idx = expr.indexOf("\\sqrt");
   while (idx !== -1) {
@@ -45641,6 +45685,43 @@ function convertirRaices(expr) {
     expr = expr.slice(0, idx) + reemplazo + expr.slice(fin + 1);
     idx = expr.indexOf("\\sqrt", idx + reemplazo.length);
   }
+  return expr;
+}
+function convertirParDelimitado(expr, abre, cierra, fn) {
+  let idx = expr.indexOf(abre);
+  while (idx !== -1) {
+    let profundidad = 0;
+    let j = idx;
+    let fin = -1;
+    while (j < expr.length) {
+      if (expr.startsWith(abre, j)) {
+        profundidad++;
+        j += abre.length;
+        continue;
+      }
+      if (expr.startsWith(cierra, j)) {
+        profundidad--;
+        if (profundidad === 0) {
+          fin = j;
+          break;
+        }
+        j += cierra.length;
+        continue;
+      }
+      j++;
+    }
+    if (fin === -1)
+      break;
+    const arg2 = convertirPisoTecho(expr.slice(idx + abre.length, fin));
+    const reemplazo = `${fn}(${arg2})`;
+    expr = expr.slice(0, idx) + reemplazo + expr.slice(fin + cierra.length);
+    idx = expr.indexOf(abre, idx + reemplazo.length);
+  }
+  return expr;
+}
+function convertirPisoTecho(expr) {
+  expr = convertirParDelimitado(expr, "\\lfloor", "\\rfloor", "floor");
+  expr = convertirParDelimitado(expr, "\\lceil", "\\rceil", "ceil");
   return expr;
 }
 function ultimoNoEspacio(s) {
@@ -45678,7 +45759,7 @@ function convertirValorAbsoluto(expr) {
 function normalizarFuncionesInversas(expr) {
   const t = "sin|cos|tan|csc|sec|cot";
   expr = expr.replace(new RegExp(`(${t})\\s*\u207B\xB9`, "g"), "a$1");
-  expr = expr.replace(new RegExp(`(${t})\\s*\\^\\{?\\s*-\\s*1\\s*\\}?`, "g"), "a$1");
+  expr = expr.replace(new RegExp(`(${t})\\s*\\^\\(?\\{?\\s*-\\s*1\\s*\\}?\\)?`, "g"), "a$1");
   expr = expr.replace(new RegExp(`\\barc(${t})\\b`, "g"), "a$1");
   for (const fn of ["asin", "acos", "atan", "acsc", "asec", "acot"]) {
     let desde = 0;
@@ -45699,19 +45780,286 @@ function normalizarFuncionesInversas(expr) {
   }
   return expr;
 }
+var FUNCIONES_POTENCIA = [
+  "sinh",
+  "cosh",
+  "tanh",
+  "coth",
+  "sech",
+  "csch",
+  "sin",
+  "cos",
+  "tan",
+  "sec",
+  "csc",
+  "cot",
+  "log",
+  "ln"
+];
+function casarPotenciaFuncion(expr, i2) {
+  const backslash = expr[i2] === "\\";
+  if (!backslash && i2 > 0 && /[A-Za-z0-9_]/.test(expr[i2 - 1]))
+    return null;
+  const j = backslash ? i2 + 1 : i2;
+  const func = FUNCIONES_POTENCIA.find(
+    (n) => {
+      var _a;
+      return expr.startsWith(n, j) && !/[A-Za-z0-9_]/.test((_a = expr[j + n.length]) != null ? _a : "");
+    }
+  );
+  if (!func)
+    return null;
+  let k = j + func.length;
+  while (expr[k] === " ")
+    k++;
+  if (expr[k] !== "^")
+    return null;
+  k++;
+  while (expr[k] === " ")
+    k++;
+  let exp3;
+  if (expr[k] === "{") {
+    const fin2 = encontrarLlaveCierre(expr, k);
+    if (fin2 === -1)
+      return null;
+    exp3 = expr.slice(k, fin2 + 1);
+    k = fin2 + 1;
+  } else {
+    const s = k;
+    if (expr[k] === "+" || expr[k] === "-")
+      k++;
+    while (k < expr.length && /[A-Za-z0-9.]/.test(expr[k]))
+      k++;
+    if (k === s)
+      return null;
+    exp3 = expr.slice(s, k);
+  }
+  while (expr[k] === " ")
+    k++;
+  if (expr[k] === "{") {
+    const fin2 = encontrarLlaveCierre(expr, k);
+    if (fin2 === -1)
+      return null;
+    return { func, exp: exp3, arg: expr.slice(k + 1, fin2), fin: fin2 + 1 };
+  }
+  if (expr[k] !== "(")
+    return null;
+  const fin = encontrarParentesisCierre(expr, k);
+  if (fin === -1)
+    return null;
+  return { func, exp: exp3, arg: expr.slice(k + 1, fin), fin: fin + 1 };
+}
+function convertirPotenciaFuncion(expr) {
+  let out = "";
+  let i2 = 0;
+  while (i2 < expr.length) {
+    const m = casarPotenciaFuncion(expr, i2);
+    if (m) {
+      out += `(${m.func}(${convertirPotenciaFuncion(m.arg)}))^${m.exp}`;
+      i2 = m.fin;
+    } else {
+      out += expr[i2];
+      i2++;
+    }
+  }
+  return out;
+}
+var RAICES_UNICODE = { "\u221A": 2, "\u221B": 3, "\u221C": 4 };
+function convertirRaicesUnicode(expr) {
+  const esLetra2 = (c) => c >= "a" && c <= "z" || c >= "A" && c <= "Z";
+  const esDigito2 = (c) => c >= "0" && c <= "9";
+  const grupo = (p, open, close) => {
+    let prof = 0, s = "";
+    for (; p < expr.length; p++) {
+      s += expr[p];
+      if (expr[p] === open)
+        prof++;
+      else if (expr[p] === close && --prof === 0)
+        return [s, p + 1];
+    }
+    return [s, p];
+  };
+  const raiz = (radicando, n) => n === 2 ? `sqrt(${radicando})` : `nthRoot(${radicando},${n})`;
+  let out = "";
+  let i2 = 0;
+  while (i2 < expr.length) {
+    const n = RAICES_UNICODE[expr[i2]];
+    if (n === void 0) {
+      out += expr[i2++];
+      continue;
+    }
+    i2++;
+    while (expr[i2] === " ")
+      i2++;
+    let signo2 = "";
+    if (expr[i2] === "-" || expr[i2] === "+") {
+      let k = i2 + 1;
+      while (expr[k] === " ")
+        k++;
+      if (expr[k] === "(" || esLetra2(expr[k]) || esDigito2(expr[k])) {
+        signo2 = expr[i2] === "-" ? "-" : "";
+        i2 = k;
+      }
+    }
+    if (expr[i2] === "(") {
+      let g;
+      [g, i2] = grupo(i2, "(", ")");
+      out += raiz(signo2 + g.slice(1, -1), n);
+      continue;
+    }
+    const inicio = i2;
+    if (esDigito2(expr[i2])) {
+      while (i2 < expr.length && esDigito2(expr[i2]))
+        i2++;
+      if (expr[i2] === "." && esDigito2(expr[i2 + 1])) {
+        i2++;
+        while (i2 < expr.length && esDigito2(expr[i2]))
+          i2++;
+      }
+    } else if (esLetra2(expr[i2])) {
+      while (i2 < expr.length && esLetra2(expr[i2]))
+        i2++;
+    }
+    if (i2 === inicio) {
+      out += n === 2 ? "sqrt" : "cbrt";
+      continue;
+    }
+    let radicando = signo2 + expr.slice(inicio, i2);
+    if (SUPERINDICES[expr[i2]] !== void 0) {
+      while (i2 < expr.length && SUPERINDICES[expr[i2]] !== void 0) {
+        radicando += expr[i2];
+        i2++;
+      }
+    } else if (expr[i2] === "^") {
+      i2++;
+      let exp3;
+      if (expr[i2] === "{") {
+        [exp3, i2] = grupo(i2, "{", "}");
+      } else if (expr[i2] === "(") {
+        [exp3, i2] = grupo(i2, "(", ")");
+      } else {
+        const s = i2;
+        while (i2 < expr.length && (esLetra2(expr[i2]) || esDigito2(expr[i2]) || expr[i2] === "."))
+          i2++;
+        exp3 = expr.slice(s, i2);
+      }
+      radicando += "^" + exp3;
+    }
+    out += raiz(radicando, n);
+  }
+  return out;
+}
+var SUPERINDICES = {
+  "\u2070": "0",
+  "\xB9": "1",
+  "\xB2": "2",
+  "\xB3": "3",
+  "\u2074": "4",
+  "\u2075": "5",
+  "\u2076": "6",
+  "\u2077": "7",
+  "\u2078": "8",
+  "\u2079": "9",
+  "\u207B": "-",
+  "\u207A": "+"
+};
+function convertirSuperindices(expr) {
+  return expr.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺]+/g, (run) => {
+    const ascii = [...run].map((c) => SUPERINDICES[c]).join("");
+    return /^[0-9]+$/.test(ascii) ? `^${ascii}` : `^(${ascii})`;
+  });
+}
+var FRACCIONES_UNICODE = {
+  "\xBD": "(1/2)",
+  "\u2153": "(1/3)",
+  "\u2154": "(2/3)",
+  "\xBC": "(1/4)",
+  "\xBE": "(3/4)",
+  "\u2155": "(1/5)",
+  "\u2156": "(2/5)",
+  "\u2157": "(3/5)",
+  "\u2158": "(4/5)",
+  "\u2159": "(1/6)",
+  "\u215A": "(5/6)",
+  "\u2150": "(1/7)",
+  "\u215B": "(1/8)",
+  "\u215C": "(3/8)",
+  "\u215D": "(5/8)",
+  "\u215E": "(7/8)",
+  "\u2151": "(1/9)",
+  "\u2152": "(1/10)"
+};
+function anteriorNoEspacio(expr, i2) {
+  let j = i2 - 1;
+  while (j >= 0 && expr[j] === " ")
+    j--;
+  return j >= 0 ? expr[j] : "";
+}
+function finDeOperandoSigno(expr, desde) {
+  let i2 = desde;
+  while (i2 < expr.length && expr[i2] === " ")
+    i2++;
+  const inicio = i2;
+  let prof = 0;
+  for (; i2 < expr.length; i2++) {
+    const c = expr[i2];
+    if (c === "(" || c === "{" || c === "[") {
+      prof++;
+      continue;
+    }
+    if (c === ")" || c === "}" || c === "]") {
+      if (prof === 0)
+        break;
+      prof--;
+      continue;
+    }
+    if (prof > 0)
+      continue;
+    if (c === "," || c === "=" || c === "<" || c === ">")
+      break;
+    if ((c === "+" || c === "-") && i2 > inicio) {
+      const ant = anteriorNoEspacio(expr, i2);
+      if (!"+-*/^(,".includes(ant))
+        break;
+    }
+  }
+  return i2;
+}
+function convertirDobleSigno(expr) {
+  const marca = /\\pm|\\mp|±|∓/;
+  for (let m = marca.exec(expr); m; m = marca.exec(expr)) {
+    const idx = m.index;
+    const fn = m[0] === "\\pm" || m[0] === "\xB1" ? "pm" : "mp";
+    const fin = finDeOperandoSigno(expr, idx + m[0].length);
+    const operando = expr.slice(idx + m[0].length, fin).trim() || "1";
+    const ant = anteriorNoEspacio(expr, idx);
+    const suma = ant !== "" && !"+-*/^(,=<>[{".includes(ant) ? "+" : "";
+    expr = expr.slice(0, idx) + `${suma}${fn}(${operando})` + expr.slice(fin);
+  }
+  return expr;
+}
 function normalizarEntrada(raw) {
   let expr = raw;
   expr = expr.replace(/π/g, "pi");
-  expr = expr.replace(/√/g, "sqrt");
+  expr = expr.replace(/[θϑ]/g, "theta");
+  expr = convertirRaicesUnicode(expr);
   expr = expr.replace(/[·×]/g, "*");
   expr = expr.replace(/÷/g, "/");
-  expr = expr.replace(/²/g, "^2");
-  expr = expr.replace(/³/g, "^3");
+  expr = expr.replace(/[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒]/g, (c) => FRACCIONES_UNICODE[c]);
+  expr = convertirSuperindices(expr);
   expr = expr.replace(/∞/g, "Infinity");
+  expr = expr.replace(/⌊/g, "\\lfloor ").replace(/⌋/g, "\\rfloor ");
+  expr = expr.replace(/⌈/g, "\\lceil ").replace(/⌉/g, "\\rceil ");
+  for (const [re2, a] of SIMBOLOS_DIRECTOS)
+    expr = expr.replace(re2, a);
+  expr = quitarEnvoltoriosTipograficos(expr);
+  expr = convertirDobleSigno(expr);
   expr = expr.replace(/\\left/g, "");
   expr = expr.replace(/\\right/g, "");
+  expr = convertirPisoTecho(expr);
   expr = convertirValorAbsoluto(expr);
   expr = normalizarFuncionesInversas(expr);
+  expr = convertirPotenciaFuncion(expr);
   expr = expr.replace(
     /\(\s*\{\\frac\{([^}]+)\}\{([^}]+)\}\s*\}\s*\)/g,
     "(($1)/($2))"
@@ -45748,14 +46096,113 @@ function normalizarEntrada(raw) {
     "$1($2)"
   );
   expr = expr.replace(
-    new RegExp(`\\\\(${TRIG_PATRON})\\s+([+-]?\\d+(\\.\\d+)?)`, "g"),
+    new RegExp(`\\\\(${TRIG_PATRON})\\s+([+-]?\\d+(\\.\\d+)?)(?![0-9.a-zA-Z\\\\])`, "g"),
+    "$1($2)"
+  );
+  expr = expr.replace(/\\log_([a-zA-Z0-9.]+)\s+([a-zA-Z][a-zA-Z0-9]*|\d+(\.\d+)?)/g, "log($2,$1)");
+  const FUNCIONES_ARG_SUELTO = "asinh|acosh|atanh|asech|acsch|acoth|arcsin|arccos|arctan|arcsec|arccsc|arccot|sinh|cosh|tanh|sech|csch|coth|asin|acos|atan|asec|acsc|acot|sin|cos|tan|sec|csc|cot|log|ln|exp|abs|sqrt|cbrt";
+  const SIMBOLO_ARG = `(?:\\\\(?:theta|pi|tau|phi)\\b|[a-zA-Z](?![a-zA-Z0-9]))`;
+  expr = expr.replace(
+    new RegExp(
+      `\\\\?\\b(${FUNCIONES_ARG_SUELTO})\\s+(\\d+(?:\\.\\d+)?(?:\\s*${SIMBOLO_ARG})+|[a-zA-Z][a-zA-Z0-9]*|\\d+(?:\\.\\d+)?)`,
+      "g"
+    ),
     "$1($2)"
   );
   expr = convertirRaices(expr);
   expr = expr.replace(/\\cdot/g, "*");
   expr = expr.replace(/\\([a-zA-Z]+)/g, "$1");
   expr = normalizarTrigonometria(expr);
-  return expr;
+  return expr.trim();
+}
+var COMANDOS_SOPORTADOS = /* @__PURE__ */ new Set([
+  "frac",
+  "dfrac",
+  "tfrac",
+  "sqrt",
+  "left",
+  "right",
+  "cdot",
+  "times",
+  "div",
+  "ast",
+  "star",
+  "bullet",
+  "pm",
+  "mp",
+  "infty",
+  "degree",
+  "deg",
+  "quad",
+  "qquad",
+  "displaystyle",
+  "textstyle",
+  "limits",
+  "nolimits",
+  "operatorname",
+  "mathrm",
+  "mathbf",
+  "mathit",
+  "mathsf",
+  "boldsymbol",
+  "text",
+  "textrm",
+  "textit",
+  "mbox",
+  "label",
+  "lvert",
+  "rvert",
+  "vert",
+  "mid",
+  "lfloor",
+  "rfloor",
+  "lceil",
+  "rceil",
+  "sin",
+  "cos",
+  "tan",
+  "sec",
+  "csc",
+  "cot",
+  "sinh",
+  "cosh",
+  "tanh",
+  "sech",
+  "csch",
+  "coth",
+  "arcsin",
+  "arccos",
+  "arctan",
+  "arcsec",
+  "arccsc",
+  "arccot",
+  "ln",
+  "log",
+  "exp",
+  "abs",
+  "max",
+  "min",
+  "pi",
+  "tau",
+  "theta",
+  "e",
+  "begin",
+  "end",
+  "cases",
+  "aligned",
+  "array",
+  "int",
+  "to"
+]);
+function comandosNoSoportados(raw) {
+  const vistos = /* @__PURE__ */ new Set();
+  for (const m of raw.replace(/\\\\/g, " ").matchAll(/\\([a-zA-Z]+)/g))
+    if (!COMANDOS_SOPORTADOS.has(m[1]))
+      vistos.add(`\\${m[1]}`);
+  return [...vistos];
+}
+function contieneYLibre(exprNorm) {
+  return /(?<![a-zA-Z0-9_])y(?![a-zA-Z0-9_])/.test(exprNorm);
 }
 
 // src/evaluador.ts
@@ -45763,7 +46210,12 @@ function compilarExpresion(expr) {
   const compilada = parse2(expr).compile();
   return (scope) => {
     try {
-      return compilada.evaluate({ ...scope, ...FUNCIONES_INVERSAS_EXTRA });
+      return compilada.evaluate({
+        ...scope,
+        ...FUNCIONES_INVERSAS_EXTRA,
+        ...FUNCIONES_ESCALON_RAPIDAS,
+        ...FUNCIONES_SIGNO
+      });
     } catch (e3) {
       return NaN;
     }
@@ -45774,9 +46226,220 @@ function compilarFuncion(expr, varName) {
   return (v) => evaluar({ [varName]: v });
 }
 
+// src/motor/parsing/productoImplicito.ts
+var FUNCIONES = /* @__PURE__ */ new Set([
+  "sin",
+  "cos",
+  "tan",
+  "sec",
+  "csc",
+  "cot",
+  "asin",
+  "acos",
+  "atan",
+  "acsc",
+  "asec",
+  "acot",
+  "atan2",
+  "sinh",
+  "cosh",
+  "tanh",
+  "asinh",
+  "acosh",
+  "atanh",
+  "sech",
+  "csch",
+  "coth",
+  // hiperbólicas recíprocas: mathjs las tiene, faltaban como átomo
+  "log",
+  "log10",
+  "log2",
+  "ln",
+  "exp",
+  "expm1",
+  "sqrt",
+  "cbrt",
+  "nthRoot",
+  "pow",
+  "hypot",
+  "abs",
+  "sign",
+  "floor",
+  "ceil",
+  "round",
+  "fix",
+  "gamma",
+  "factorial",
+  "min",
+  "max",
+  "mod",
+  "gcd",
+  "lcm",
+  // Centinelas del DOBLE SIGNO (`y = pm(sqrt(16-x²))` = ±√…), que emiten tanto el despeje
+  // par (despejar.ts) como el `\pm`/`\mp` escrito por el usuario (parser.ts). Son átomos
+  // (si no, se partirían en `p*m`), se evalúan en su rama principal (constantes.ts) y el
+  // motor los expande en las DOS ramas (motor/parsing/dobleSigno.ts). `toTex` los pinta
+  // `\pm` / `\mp` (latex.ts).
+  "pm",
+  "mp"
+]);
+var CONSTANTES = /* @__PURE__ */ new Set(["pi", "theta", "tau", "phi", "Infinity", "NaN"]);
+var ATOMOS = [...FUNCIONES, ...CONSTANTES].sort((a, b) => b.length - a.length);
+var esDigito = (c) => c >= "0" && c <= "9";
+var esLetra = (c) => /[a-zA-Z_]/.test(c);
+var esLetraODigito = (c) => /[a-zA-Z0-9_]/.test(c);
+function expandir(run) {
+  const piezas = [];
+  let j = 0;
+  while (j < run.length) {
+    let atomo = null;
+    for (const a of ATOMOS) {
+      if (run.startsWith(a, j)) {
+        atomo = a;
+        break;
+      }
+    }
+    if (atomo) {
+      piezas.push(atomo);
+      j += atomo.length;
+    } else {
+      piezas.push(run[j]);
+      j++;
+    }
+  }
+  return piezas.join("*");
+}
+function sufijoFuncion(run) {
+  for (const f of ATOMOS) {
+    if (FUNCIONES.has(f) && run.endsWith(f))
+      return f;
+  }
+  return "";
+}
+function insertarProductoImplicito(expr) {
+  var _a, _b;
+  let out = "";
+  const prev = () => {
+    for (let k = out.length - 1; k >= 0; k--)
+      if (out[k] !== " ")
+        return out[k];
+    return "";
+  };
+  let i2 = 0;
+  while (i2 < expr.length) {
+    const c = expr[i2];
+    if (c === "e" || c === "E") {
+      const p = prev();
+      const sig = (_a = expr[i2 + 1]) != null ? _a : "";
+      const sig2 = (_b = expr[i2 + 2]) != null ? _b : "";
+      const cientifica = (esDigito(p) || p === ".") && (esDigito(sig) || (sig === "+" || sig === "-") && esDigito(sig2));
+      if (cientifica) {
+        out += c;
+        i2++;
+        continue;
+      }
+    }
+    if (esLetra(c)) {
+      let j = i2;
+      while (j < expr.length && esLetraODigito(expr[j]))
+        j++;
+      const run = expr.slice(i2, j);
+      const p = prev();
+      if (esDigito(p) || p === ")" || p === "." || esLetra(p))
+        out += "*";
+      let k = j;
+      while (k < expr.length && expr[k] === " ")
+        k++;
+      const seguidoParen = expr[k] === "(";
+      if (seguidoParen) {
+        if (FUNCIONES.has(run)) {
+          out += run;
+        } else {
+          const fs = sufijoFuncion(run);
+          if (fs && /^[a-zA-Z]+$/.test(run.slice(0, run.length - fs.length))) {
+            const pref = run.slice(0, run.length - fs.length);
+            out += (pref ? expandir(pref) + "*" : "") + fs;
+          } else {
+            out += expandir(run) + "*";
+          }
+        }
+      } else {
+        out += expandir(run);
+      }
+      i2 = j;
+      continue;
+    }
+    if (c === "(") {
+      const p = prev();
+      if (esDigito(p) || p === ")" || p === ".")
+        out += "*";
+      out += c;
+      i2++;
+      continue;
+    }
+    out += c;
+    i2++;
+  }
+  return out;
+}
+
+// src/motor/parsing/componentesParametricas.ts
+var COMPONENTE = /^([xy])\s*(?:\\left)?\(\s*t\s*(?:\\right)?\)\s*=([\s\S]+)$/;
+function componenteParametrica(ec) {
+  const m = COMPONENTE.exec(ec.trim());
+  if (!m)
+    return null;
+  const expr = m[2].trim();
+  return expr ? { eje: m[1], expr } : null;
+}
+function fusionarComponentes(lineas) {
+  if (lineas.length !== 2)
+    return [...lineas];
+  const a = componenteParametrica(lineas[0]);
+  const b = componenteParametrica(lineas[1]);
+  if (!a || !b || a.eje === b.eje)
+    return [...lineas];
+  const [x, y] = a.eje === "x" ? [a, b] : [b, a];
+  return [`(${x.expr}, ${y.expr})`];
+}
+function funcionDelParametro(ec) {
+  const comp = componenteParametrica(ec);
+  if (comp)
+    return comp;
+  const s = ec.trim();
+  if (s === "" || s.includes("="))
+    return null;
+  return esExpresionEnT(s) ? { eje: "y", expr: s } : null;
+}
+function esExpresionEnT(expr) {
+  const libres = simbolosLibres(insertarProductoImplicito(normalizarEntrada(expr)));
+  return libres.has("t") && !libres.has("x") && !libres.has("y");
+}
+function simbolosLibres(exprNorm) {
+  const libres = /* @__PURE__ */ new Set();
+  try {
+    parse2(exprNorm).traverse((nodo, path, padre) => {
+      if (nodo.isSymbolNode && !((padre == null ? void 0 : padre.isFunctionNode) && path === "fn"))
+        libres.add(nodo.name);
+    });
+  } catch (e3) {
+  }
+  return libres;
+}
+function renombrarParametroAX(exprNorm) {
+  try {
+    const arbol = parse2(exprNorm).transform(
+      (nodo, path, padre) => nodo.isSymbolNode && nodo.name === "t" && !((padre == null ? void 0 : padre.isFunctionNode) && path === "fn") ? new SymbolNode("x") : nodo
+    );
+    return arbol.toString();
+  } catch (e3) {
+    return exprNorm;
+  }
+}
+
 // src/latex.ts
 function embellecerInversasLatex(tex) {
-  return tex.replace(/\\sin\s*\^\{-1\}/g, "\\arcsin").replace(/\\cos\s*\^\{-1\}/g, "\\arccos").replace(/\\tan\s*\^\{-1\}/g, "\\arctan").replace(/\\csc\s*\^\{-1\}/g, "\\text{arccsc}").replace(/\\sec\s*\^\{-1\}/g, "\\text{arcsec}").replace(/\\cot\s*\^\{-1\}/g, "\\text{arccot}");
+  return tex.replace(/\\sin\s*\^\{-1\}/g, "\\arcsin").replace(/\\cos\s*\^\{-1\}/g, "\\arccos").replace(/\\tan\s*\^\{-1\}/g, "\\arctan").replace(/\\csc\s*\^\{-1\}/g, "\\operatorname{arccsc}").replace(/\\sec\s*\^\{-1\}/g, "\\operatorname{arcsec}").replace(/\\cot\s*\^\{-1\}/g, "\\operatorname{arccot}");
 }
 var NOMBRE_FUNCION_TEX = {
   sin: "\\sin",
@@ -45795,72 +46458,243 @@ var NOMBRE_FUNCION_TEX = {
   asin: "\\arcsin",
   acos: "\\arccos",
   atan: "\\arctan",
-  acsc: "\\text{arccsc}",
-  asec: "\\text{arcsec}",
-  acot: "\\text{arccot}"
+  acsc: "\\operatorname{arccsc}",
+  asec: "\\operatorname{arcsec}",
+  acot: "\\operatorname{arccot}"
 };
 function manejadorFuncionesTex(node, options) {
-  var _a;
+  var _a, _b, _c, _d, _e, _f;
+  const argFuncion = (arg2, nombreTex) => {
+    const argTex = arg2.toTex(options);
+    const atomico = arg2.type === "SymbolNode" || arg2.type === "ConstantNode";
+    return atomico ? `${nombreTex} ${argTex.trim()}` : `${nombreTex}\\left(${argTex}\\right)`;
+  };
+  const SIGNO_TEX = { pm: "\\pm", mp: "\\mp" };
+  if (node.type === "FunctionNode" && SIGNO_TEX[(_a = node.fn) == null ? void 0 : _a.name] && node.args.length === 1) {
+    const arg2 = node.args[0];
+    const raiz = arg2.type === "ParenthesisNode" ? arg2.content : arg2;
+    const aditivo = raiz.type === "OperatorNode" && (raiz.op === "+" || raiz.op === "-") && ((_b = raiz.args) == null ? void 0 : _b.length) === 2;
+    const cuerpo = arg2.toTex(options);
+    const signo2 = SIGNO_TEX[node.fn.name];
+    return aditivo ? `${signo2}\\left(${cuerpo}\\right)` : `${signo2} ${cuerpo}`;
+  }
+  if (node.type === "OperatorNode" && node.op === "+" && ((_c = node.args) == null ? void 0 : _c.length) === 2 && node.args[1].type === "FunctionNode" && SIGNO_TEX[(_d = node.args[1].fn) == null ? void 0 : _d.name]) {
+    return `${node.args[0].toTex(options)} ${node.args[1].toTex(options)}`;
+  }
   if (node.type === "FunctionNode" && node.args.length === 1) {
-    const nombreTex = NOMBRE_FUNCION_TEX[(_a = node.fn) == null ? void 0 : _a.name];
-    if (nombreTex) {
-      const arg2 = node.args[0];
-      const argTex = arg2.toTex(options);
-      const atomico = arg2.type === "SymbolNode" || arg2.type === "ConstantNode";
-      return atomico ? `${nombreTex} ${argTex.trim()}` : `${nombreTex}\\left(${argTex}\\right)`;
-    }
+    const nombreTex = NOMBRE_FUNCION_TEX[(_e = node.fn) == null ? void 0 : _e.name];
+    if (nombreTex)
+      return argFuncion(node.args[0], nombreTex);
+  }
+  if (node.type === "OperatorNode" && node.op === "^" && node.args.length === 2) {
+    const [base, exp3] = node.args;
+    let b = base;
+    while (b.type === "ParenthesisNode")
+      b = b.content;
+    const nombreTex = b.type === "FunctionNode" && b.args.length === 1 ? NOMBRE_FUNCION_TEX[(_f = b.fn) == null ? void 0 : _f.name] : void 0;
+    const expNegativo = exp3.type === "ConstantNode" && exp3.value < 0;
+    if (nombreTex && !expNegativo)
+      return argFuncion(b.args[0], `${nombreTex}^{${exp3.toTex(options)}}`);
   }
   return void 0;
 }
 var OPCIONES_TEX = { parenthesis: "auto", handler: manejadorFuncionesTex };
 function limpiarTex(tex) {
   let resultado = embellecerInversasLatex(tex);
+  resultado = resultado.replace(/\\mathrm\{([a-zA-Z])\}/g, "$1");
   resultado = resultado.replace(/~\s*/g, "");
+  resultado = resultado.replace(/(\\[a-zA-Z]+)\s*\\cdot\s*([a-zA-Z])/g, "$1{$2}");
+  resultado = resultado.replace(
+    /([^\s])\s*\\cdot\s*(?=(\S))/g,
+    (_m, antes, desp) => /\d/.test(antes) && /\d/.test(desp) ? `${antes}\\cdot ` : `${antes}`
+  );
+  resultado = resultado.replace(/\{[ \t]+/g, "{");
   resultado = resultado.replace(/(^|[^a-zA-Z\\^_}\]])\{\s*([a-zA-Z0-9])\s*\}/g, "$1$2");
   resultado = resultado.replace(/(\d)\s+([a-zA-Z\\])/g, "$1$2");
+  resultado = resultado.replace(/(?<!\\left)\(/g, "\\left(").replace(/(?<!\\right)\)/g, "\\right)");
   return resultado.trim();
 }
-function quitarLlavesExternas(texto) {
-  let resultado = texto.trim();
-  while (resultado.startsWith("{") && resultado.endsWith("}")) {
-    let profundidad = 0;
-    let envuelveTodo = true;
-    for (let i2 = 0; i2 < resultado.length; i2++) {
-      if (resultado[i2] === "{")
-        profundidad++;
-      else if (resultado[i2] === "}")
-        profundidad--;
-      if (profundidad === 0 && i2 < resultado.length - 1) {
-        envuelveTodo = false;
-        break;
+var VAR_ORDEN = "x";
+function contieneVarOrden(n) {
+  return n.filter((s) => s.type === "SymbolNode" && s.name === VAR_ORDEN).length > 0;
+}
+function gradoEnX(n) {
+  switch (n.type) {
+    case "ParenthesisNode":
+      return gradoEnX(n.content);
+    case "ConstantNode":
+      return 0;
+    case "SymbolNode":
+      return n.name === VAR_ORDEN ? 1 : 0;
+    case "FunctionNode":
+      return contieneVarOrden(n) ? null : 0;
+    case "OperatorNode": {
+      if (n.args.length === 1)
+        return gradoEnX(n.args[0]);
+      if (n.op === "*") {
+        let g = 0;
+        for (const a of n.args) {
+          const ga = gradoEnX(a);
+          if (ga === null)
+            return null;
+          g += ga;
+        }
+        return g;
       }
+      if (n.op === "/") {
+        const gd = gradoEnX(n.args[1]);
+        if (gd !== 0)
+          return null;
+        return gradoEnX(n.args[0]);
+      }
+      if (n.op === "^") {
+        const [base, exp3] = n.args;
+        if (exp3.type !== "ConstantNode" || !Number.isInteger(exp3.value) || exp3.value < 0)
+          return contieneVarOrden(n) ? null : 0;
+        const gb = gradoEnX(base);
+        return gb === null ? null : gb * exp3.value;
+      }
+      if (n.op === "+" || n.op === "-") {
+        let g = 0;
+        for (const a of n.args) {
+          const ga = gradoEnX(a);
+          if (ga === null)
+            return null;
+          g = Math.max(g, ga);
+        }
+        return g;
+      }
+      return contieneVarOrden(n) ? null : 0;
     }
-    if (!envuelveTodo)
-      break;
-    resultado = resultado.slice(1, -1).trim();
+    default:
+      return contieneVarOrden(n) ? null : 0;
   }
-  return resultado;
+}
+function ordenarPolinomioDescendente(node) {
+  const terminos2 = [];
+  const aplanar = (n, signo2) => {
+    if (n.type === "OperatorNode" && n.args.length === 2 && (n.op === "+" || n.op === "-")) {
+      aplanar(n.args[0], signo2);
+      aplanar(n.args[1], n.op === "-" ? -signo2 : signo2);
+    } else
+      terminos2.push({ signo: signo2, nodo: n });
+  };
+  aplanar(node, 1);
+  if (terminos2.length < 2)
+    return node;
+  const grados = terminos2.map((t) => gradoEnX(t.nodo));
+  if (grados.some((g) => g === null))
+    return node;
+  const orden = terminos2.map((_, i2) => i2).sort((a, b) => grados[b] - grados[a]);
+  if (orden.every((i2, k) => i2 === k))
+    return node;
+  const primero = terminos2[orden[0]];
+  let acc = primero.signo < 0 ? new OperatorNode("-", "unaryMinus", [primero.nodo]) : primero.nodo;
+  for (let k = 1; k < orden.length; k++) {
+    const t = terminos2[orden[k]];
+    acc = t.signo < 0 ? new OperatorNode("-", "subtract", [acc, t.nodo]) : new OperatorNode("+", "add", [acc, t.nodo]);
+  }
+  return acc;
 }
 function ladoALatex(lado) {
-  const norm2 = normalizarEntrada(lado.trim());
+  const norm3 = insertarProductoImplicito(normalizarEntrada(lado.trim()));
+  if (norm3 === "")
+    return "\\text{[...]}";
   try {
-    return limpiarTex(parse2(norm2).toTex(OPCIONES_TEX));
+    return limpiarTex(ordenarPolinomioDescendente(parse2(norm3)).toTex(OPCIONES_TEX));
   } catch (e3) {
-    return norm2;
+    return norm3;
   }
+}
+function exprALatex(expr) {
+  return ladoALatex(expr);
 }
 function ecuacionALatex(ecuacion, alineada = false) {
   const partes = ecuacion.split("=");
   if (partes.length !== 2)
     return ecuacion;
-  const signo = alineada ? "&=" : "=";
-  return ladoALatex(partes[0]) + signo + ladoALatex(partes[1]);
+  const signo2 = alineada ? "&=" : "=";
+  return ladoALatex(partes[0]) + signo2 + ladoALatex(partes[1]);
+}
+function bloqueALatex(ecuaciones, sistema = false) {
+  if (ecuaciones.length === 0) {
+    return sistema ? "\\begin{cases}~\\\\\\text{[...]}\\\\~\\end{cases}" : "f(x)=\\text{[...]}";
+  }
+  const multi = ecuaciones.length >= 2;
+  const lineas = ecuaciones.map((ec) => lineaALatex(ec, multi));
+  return multi ? `\\begin{cases}\\begin{aligned}${lineas.join("\\\\[1ex]")}\\end{aligned}\\end{cases}` : lineas[0];
+}
+function lineaALatex(ec, alineada) {
+  const s = ec.trim();
+  const tupla = separarTupla(s);
+  if (tupla) {
+    const par = `\\left(x\\left(t\\right),\\ y\\left(t\\right)\\right)`;
+    return `${par}${alineada ? "&=" : "="}\\left(${ladoALatex(tupla[0])},\\ ${ladoALatex(tupla[1])}\\right)`;
+  }
+  const comp = funcionDelParametro(s);
+  if (comp)
+    return `${comp.eje}\\left(t\\right)${alineada ? "&=" : "="}${ladoALatex(comp.expr)}`;
+  const g = ladoPolar(s);
+  if (g !== null)
+    return `r\\left(\\theta\\right)${alineada ? "&=" : "="}${ladoALatex(g)}`;
+  if (s.split("=").length === 2)
+    return ecuacionALatex(s, alineada);
+  if (s !== "" && contieneYLibre(normalizarEntrada(s)))
+    return `${ladoALatex(s)}${alineada ? "&=" : "="}0`;
+  return `f(x)${alineada ? "&=" : "="}${s === "" ? "\\text{[...]}" : ladoALatex(s)}`;
+}
+function ladoPolar(s) {
+  const partes = s.split("=");
+  if (partes.length !== 2)
+    return null;
+  const lhs = normalizarEntrada(partes[0].trim());
+  const rhs = normalizarEntrada(partes[1].trim());
+  if (lhs === "r" && rhs !== "r")
+    return partes[1];
+  if (rhs === "r" && lhs !== "r")
+    return partes[0];
+  return null;
+}
+function separarTupla(s) {
+  if (s.length < 2 || s[0] !== "(" || s[s.length - 1] !== ")")
+    return null;
+  let prof = 0, coma = -1;
+  for (let i2 = 0; i2 < s.length; i2++) {
+    const c = s[i2];
+    if (c === "(" || c === "[" || c === "{")
+      prof++;
+    else if (c === ")" || c === "]" || c === "}") {
+      if (--prof === 0 && i2 < s.length - 1)
+        return null;
+    } else if (c === "," && prof === 1) {
+      if (coma !== -1)
+        return null;
+      coma = i2;
+    }
+  }
+  if (coma === -1)
+    return null;
+  const x = s.slice(1, coma).trim(), y = s.slice(coma + 1, -1).trim();
+  return x && y ? [x, y] : null;
 }
 
 // src/analisis.ts
 var RANGO_X = { min: -10, max: 10, pasos: 1e3 };
 var LIMITE_PUNTOS_NOTABLES = 20;
 var TOLERANCIA_FUSION = 0.05;
+var MIN_MUESTRAS_TRAMO = 3;
+function fronteraTramo(evaluar, xFuera, xCero) {
+  let fuera = xFuera, dentro = xCero;
+  for (let i2 = 0; i2 < 60; i2++) {
+    const m = (fuera + dentro) / 2;
+    if (evaluar(m) === 0)
+      dentro = m;
+    else
+      fuera = m;
+  }
+  const limpio = Math.round(dentro * 1e9) / 1e9;
+  return { x: limpio, cerrado: evaluar(limpio) === 0 };
+}
 function refinarRaiz(evaluar, a, fa, b) {
   for (let i2 = 0; i2 < 60; i2++) {
     const m2 = (a + b) / 2;
@@ -45880,6 +46714,15 @@ function refinarRaiz(evaluar, a, fa, b) {
   const fm = evaluar(m);
   return Number.isFinite(fm) && Math.abs(fm) < 1e-3 ? m : null;
 }
+function tramoHastaInfinito(evaluar, signo2) {
+  let x = signo2 * 100;
+  for (let i2 = 0; i2 < 15; i2++) {
+    if (evaluar(x) !== 0)
+      return false;
+    x *= 10;
+  }
+  return true;
+}
 function detectarRaices(evaluar, xs, ys) {
   const raices = [];
   const agregar = (x) => {
@@ -45895,13 +46738,33 @@ function detectarRaices(evaluar, xs, ys) {
       ceros++;
   }
   if (finitos > 0 && ceros === finitos)
-    return [];
+    return { puntos: [], intervalos: [] };
+  const intervalos = [];
+  const enTramo = /* @__PURE__ */ new Set();
+  for (let i2 = 0; i2 < ys.length; ) {
+    if (ys[i2] !== 0) {
+      i2++;
+      continue;
+    }
+    let j = i2;
+    while (j + 1 < ys.length && ys[j + 1] === 0)
+      j++;
+    if (j - i2 + 1 >= MIN_MUESTRAS_TRAMO) {
+      const izq = i2 > 0 ? fronteraTramo(evaluar, xs[i2 - 1], xs[i2]) : tramoHastaInfinito(evaluar, -1) ? { x: -Infinity, cerrado: false } : { x: xs[0], cerrado: true };
+      const der = j < ys.length - 1 ? fronteraTramo(evaluar, xs[j + 1], xs[j]) : tramoHastaInfinito(evaluar, 1) ? { x: Infinity, cerrado: false } : { x: xs[ys.length - 1], cerrado: true };
+      intervalos.push({ a: izq.x, cerradoA: izq.cerrado, b: der.x, cerradoB: der.cerrado });
+      for (let k = i2; k <= j; k++)
+        enTramo.add(k);
+    }
+    i2 = j + 1;
+  }
   for (let i2 = 0; i2 < xs.length - 1; i2++) {
     const ya = ys[i2], yb = ys[i2 + 1];
     if (!Number.isFinite(ya) || !Number.isFinite(yb))
       continue;
     if (ya === 0) {
-      agregar(xs[i2]);
+      if (!enTramo.has(i2))
+        agregar(xs[i2]);
       continue;
     }
     if (ya * yb < 0) {
@@ -45911,9 +46774,9 @@ function detectarRaices(evaluar, xs, ys) {
     }
   }
   const n = xs.length - 1;
-  if (Number.isFinite(ys[n]) && ys[n] === 0)
+  if (Number.isFinite(ys[n]) && ys[n] === 0 && !enTramo.has(n))
     agregar(xs[n]);
-  return raices.sort((p, q) => p - q);
+  return { puntos: raices.sort((p, q) => p - q), intervalos };
 }
 function detectarVertices(xs, ys, delta, evaluar) {
   var _a, _b;
@@ -45968,10 +46831,28 @@ function analizarFuncion(evaluar) {
     xs[i2] = x;
     ys[i2] = evaluar(x);
   }
+  const { puntos, intervalos } = detectarRaices(evaluar, xs, ys);
   return {
-    raices: detectarRaices(evaluar, xs, ys),
-    vertices: detectarVertices(xs, ys, delta, evaluar)
+    raices: puntos,
+    vertices: detectarVertices(xs, ys, delta, evaluar),
+    intervalosRaiz: intervalos
   };
+}
+function raicesALatex(intervalos, sueltas) {
+  const num = (v) => {
+    if (v === Infinity)
+      return "\\infty";
+    if (v === -Infinity)
+      return "-\\infty";
+    const r = parseFloat(v.toFixed(4));
+    return Object.is(r, -0) ? "0" : String(r);
+  };
+  const partes = intervalos.map(
+    (t) => `${t.cerradoA ? "[" : "("}${num(t.a)},${num(t.b)}${t.cerradoB ? "]" : ")"}`
+  );
+  if (sueltas.length > 0)
+    partes.push(`\\{${sueltas.map(num).join(",\\ ")}\\}`);
+  return `x\\in ${partes.join("\\cup ")}`;
 }
 var TRIG_LLAMADA = /(?<![a-zA-Z])(sin|cos|tan|sec|csc|cot)\s*\(/;
 function tieneTrigonometria(expr) {
@@ -46105,10 +46986,10 @@ function construirQuadStrip(puntos, grosorClip) {
 // src/render/muestreoExplicito.ts
 function muestrearFuncion(p) {
   const { evalX, domX, domY, H, interactivo } = p;
-  const MUESTRAS = interactivo ? Math.min(2e3, Math.max(1e3, Math.floor((domX[1] - domX[0]) * 20))) : Math.min(8e3, Math.max(2e3, Math.floor((domX[1] - domX[0]) * 50)));
-  const dx = (domX[1] - domX[0]) / MUESTRAS;
+  const MUESTRAS2 = interactivo ? Math.min(2e3, Math.max(1e3, Math.floor((domX[1] - domX[0]) * 20))) : Math.min(8e3, Math.max(2e3, Math.floor((domX[1] - domX[0]) * 50)));
+  const dx = (domX[1] - domX[0]) / MUESTRAS2;
   const SALTO_PX_MAX = 8;
-  const PROF_MAX = interactivo ? 12 : 18;
+  const PROF_MAX3 = interactivo ? 12 : 18;
   const Hmundo = domY[1] - domY[0];
   const yTop = domY[1] + Hmundo;
   const yBot = domY[0] - Hmundo;
@@ -46205,7 +47086,7 @@ function muestrearFuncion(p) {
     const fueraMismoLado = ya > domY[1] && yb > domY[1] || ya < domY[0] && yb < domY[0];
     const poloEnTramo = asintotasMismaRama.some((q) => q > Math.min(xa, xb) && q < Math.max(xa, xb));
     const cambioSigno = finA && finB && ya * yb < 0;
-    const refinar = prof < PROF_MAX && (poloEnTramo || cambioSigno || saltoPx > SALTO_PX_MAX && !fueraMismoLado);
+    const refinar = prof < PROF_MAX3 && (poloEnTramo || cambioSigno || saltoPx > SALTO_PX_MAX && !fueraMismoLado);
     if (refinar) {
       const xm = (xa + xb) / 2;
       const ym = evalX(xm);
@@ -46270,7 +47151,7 @@ function muestrearFuncion(p) {
   let y0 = evalX(x0);
   if (Number.isFinite(y0))
     emit(x0, y0);
-  for (let i2 = 1; i2 <= MUESTRAS; i2++) {
+  for (let i2 = 1; i2 <= MUESTRAS2; i2++) {
     const x1 = domX[0] + i2 * dx;
     const y1 = evalX(x1);
     tramo(x0, y0, x1, y1, 0);
@@ -46462,7 +47343,7 @@ var GraphEngine = class {
             ticks.push(parseFloat(t.toPrecision(10)));
           return ticks;
         };
-        const formatearNumero = (n) => {
+        const formatearNumero2 = (n) => {
           if (Math.abs(n) < 1e-9)
             return "0";
           if (Math.abs(n) >= 1e3 || Math.abs(n) < 0.01 && n !== 0)
@@ -46571,10 +47452,10 @@ var GraphEngine = class {
           ctxCross.font = "11px monospace";
           const tx = xPix + (aLaDerecha ? 5 : -5);
           ctxCross.fillStyle = "rgba(200, 210, 255, 0.9)";
-          ctxCross.fillText(`x = ${formatearNumero(xMath)}`, tx, 4);
+          ctxCross.fillText(`x = ${formatearNumero2(xMath)}`, tx, 4);
           let textoY;
           if (finita) {
-            textoY = `f(x) = ${formatearNumero(yMath)}`;
+            textoY = `f(x) = ${formatearNumero2(yMath)}`;
           } else if (yMath === Infinity || yMath === -Infinity) {
             if (esDesbordamiento(xMath)) {
               textoY = yMath < 0 ? "f(x) < -10\xB3\u2070\u2078" : "f(x) > 10\xB3\u2070\u2078";
@@ -46600,7 +47481,7 @@ var GraphEngine = class {
                 ctxCross,
                 px,
                 pyN,
-                `(${formatearNumero(p.x)}, ${formatearNumero(p.y)})`,
+                `(${formatearNumero2(p.x)}, ${formatearNumero2(p.y)})`,
                 colocadas
               );
             }
@@ -46701,7 +47582,7 @@ var GraphEngine = class {
             ctx2d.moveTo(px, ceroY - 3);
             ctx2d.lineTo(px, ceroY + 3);
             ctx2d.stroke();
-            ctx2d.fillText(formatearNumero(x), px, ceroY + 5);
+            ctx2d.fillText(formatearNumero2(x), px, ceroY + 5);
           }
           ctx2d.textAlign = "right";
           ctx2d.textBaseline = "middle";
@@ -46717,7 +47598,7 @@ var GraphEngine = class {
             ctx2d.moveTo(ceroX - 3, py);
             ctx2d.lineTo(ceroX + 3, py);
             ctx2d.stroke();
-            ctx2d.fillText(formatearNumero(y), ceroX - 6, py);
+            ctx2d.fillText(formatearNumero2(y), ceroX - 6, py);
           }
           dibujarPuntosNotables();
           dibujarCrosshair(cursorPx);
@@ -46904,8 +47785,8 @@ var GraphEngine = class {
         }, { passive: false });
         canvasGL.tabIndex = 0;
         canvasGL.style.outline = "none";
-        const VEL_PAN_PX = 175;
-        const VEL_ZOOM_POR_SEG = 2.5;
+        const VEL_PAN_PX2 = 175;
+        const VEL_ZOOM_POR_SEG2 = 2.5;
         const MAPA_TECLAS = {
           // tecla → dirección
           w: "w",
@@ -46943,11 +47824,11 @@ var GraphEngine = class {
             if (dt > 0 && (dirX !== 0 || dirZoom !== 0)) {
               let cambiado = false;
               if (dirX !== 0) {
-                const delta = dirX * VEL_PAN_PX * dt * ((domX[1] - domX[0]) / W);
+                const delta = dirX * VEL_PAN_PX2 * dt * ((domX[1] - domX[0]) / W);
                 if (avanzarRail(delta))
                   cambiado = true;
               }
-              const factor = dirZoom !== 0 ? Math.pow(VEL_ZOOM_POR_SEG, dirZoom * dt) : 1;
+              const factor = dirZoom !== 0 ? Math.pow(VEL_ZOOM_POR_SEG2, dirZoom * dt) : 1;
               if (dirZoom !== 0)
                 cambiado = true;
               if (cambiado) {
@@ -46967,9 +47848,9 @@ var GraphEngine = class {
             if (teclasPan.has("s"))
               my -= 1;
             if ((mx !== 0 || my !== 0) && dt > 0) {
-              const norm2 = Math.hypot(mx, my);
-              const desX = mx / norm2 * VEL_PAN_PX * dt * ((domX[1] - domX[0]) / W);
-              const desY = my / norm2 * VEL_PAN_PX * dt * ((domY[1] - domY[0]) / H);
+              const norm3 = Math.hypot(mx, my);
+              const desX = mx / norm3 * VEL_PAN_PX2 * dt * ((domX[1] - domX[0]) / W);
+              const desY = my / norm3 * VEL_PAN_PX2 * dt * ((domY[1] - domY[0]) / H);
               domX = [domX[0] + desX, domX[1] + desX];
               domY = [domY[0] + desY, domY[1] + desY];
               dibujarOverlay();
@@ -47006,12 +47887,13 @@ var GraphEngine = class {
           if (rafTeclado !== null)
             cancelAnimationFrame(rafTeclado);
         });
-        const btnFijar = wrapGrafica.createDiv({ text: "\u2316" });
+        const btnFijar = wrapGrafica.createDiv();
         btnFijar.setAttribute("title", "Fijar la vista al punto del crosshair");
         const estiloBtnFijar = (activo) => {
           btnFijar.style.cssText = "position:absolute; bottom:8px; left:8px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; border-radius:50%; cursor:pointer; user-select:none; z-index:5; " + (activo ? "color:rgba(20,20,20,0.95); background:rgba(255,170,60,0.95); border:1px solid rgba(255,170,60,0.95);" : "color:rgba(255,200,130,0.95); background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5);");
         };
         estiloBtnFijar(false);
+        btnFijar.createSpan({ text: "\u2316" }).style.cssText = "line-height:1; transform:translateY(-1px);";
         if (degenerada)
           btnFijar.style.display = "none";
         btnFijar.addEventListener("click", () => {
@@ -47036,9 +47918,10 @@ var GraphEngine = class {
       const msgRaices = estadoRaices === "infinitas" ? "Ra\xEDces: infinitas" : estadoRaices === "demasiadas" ? "Ra\xEDces: demasiadas para mostrar" : null;
       const msgVertices = estadoVertices === "infinitas" ? "V\xE9rtices: infinitos" : estadoVertices === "demasiadas" ? "V\xE9rtices: demasiados para mostrar" : null;
       if (msgRaices || msgVertices) {
-        const btnResumen = wrapGrafica.createDiv({ text: "\u24D8" });
+        const btnResumen = wrapGrafica.createDiv();
         btnResumen.setAttribute("title", "Resumen de puntos notables");
         btnResumen.style.cssText = "position:absolute; bottom:8px; right:8px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; color:rgba(255,200,130,0.95); background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5); border-radius:50%; cursor:pointer; user-select:none; z-index:5;";
+        btnResumen.createSpan({ text: "\u24D8" }).style.cssText = "line-height:1; transform:translateY(-1px);";
         const popResumen = wrapGrafica.createDiv();
         popResumen.style.cssText = "position:absolute; bottom:36px; right:8px; display:none; max-width:230px; padding:8px 10px; box-sizing:border-box; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.12); border-radius:6px; font-size:11px; line-height:1.5; white-space:nowrap; color:rgba(230,230,235,0.92); z-index:5; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
         if (msgRaices)
@@ -47091,654 +47974,4100 @@ var GraphEngine = class {
   }
 };
 
-// src/engines/obs-system/SystemEngine.ts
-var import_obsidian2 = require("obsidian");
+// src/host-obsidian/MotorExperimental.ts
+var import_obsidian3 = require("obsidian");
 
-// src/sistemas-latex.ts
-function parsearSistemaCases(source) {
-  var _a;
-  const texto = source.trim();
-  const matchCases = texto.match(/^\\begin\{cases\}([\s\S]*)\\end\{cases\}$/);
-  if (!matchCases) {
-    return {
-      ecuaciones: texto.split("\n").map((l) => l.trim()).filter(Boolean),
-      espacios: [],
-      usaCases: false
-    };
-  }
-  const partes = matchCases[1].trim().split(/\\\\(?:\s*\[([^\]]+)\])?/g);
-  const ecuaciones = [];
-  const espacios = [];
-  for (let i2 = 0; i2 < partes.length; i2 += 2) {
-    const ecuacion = quitarLlavesExternas(partes[i2]);
-    if (!ecuacion)
-      continue;
-    ecuaciones.push(ecuacion);
-    if (i2 + 1 < partes.length) {
-      const espacio = (_a = partes[i2 + 1]) == null ? void 0 : _a.trim();
-      espacios.push(espacio ? `[${espacio}]` : "[1.5ex]");
-    }
-  }
-  return { ecuaciones, espacios, usaCases: true };
-}
-function sistemaCasesALatex(ecuaciones, espacios) {
-  const lineas = ecuaciones.map((ec) => ecuacionALatex(ec, true));
-  const contenido = lineas.map(
-    (linea, i2) => {
-      var _a;
-      return i2 < lineas.length - 1 ? linea + "\\\\" + ((_a = espacios[i2]) != null ? _a : "[1.5ex]") : linea;
-    }
-  ).join("");
-  return `\\begin{cases}\\begin{aligned}${contenido}\\end{aligned}\\end{cases}`;
-}
-
-// src/algebra-lineal.ts
-function parsearEcuacionLineal(ecuacion) {
-  var _a;
-  try {
-    const partes = ecuacion.split("=");
-    if (partes.length !== 2)
-      return null;
-    const lhs = normalizarEntrada(partes[0].trim());
-    const rhs = normalizarEntrada(partes[1].trim());
-    const exprDiferencia = `(${lhs})-(${rhs})`;
-    const nodo = parse2(exprDiferencia);
-    const variables = /* @__PURE__ */ new Set();
-    nodo.traverse((n) => {
-      if (n.type !== "SymbolNode")
-        return;
-      try {
-        evaluate(n.name);
-      } catch (e3) {
-        variables.add(n.name);
-      }
-    });
-    const nombresVars = Array.from(variables).sort();
-    const scopeCero = Object.fromEntries(
-      nombresVars.map((v) => [v, 0])
-    );
-    const constante = evaluate(exprDiferencia, scopeCero);
-    if (!isFinite(constante))
-      return null;
-    const coefs = {};
-    for (const v of nombresVars) {
-      const valorConUno = evaluate(exprDiferencia, { ...scopeCero, [v]: 1 });
-      if (!isFinite(valorConUno))
-        return null;
-      const coef = valorConUno - constante;
-      if (Math.abs(coef) > 1e-10)
-        coefs[v] = coef;
-    }
-    for (const v of nombresVars) {
-      const valorConDos = evaluate(exprDiferencia, { ...scopeCero, [v]: 2 });
-      const esperado = constante + 2 * ((_a = coefs[v]) != null ? _a : 0);
-      if (!isFinite(valorConDos) || Math.abs(valorConDos - esperado) > 1e-8)
-        return null;
-    }
-    return { vars: coefs, rhs: -constante };
-  } catch (e3) {
-    return null;
-  }
-}
-function rangoMatriz(matrizOriginal) {
-  var _a, _b;
-  const m = matrizOriginal.map((fila) => fila.slice());
-  const filas = m.length;
-  const cols = (_b = (_a = m[0]) == null ? void 0 : _a.length) != null ? _b : 0;
-  let rango = 0;
-  for (let col = 0; col < cols && rango < filas; col++) {
-    let maxFila = rango;
-    for (let f = rango + 1; f < filas; f++) {
-      if (Math.abs(m[f][col]) > Math.abs(m[maxFila][col]))
-        maxFila = f;
-    }
-    if (Math.abs(m[maxFila][col]) < 1e-10)
-      continue;
-    [m[rango], m[maxFila]] = [m[maxFila], m[rango]];
-    const pivote = m[rango][col];
-    for (let j = col; j < cols; j++)
-      m[rango][j] /= pivote;
-    for (let f = 0; f < filas; f++) {
-      if (f === rango)
-        continue;
-      const factor = m[f][col];
-      for (let j = col; j < cols; j++)
-        m[f][j] -= factor * m[rango][j];
-    }
-    rango++;
-  }
-  return rango;
-}
-function resolverSistema(ecuaciones) {
-  const parseadas = ecuaciones.map(parsearEcuacionLineal);
-  if (parseadas.some((p) => p === null))
-    return "No se pudo parsear una o mas ecuaciones";
-  const todasVars = Array.from(
-    new Set(parseadas.flatMap((p) => Object.keys(p.vars)))
-  ).sort();
-  const numVars = todasVars.length;
-  const matrizAumentada = parseadas.map((p) => [
-    ...todasVars.map((v) => {
-      var _a;
-      return (_a = p.vars[v]) != null ? _a : 0;
-    }),
-    p.rhs
-  ]);
-  const matrizCoefs = matrizAumentada.map((fila) => fila.slice(0, numVars));
-  const rangoCoefs = rangoMatriz(matrizCoefs);
-  const rangoAumentada = rangoMatriz(matrizAumentada);
-  if (rangoAumentada > rangoCoefs)
-    return "Sistema inconsistente: no tiene solucion";
-  if (numVars === 0)
-    return "Sistema consistente y dependiente: todas las ecuaciones son identidades; hay infinitas soluciones";
-  if (rangoCoefs < numVars)
-    return "Sistema consistente y dependiente: infinitas soluciones";
-  const filasIndep = [];
-  for (const p of parseadas) {
-    const fila = [...todasVars.map((v) => {
-      var _a;
-      return (_a = p.vars[v]) != null ? _a : 0;
-    }), p.rhs];
-    const candidato = [...filasIndep.map((f) => f.slice(0, numVars)), fila.slice(0, numVars)];
-    if (rangoMatriz(candidato) > filasIndep.length)
-      filasIndep.push(fila);
-    if (filasIndep.length === numVars)
-      break;
-  }
-  const m = filasIndep;
-  for (let col = 0; col < numVars; col++) {
-    let maxFila = col;
-    for (let f = col + 1; f < numVars; f++) {
-      if (Math.abs(m[f][col]) > Math.abs(m[maxFila][col]))
-        maxFila = f;
-    }
-    [m[col], m[maxFila]] = [m[maxFila], m[col]];
-    if (Math.abs(m[col][col]) < 1e-10)
-      return "El sistema no tiene solucion unica";
-    for (let f = col + 1; f < numVars; f++) {
-      const factor = m[f][col] / m[col][col];
-      for (let j = col; j <= numVars; j++)
-        m[f][j] -= factor * m[col][j];
-    }
-  }
-  const solucion = new Array(numVars).fill(0);
-  for (let i2 = numVars - 1; i2 >= 0; i2--) {
-    solucion[i2] = m[i2][numVars];
-    for (let j = i2 + 1; j < numVars; j++)
-      solucion[i2] -= m[i2][j] * solucion[j];
-    solucion[i2] /= m[i2][i2];
-  }
-  return Object.fromEntries(todasVars.map((v, i2) => [v, solucion[i2]]));
-}
-
-// src/solver/ecuacion.ts
-function esAfin(evaluar, vars) {
-  if (vars.length === 0)
-    return true;
-  const cero = {};
-  for (const v of vars)
-    cero[v] = 0;
-  const c = evaluar(cero);
-  if (!Number.isFinite(c))
-    return false;
-  const coef = {};
-  for (const v of vars) {
-    const f1 = evaluar({ ...cero, [v]: 1 });
-    if (!Number.isFinite(f1))
-      return false;
-    coef[v] = f1 - c;
-  }
-  const patrones = [2, -1, 3, 0.5, -2];
-  for (const base of patrones) {
-    const punto = {};
-    vars.forEach((v, i2) => {
-      punto[v] = base * (i2 + 1);
-    });
-    const real = evaluar(punto);
-    let esperado = c;
-    for (const v of vars)
-      esperado += coef[v] * punto[v];
-    if (!Number.isFinite(real) || Math.abs(real - esperado) > 1e-7 * (1 + Math.abs(esperado)))
-      return false;
-  }
-  return true;
-}
-function parsearEcuacion(ecuacion) {
-  try {
-    const partes = ecuacion.split("=");
-    if (partes.length !== 2)
-      return null;
-    const lhs = normalizarEntrada(partes[0].trim());
-    const rhs = normalizarEntrada(partes[1].trim());
-    const exprDiferencia = `(${lhs})-(${rhs})`;
-    const nodo = parse2(exprDiferencia);
-    const variables = /* @__PURE__ */ new Set();
-    nodo.traverse((n) => {
-      if (n.type !== "SymbolNode")
-        return;
-      try {
-        evaluate(n.name);
-      } catch (e3) {
-        variables.add(n.name);
-      }
-    });
-    const vars = Array.from(variables).sort();
-    const evaluarRaw = compilarExpresion(exprDiferencia);
-    const evaluar = (scope) => {
-      const v = evaluarRaw(scope);
-      return typeof v === "number" ? v : NaN;
-    };
-    return {
-      variables: vars,
-      esLineal: esAfin(evaluar, vars),
-      evaluar
-    };
-  } catch (e3) {
-    return null;
-  }
-}
-
-// src/solver/solverNumerico.ts
-function interseccionesNumericas(Fs, xMin, xMax, yMin, yMax, pasos = 28) {
-  if (Fs.length < 2)
-    return [];
-  const F1 = Fs[0];
-  const F2 = Fs[1];
-  const resto = Fs.slice(2);
-  const soluciones = [];
-  const TOL = 1e-9;
-  const H = 1e-6;
-  const agregar = (x, y) => {
-    if (x < xMin - 1e-9 || x > xMax + 1e-9 || y < yMin - 1e-9 || y > yMax + 1e-9)
-      return;
-    for (const F of resto)
-      if (Math.abs(F(x, y)) > 1e-4)
-        return;
-    if (soluciones.some((p) => Math.hypot(p.x - x, p.y - y) < 1e-4))
-      return;
-    soluciones.push({ x, y });
+// src/motor/scene/viewport-utils.ts
+function crearViewport(domX, domY, anchoPx, altoPx, dpr) {
+  return {
+    domX: [domX[0], domX[1]],
+    domY: [domY[0], domY[1]],
+    anchoPx,
+    altoPx,
+    dpr
   };
-  const dx = (xMax - xMin) / pasos;
-  const dy = (yMax - yMin) / pasos;
-  for (let i2 = 0; i2 <= pasos; i2++) {
-    for (let j = 0; j <= pasos; j++) {
-      let x = xMin + i2 * dx;
-      let y = yMin + j * dy;
-      let converge = false;
-      for (let it = 0; it < 40; it++) {
-        const f1 = F1(x, y);
-        const f2 = F2(x, y);
-        if (!Number.isFinite(f1) || !Number.isFinite(f2))
-          break;
-        if (Math.abs(f1) < TOL && Math.abs(f2) < TOL) {
-          converge = true;
-          break;
-        }
-        const f1x = (F1(x + H, y) - F1(x - H, y)) / (2 * H);
-        const f1y = (F1(x, y + H) - F1(x, y - H)) / (2 * H);
-        const f2x = (F2(x + H, y) - F2(x - H, y)) / (2 * H);
-        const f2y = (F2(x, y + H) - F2(x, y - H)) / (2 * H);
-        const det2 = f1x * f2y - f1y * f2x;
-        if (!Number.isFinite(det2) || Math.abs(det2) < 1e-12)
-          break;
-        const pasoX = (f1 * f2y - f2 * f1y) / det2;
-        const pasoY = (f2 * f1x - f1 * f2x) / det2;
-        x -= pasoX;
-        y -= pasoY;
-        if (!Number.isFinite(x) || !Number.isFinite(y))
-          break;
-      }
-      if (converge)
-        agregar(x, y);
-    }
-  }
-  return soluciones;
+}
+function aPantallaX(vp, x) {
+  return (x - vp.domX[0]) / (vp.domX[1] - vp.domX[0]) * vp.anchoPx;
+}
+function aPantallaY(vp, y) {
+  return vp.altoPx - (y - vp.domY[0]) / (vp.domY[1] - vp.domY[0]) * vp.altoPx;
+}
+function aMundoX(vp, px) {
+  return vp.domX[0] + px / vp.anchoPx * (vp.domX[1] - vp.domX[0]);
 }
 
-// src/render/marchingSquares.ts
-function proyectarSobreCurva(F, x, y, h) {
-  const f0 = Math.abs(F(x, y));
-  for (let it = 0; it < 3; it++) {
-    const f = F(x, y);
-    if (!Number.isFinite(f))
-      return null;
-    const gx = (F(x + h, y) - F(x - h, y)) / (2 * h);
-    const gy = (F(x, y + h) - F(x, y - h)) / (2 * h);
-    const g2 = gx * gx + gy * gy;
-    if (!Number.isFinite(g2) || g2 < 1e-30)
-      return null;
-    const paso = f / g2;
-    x -= paso * gx;
-    y -= paso * gy;
-  }
-  if (!Number.isFinite(x) || !Number.isFinite(y))
-    return null;
-  const ff = Math.abs(F(x, y));
-  if (!Number.isFinite(ff) || ff > f0 + 1e-9)
-    return null;
-  return [x, y];
+// src/motor/interaction/Camara.ts
+var DOM_Y_DEFECTO = [-7, 7];
+var FACTOR_ZOOM_MUESCA = 1.05;
+var TAU_ZOOM_MS = 90;
+var LOG_ZOOM_MINIMO = 1e-4;
+function centroCarrilAcotado(centro, semirrango) {
+  const max3 = semirrango * 2 ** 46;
+  return Math.max(-max3, Math.min(max3, centro));
 }
-function proyectarVertice(F, x, y, h, maxMov2) {
-  const p = proyectarSobreCurva(F, x, y, h);
-  if (!p)
-    return [x, y];
-  const dx = p[0] - x, dy = p[1] - y;
-  if (dx * dx + dy * dy > maxMov2)
-    return [x, y];
-  return p;
-}
-function dist2PuntoRecta(px, py, ax, ay, bx, by) {
-  const dx = bx - ax, dy = by - ay;
-  const len2 = dx * dx + dy * dy;
-  if (len2 < 1e-30) {
-    const ex = px - ax, ey = py - ay;
-    return ex * ex + ey * ey;
-  }
-  const cross2 = (px - ax) * dy - (py - ay) * dx;
-  return cross2 * cross2 / len2;
-}
-function refinarCuerda(F, ax, ay, bx, by, tol2, h, prof, out) {
-  if (prof <= 0)
-    return;
-  const mx = (ax + bx) / 2, my = (ay + by) / 2;
-  const p = proyectarSobreCurva(F, mx, my, h);
-  if (!p)
-    return;
-  const [px, py] = p;
-  const exc = (px - mx) * (px - mx) + (py - my) * (py - my);
-  const chord2 = (bx - ax) * (bx - ax) + (by - ay) * (by - ay);
-  if (exc > 0.25 * chord2)
-    return;
-  if (dist2PuntoRecta(px, py, ax, ay, bx, by) <= tol2)
-    return;
-  refinarCuerda(F, ax, ay, px, py, tol2, h, prof - 1, out);
-  out.push(px, py);
-  refinarCuerda(F, px, py, bx, by, tol2, h, prof - 1, out);
-}
-function contorno(F, xMin, xMax, yMin, yMax, cols, rows, tolMundo = 0, profMax = 6, maxNivelCelda = 0) {
-  const segmentos = [];
-  const dx = (xMax - xMin) / cols;
-  const dy = (yMax - yMin) / rows;
-  const refinar = tolMundo > 0;
-  const tol2 = tolMundo * tolMundo;
-  const hGrad = Math.min(Math.abs(dx), Math.abs(dy)) * 1e-3 || 1e-9;
-  const maxMov2 = Math.pow(0.5 * Math.max(Math.abs(dx), Math.abs(dy)), 2);
-  if (!(dx > 0) || !(dy > 0))
-    return segmentos;
-  const iMin = Math.floor(xMin / dx);
-  const jMin = Math.floor(yMin / dy);
-  const nx = Math.max(1, Math.ceil(xMax / dx) - iMin);
-  const ny = Math.max(1, Math.ceil(yMax / dy) - jMin);
-  const xs = [];
-  const ys = [];
-  for (let i2 = 0; i2 <= nx; i2++)
-    xs[i2] = (iMin + i2) * dx;
-  for (let j = 0; j <= ny; j++)
-    ys[j] = (jMin + j) * dy;
-  const val = [];
-  for (let i2 = 0; i2 <= nx; i2++) {
-    val[i2] = [];
-    for (let j = 0; j <= ny; j++)
-      val[i2][j] = F(xs[i2], ys[j]);
-  }
-  const cruceDiscontinuo = (xa, ya, va, xb, yb, vb) => {
-    if (va * vb >= 0)
-      return false;
-    const minMag = Math.min(Math.abs(va), Math.abs(vb));
-    const t = va / (va - vb);
-    const fp = F(xa + t * (xb - xa), ya + t * (yb - ya));
-    if (Number.isFinite(fp) && Math.abs(fp) < 0.25 * minMag)
-      return false;
-    let ax = xa, ay = ya, fa = va, bx = xb, by = yb, fb = vb;
-    const magIni = Math.min(Math.abs(va), Math.abs(vb));
-    for (let k = 0; k < 24; k++) {
-      const mx = (ax + bx) / 2, my = (ay + by) / 2;
-      const fm = F(mx, my);
-      if (!Number.isFinite(fm))
-        return true;
-      if (fa * fm <= 0) {
-        bx = mx;
-        by = my;
-        fb = fm;
+var Camara = class {
+  constructor(canvas, altoPx, cb) {
+    this.canvas = canvas;
+    this.cb = cb;
+    this.domX = [-8.3453, 8.3453];
+    this.domY = [...DOM_Y_DEFECTO];
+    // Semirrango vertical de la vista BASE: el del arranque y al que vuelve `restaurarVista`.
+    // Es DOM_Y_DEFECTO salvo que el autoencuadre lo estreche (`fijarEncuadreBase`). Si el reset
+    // devolviera al [-7,7] fijo, en un bloque autoencuadrado la tecla de restaurar ALEJARÍA la
+    // curva hasta el garabato del que veníamos: la vista base del bloque es la encuadrada.
+    this.semiYBase = (DOM_Y_DEFECTO[1] - DOM_Y_DEFECTO[0]) / 2;
+    this.anchoPx = 768;
+    this.arrastrando = false;
+    this.ultimo = { x: 0, y: 0 };
+    this.curX = null;
+    this.curY = null;
+    // ── Animación de vista (botones + / − y 🏠) ────────────────────────────────────────────
+    // UN solo bucle rAF para las dos, y EXCLUYENTES entre sí: son destinos incompatibles (el
+    // zoom escala donde estés; el regreso vuelve a la vista base) y dos bucles pisándose darían
+    // un movimiento errático. Cualquier gesto del usuario (arrastre, rueda) las cancela: quien
+    // toca la vista manda sobre lo que la animación creía que quería.
+    this.rafAnim = null;
+    this.tAnimPrev = 0;
+    // Zoom pendiente por BOTÓN, en el LOGARITMO del factor (no en el factor): el zoom es
+    // multiplicativo (dos muescas = factor²), así que en logaritmo es una SUMA → pulsar dos veces
+    // seguidas ACUMULA (log f + log f) y la animación en curso solo extiende su recorrido, sin
+    // saltos ni reinicios.
+    this.logZoomPendiente = 0;
+    // ¿La animación en curso es el regreso a la vista base (🏠)?
+    this.volviendoAInicio = false;
+    this.limpiezas = [];
+    this.altoPx = altoPx;
+    this.dpr = Math.ceil(window.devicePixelRatio || 1);
+    const onDown = (e3) => {
+      this.cancelarAnimacion();
+      this.arrastrando = true;
+      this.ultimo = { x: e3.offsetX, y: e3.offsetY };
+      this.curX = null;
+      this.curY = null;
+      this.canvas.setPointerCapture(e3.pointerId);
+      this.cb.onCursor();
+    };
+    const onMove = (e3) => {
+      if (this.arrastrando) {
+        const dx = e3.offsetX - this.ultimo.x;
+        const dy = e3.offsetY - this.ultimo.y;
+        this.ultimo = { x: e3.offsetX, y: e3.offsetY };
+        const rx = (this.domX[1] - this.domX[0]) / this.anchoPx;
+        const ry = (this.domY[1] - this.domY[0]) / this.altoPx;
+        this.domX = [this.domX[0] - dx * rx, this.domX[1] - dx * rx];
+        this.domY = [this.domY[0] + dy * ry, this.domY[1] + dy * ry];
+        this.cb.onViewport();
       } else {
-        ax = mx;
-        ay = my;
-        fa = fm;
+        this.curX = e3.offsetX;
+        this.curY = e3.offsetY;
+        this.cb.onCursor();
       }
-    }
-    const magFin = Math.min(Math.abs(fa), Math.abs(fb));
-    return magFin > magIni;
-  };
-  const interp = (xa, ya, va, xb, yb, vb) => {
-    const t0 = va / (va - vb);
-    let x = xa + t0 * (xb - xa), y = ya + t0 * (yb - ya);
-    const f0 = F(x, y);
-    const minMag = Math.min(Math.abs(va), Math.abs(vb));
-    if (!Number.isFinite(f0) || Math.abs(f0) <= 0.25 * minMag)
-      return [x, y];
-    let lo = 0, hi = 1, flo = va, t = t0;
-    for (let k = 0; k < 40; k++) {
-      x = xa + t * (xb - xa);
-      y = ya + t * (yb - ya);
-      const fm = F(x, y);
-      if (!Number.isFinite(fm))
-        break;
-      if (Math.abs(fm) <= 1e-9)
-        break;
-      if (flo * fm < 0)
-        hi = t;
-      else {
-        lo = t;
-        flo = fm;
+    };
+    const onUp = (e3) => {
+      this.arrastrando = false;
+      this.canvas.releasePointerCapture(e3.pointerId);
+    };
+    const onLeave = () => {
+      this.curX = null;
+      this.curY = null;
+      this.cb.onCursor();
+    };
+    const onWheel = (e3) => {
+      e3.preventDefault();
+      this.cancelarAnimacion();
+      const factor = e3.deltaY > 0 ? FACTOR_ZOOM_MUESCA : 1 / FACTOR_ZOOM_MUESCA;
+      const mx = this.domX[0] + e3.offsetX / this.anchoPx * (this.domX[1] - this.domX[0]);
+      const my = this.domY[1] - e3.offsetY / this.altoPx * (this.domY[1] - this.domY[0]);
+      this.domX = [mx + (this.domX[0] - mx) * factor, mx + (this.domX[1] - mx) * factor];
+      this.domY = [my + (this.domY[0] - my) * factor, my + (this.domY[1] - my) * factor];
+      this.cb.onViewport();
+    };
+    canvas.addEventListener("pointerdown", onDown);
+    canvas.addEventListener("pointermove", onMove);
+    canvas.addEventListener("pointerup", onUp);
+    canvas.addEventListener("pointerleave", onLeave);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    this.limpiezas.push(
+      () => canvas.removeEventListener("pointerdown", onDown),
+      () => canvas.removeEventListener("pointermove", onMove),
+      () => canvas.removeEventListener("pointerup", onUp),
+      () => canvas.removeEventListener("pointerleave", onLeave),
+      () => canvas.removeEventListener("wheel", onWheel)
+    );
+  }
+  /** Foto inmutable del estado actual de cámara. */
+  viewport() {
+    return crearViewport(this.domX, this.domY, this.anchoPx, this.altoPx, this.dpr);
+  }
+  /** Posición X del cursor en px CSS, o null si está fuera / arrastrando. */
+  cursorPx() {
+    return this.curX;
+  }
+  /** Posición Y del cursor en px CSS, o null si está fuera / arrastrando. */
+  cursorPy() {
+    return this.curY;
+  }
+  /**
+   * Restaura la vista a los dominios por defecto: Y = DOM_Y_DEFECTO y X centrada
+   * en el origen con celdas 1:1 (mismo cálculo que `redimensionar`). Deshace
+   * cualquier pan/zoom acumulado. Mutador pasivo: no emite onViewport.
+   */
+  restaurarVista() {
+    this.domY = [-this.semiYBase, this.semiYBase];
+    const semiX = this.semiYBase * (this.anchoPx / this.altoPx);
+    this.domX = [-semiX, semiX];
+  }
+  /**
+   * Fija la vista BASE del bloque a [−semiY, semiY] (centrada en el ORIGEN, celdas 1:1) y
+   * la aplica. Solo el AUTOENCUADRE la llama, una vez, en el primer render: escalar sin
+   * trasladar mantiene los ejes en cuadro. Mutador pasivo (no emite onViewport): quien la
+   * llama recomputa y pinta.
+   */
+  fijarEncuadreBase(semiY) {
+    this.semiYBase = semiY;
+    this.restaurarVista();
+  }
+  /**
+   * Zoom de UNA muesca de rueda anclado al CENTRO de la vista, no al cursor (botones ± del
+   * plano, al estilo de GeoGebra/Desmos): el punto que hay bajo el centro se queda donde está
+   * y el mundo se acerca o se aleja a su alrededor. `acercar=true` → misma escala que una
+   * muesca de rueda hacia arriba; ambos sentidos son inversos EXACTOS (ver FACTOR_ZOOM_MUESCA),
+   * así que + y − seguidos devuelven la vista de partida.
+   *
+   * SUAVE, no instantáneo: el salto de una muesca aplicado de golpe se lee como un parpadeo
+   * (nada guía al ojo entre la vista vieja y la nueva; con la rueda no pasa porque la sucesión
+   * de muescas ya es continua). Se reparte en varios frames con un suavizado EXPONENCIAL
+   * (avanza una fracción fija de lo que queda por frame → arranque rápido, frenada progresiva,
+   * y aterriza sin rebote sea cual sea el número de clics acumulados).
+   *
+   * Mutador ACTIVO (a diferencia de `panear`/`enfocarCarril`): emite onViewport en cada frame,
+   * porque el clic de un botón no es parte de un gesto con su propio bucle de repintado. El host
+   * lo trata como cualquier pan/zoom: pasada interactiva por frame + final al detenerse.
+   */
+  zoomCentrado(acercar) {
+    const factor = acercar ? 1 / FACTOR_ZOOM_MUESCA : FACTOR_ZOOM_MUESCA;
+    this.volviendoAInicio = false;
+    this.logZoomPendiente += Math.log(factor);
+    this.arrancarAnimacion();
+  }
+  /**
+   * Regreso SUAVE a la vista base del bloque (botón 🏠): deshace el zoom Y el pan acumulados
+   * —la vista base está centrada en el origen (§ `restaurarVista`)—, con el mismo perfil
+   * exponencial que los botones ± : rápido al principio, frenando cada vez más, hasta clavar
+   * la posición EXACTA (la última fracción se salda de golpe; ver `pasoAnimacion`).
+   *
+   * Las dos magnitudes se interpolan como cada una manda: el CENTRO, linealmente (es una
+   * traslación); el SEMIRRANGO, geométricamente (el zoom es multiplicativo: ir de 0.5 a 8 debe
+   * "sentirse" igual de largo que de 8 a 128). Interpolar la escala en lineal daría un final
+   * arrastrado y un principio de golpe.
+   */
+  volverAVistaBase() {
+    this.logZoomPendiente = 0;
+    this.volviendoAInicio = true;
+    this.arrancarAnimacion();
+  }
+  /** Corta cualquier animación de vista en curso: un gesto del usuario manda sobre ella. */
+  cancelarAnimacion() {
+    if (this.rafAnim !== null)
+      cancelAnimationFrame(this.rafAnim);
+    this.rafAnim = null;
+    this.logZoomPendiente = 0;
+    this.volviendoAInicio = false;
+  }
+  arrancarAnimacion() {
+    if (this.rafAnim !== null)
+      return;
+    this.tAnimPrev = performance.now();
+    const paso = (t) => {
+      const dt = Math.min(100, t - this.tAnimPrev);
+      this.tAnimPrev = t;
+      const avance = 1 - Math.exp(-dt / TAU_ZOOM_MS);
+      const sigue = this.pasoAnimacion(avance);
+      this.cb.onViewport();
+      this.rafAnim = sigue ? requestAnimationFrame(paso) : null;
+      if (!sigue)
+        this.volviendoAInicio = false;
+    };
+    this.rafAnim = requestAnimationFrame(paso);
+  }
+  /** Un frame de la animación activa. Devuelve `true` si aún queda camino. */
+  pasoAnimacion(avance) {
+    if (this.volviendoAInicio) {
+      const semiYObj = this.semiYBase;
+      const cx = (this.domX[0] + this.domX[1]) / 2;
+      const cy = (this.domY[0] + this.domY[1]) / 2;
+      const semiX = (this.domX[1] - this.domX[0]) / 2;
+      const semiY = (this.domY[1] - this.domY[0]) / 2;
+      const logRestante = Math.log(semiYObj / semiY);
+      const centroLejos = Math.max(Math.abs(cx), Math.abs(cy)) > semiYObj * 1e-4;
+      if (Math.abs(logRestante) < LOG_ZOOM_MINIMO && !centroLejos) {
+        this.restaurarVista();
+        return false;
       }
-      t = (lo + hi) / 2;
+      const f = Math.exp(logRestante * avance);
+      const ncx = cx * (1 - avance), ncy = cy * (1 - avance);
+      const nsemiX = semiX * f, nsemiY = semiY * f;
+      this.domX = [ncx - nsemiX, ncx + nsemiX];
+      this.domY = [ncy - nsemiY, ncy + nsemiY];
+      return true;
     }
-    return [x, y];
+    let log4 = this.logZoomPendiente * avance;
+    if (Math.abs(this.logZoomPendiente - log4) < LOG_ZOOM_MINIMO)
+      log4 = this.logZoomPendiente;
+    this.logZoomPendiente -= log4;
+    this.aplicarZoomCentrado(Math.exp(log4));
+    return this.logZoomPendiente !== 0;
+  }
+  /** Escala la vista por `factor` dejando fijo su CENTRO (el zoom no traslada). */
+  aplicarZoomCentrado(factor) {
+    const cx = (this.domX[0] + this.domX[1]) / 2;
+    const cy = (this.domY[0] + this.domY[1]) / 2;
+    const semiX = (this.domX[1] - this.domX[0]) / 2 * factor;
+    const semiY = (this.domY[1] - this.domY[0]) / 2 * factor;
+    this.domX = [cx - semiX, cx + semiX];
+    this.domY = [cy - semiY, cy + semiY];
+  }
+  /**
+   * Desplaza la vista en unidades de MUNDO (paneo por teclado). Mutador pasivo,
+   * como `enfocarCarril`: NO emite onViewport; quien lo llama decide cuándo
+   * recomputar/pintar (Navegacion usa su propio bucle rAF + onCambio).
+   */
+  panear(dxMundo, dyMundo) {
+    this.domX = [this.domX[0] + dxMundo, this.domX[1] + dxMundo];
+    this.domY = [this.domY[0] + dyMundo, this.domY[1] + dyMundo];
+  }
+  /**
+   * Reencuadra para seguir un punto de carril (railX, railY) con zoom opcional.
+   * Recibe railX/railY YA calculados (la cámara no conoce la curva): X siempre
+   * sigue a railX; Y se recentra solo si railY es finito. Mismo comportamiento que
+   * el modo carril de obs-graph (seguirRail).
+   */
+  enfocarCarril(railX, railY, factor) {
+    const RANGO_SEMI_MIN = 1e-4;
+    const RANGO_SEMI_MAX = 1e9;
+    const semiYAnt = (this.domY[1] - this.domY[0]) / 2;
+    const semiYNueva = Math.max(RANGO_SEMI_MIN, Math.min(RANGO_SEMI_MAX, semiYAnt * factor));
+    const f = semiYNueva / semiYAnt;
+    const semiX = (this.domX[1] - this.domX[0]) / 2 * f;
+    const cx = centroCarrilAcotado(railX, semiX);
+    this.domX = [cx - semiX, cx + semiX];
+    if (railY !== null && Number.isFinite(railY)) {
+      const cy = centroCarrilAcotado(railY, semiYNueva);
+      this.domY = [cy - semiYNueva, cy + semiYNueva];
+    } else if (f !== 1) {
+      const cy = (this.domY[0] + this.domY[1]) / 2;
+      this.domY = [cy - semiYNueva, cy + semiYNueva];
+    }
+  }
+  /**
+   * Ajusta la MÉTRICA del lienzo (ancho/alto en px CSS y dpr) y reencuadra X para
+   * celdas 1:1 con Y. Alto y dpr no son constantes de por vida: el zoom de la app
+   * (Ctrl+rueda) cambia el devicePixelRatio, y un tema que ligue el ancho de nota a
+   * la fuente (--file-line-width en rem/em) cambia la caja CSS al vuelo. Si la cámara
+   * se quedara con los valores del primer render, la relación mundo→píxel dejaría de
+   * coincidir con la caja real y la gráfica saldría deformada (celdas no cuadradas).
+   */
+  redimensionar(anchoPx, altoPx = this.altoPx, dpr = this.dpr) {
+    this.anchoPx = anchoPx;
+    this.altoPx = altoPx;
+    this.dpr = dpr;
+    const centroX = (this.domX[0] + this.domX[1]) / 2;
+    const semiX = (this.domY[1] - this.domY[0]) / 2 * (anchoPx / altoPx);
+    this.domX = [centroX - semiX, centroX + semiX];
+  }
+  dprActual() {
+    return this.dpr;
+  }
+  destruir() {
+    this.cancelarAnimacion();
+    for (const f of this.limpiezas)
+      f();
+  }
+};
+
+// src/motor/analysis/lecturaRama.ts
+function puntoEnSegmento(rama, k, u) {
+  const p = rama.puntos;
+  return {
+    x: p[2 * k] + u * (p[2 * k + 2] - p[2 * k]),
+    y: p[2 * k + 1] + u * (p[2 * k + 3] - p[2 * k + 1])
   };
-  const push = (a, b) => {
-    if (!refinar) {
-      segmentos.push([a[0], a[1], b[0], b[1]]);
-      return;
+}
+function ramaVecina(ramas, rActual, xBorde, dir) {
+  let mejor = null;
+  for (let r = 0; r < ramas.length; r++) {
+    if (r === rActual)
+      continue;
+    const n = ramas[r].puntos.length >> 1;
+    if (n < 2)
+      continue;
+    const entrada = dir > 0 ? 0 : n - 1;
+    const xEntrada = ramas[r].puntos[2 * entrada];
+    if ((xEntrada - xBorde) * dir > 1e-12 && (mejor === null || (xEntrada - mejor.x) * dir < 0))
+      mejor = { r, k: dir > 0 ? 0 : n - 2, u: dir > 0 ? 0 : 1, x: xEntrada };
+  }
+  return mejor ? { r: mejor.r, k: mejor.k, u: mejor.u } : null;
+}
+function localizarSegmento(ramas, x, y, vp) {
+  const px = aPantallaX(vp, x), py = aPantallaY(vp, y);
+  let loc = null;
+  for (let r = 0; r < ramas.length; r++) {
+    const p = ramas[r].puntos;
+    const n = p.length >> 1;
+    for (let k = 0; k < n - 1; k++) {
+      const ax = aPantallaX(vp, p[2 * k]), ay = aPantallaY(vp, p[2 * k + 1]);
+      const bx = aPantallaX(vp, p[2 * k + 2]), by = aPantallaY(vp, p[2 * k + 3]);
+      const dx = bx - ax, dy = by - ay;
+      const len2 = dx * dx + dy * dy;
+      let u = len2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+      u = u < 0 ? 0 : u > 1 ? 1 : u;
+      const fx = ax + u * dx, fy = ay + u * dy;
+      const d2 = (px - fx) * (px - fx) + (py - fy) * (py - fy);
+      if (loc === null || d2 < loc.d2)
+        loc = { r, k, u, d2 };
     }
-    const A = proyectarVertice(F, a[0], a[1], hGrad, maxMov2);
-    const B = proyectarVertice(F, b[0], b[1], hGrad, maxMov2);
-    const medios = [];
-    refinarCuerda(F, A[0], A[1], B[0], B[1], tol2, hGrad, profMax, medios);
-    let px = A[0], py = A[1];
-    for (let k = 0; k < medios.length; k += 2) {
-      segmentos.push([px, py, medios[k], medios[k + 1]]);
-      px = medios[k];
-      py = medios[k + 1];
-    }
-    segmentos.push([px, py, B[0], B[1]]);
+  }
+  return loc ? { r: loc.r, k: loc.k, u: loc.u } : null;
+}
+function existeRamaVecina(ramas, x, y, dir, vp) {
+  const loc = localizarSegmento(ramas, x, y, vp);
+  if (loc === null)
+    return false;
+  const p = ramas[loc.r].puntos;
+  const n = p.length >> 1;
+  const xBorde = dir > 0 ? p[2 * (n - 1)] : p[0];
+  return ramaVecina(ramas, loc.r, xBorde, dir) !== null;
+}
+function avanzarPorArco(ramas, x, y, deltaPx, vp) {
+  const loc = localizarSegmento(ramas, x, y, vp);
+  if (loc === null)
+    return null;
+  const segLenPx = (r2, k2) => {
+    const p = ramas[r2].puntos;
+    return Math.hypot(
+      aPantallaX(vp, p[2 * k2 + 2]) - aPantallaX(vp, p[2 * k2]),
+      aPantallaY(vp, p[2 * k2 + 3]) - aPantallaY(vp, p[2 * k2 + 1])
+    );
   };
-  const emitCelda = (x0, y0, x1, y1, v00, v10, v11, v01) => {
-    let code = 0;
-    if (v00 > 0)
-      code |= 1;
-    if (v10 > 0)
-      code |= 2;
-    if (v11 > 0)
-      code |= 4;
-    if (v01 > 0)
-      code |= 8;
-    if (code === 0 || code === 15)
-      return;
-    if (cruceDiscontinuo(x0, y0, v00, x1, y0, v10) || // inferior
-    cruceDiscontinuo(x1, y0, v10, x1, y1, v11) || // derecha
-    cruceDiscontinuo(x0, y1, v01, x1, y1, v11) || // superior
-    cruceDiscontinuo(x0, y0, v00, x0, y1, v01))
-      return;
-    const eInf = () => interp(x0, y0, v00, x1, y0, v10);
-    const eDer = () => interp(x1, y0, v10, x1, y1, v11);
-    const eSup = () => interp(x0, y1, v01, x1, y1, v11);
-    const eIzq = () => interp(x0, y0, v00, x0, y1, v01);
-    switch (code) {
-      case 1:
-      case 14:
-        push(eIzq(), eInf());
-        break;
-      case 2:
-      case 13:
-        push(eInf(), eDer());
-        break;
-      case 3:
-      case 12:
-        push(eIzq(), eDer());
-        break;
-      case 4:
-      case 11:
-        push(eDer(), eSup());
-        break;
-      case 6:
-      case 9:
-        push(eInf(), eSup());
-        break;
-      case 7:
-      case 8:
-        push(eIzq(), eSup());
-        break;
-      case 5:
-      case 10: {
-        const centro = (v00 + v10 + v11 + v01) / 4;
-        const positivoEnCentro = centro > 0;
-        if (code === 5) {
-          if (positivoEnCentro) {
-            push(eIzq(), eSup());
-            push(eInf(), eDer());
+  const dir = deltaPx >= 0 ? 1 : -1;
+  let { r, k, u } = loc;
+  let resto = Math.abs(deltaPx);
+  let evento = "normal";
+  let hueco = 0;
+  let guardia = ramas.reduce((s, ra) => s + (ra.puntos.length >> 1), 0) + 4;
+  while (resto > 1e-9 && guardia-- > 0) {
+    const n = ramas[r].puntos.length >> 1;
+    const L = segLenPx(r, k);
+    const dispo = dir > 0 ? L * (1 - u) : L * u;
+    if (L > 0 && resto <= dispo) {
+      u += dir * (resto / L);
+      return { ...puntoEnSegmento(ramas[r], k, u < 0 ? 0 : u > 1 ? 1 : u), evento, hueco };
+    }
+    resto -= dispo;
+    if (dir > 0 && k + 1 < n - 1) {
+      k++;
+      u = 0;
+      continue;
+    }
+    if (dir < 0 && k > 0) {
+      k--;
+      u = 1;
+      continue;
+    }
+    const borde = puntoEnSegmento(ramas[r], k, dir > 0 ? 1 : 0);
+    const sig = ramaVecina(ramas, r, borde.x, dir);
+    if (sig) {
+      const entrada = puntoEnSegmento(ramas[sig.r], sig.k, sig.u);
+      hueco += entrada.x - borde.x;
+      r = sig.r;
+      k = sig.k;
+      u = sig.u;
+      evento = "salto";
+      continue;
+    }
+    return { ...borde, evento: "tope", hueco };
+  }
+  return { ...puntoEnSegmento(ramas[r], k, u), evento, hueco };
+}
+function podarVerticesDePolo(ramas, vp) {
+  const alto = vp.domY[1] - vp.domY[0];
+  const yTop = vp.domY[1] + alto, yBot = vp.domY[0] - alto;
+  const eps = 1e-9 * Math.max(1, Math.abs(yTop), Math.abs(yBot));
+  const esSintetico = (y) => Math.abs(y - yTop) < eps || Math.abs(y - yBot) < eps;
+  let algunoPodado = false;
+  const salida = ramas.map((rama) => {
+    const p = rama.puntos;
+    const n = p.length >> 1;
+    let ini = 0, fin = n - 1;
+    while (fin - ini > 1 && esSintetico(p[2 * ini + 1]))
+      ini++;
+    while (fin - ini > 1 && esSintetico(p[2 * fin + 1]))
+      fin--;
+    if (ini === 0 && fin === n - 1)
+      return rama;
+    algunoPodado = true;
+    return { ...rama, puntos: p.slice(2 * ini, 2 * fin + 2), parametro: void 0 };
+  });
+  return algunoPodado ? salida : ramas;
+}
+var PENDIENTE_CORTE_CARRIL = 50;
+function recortarRamasPorPendiente(ramas, vp, pendienteMax) {
+  const salida = [];
+  for (const rama of ramas) {
+    const p = rama.puntos;
+    const n = p.length >> 1;
+    let run = [];
+    const cerrar = () => {
+      if (run.length >= 4)
+        salida.push({
+          puntos: Float64Array.from(run),
+          cerrada: false,
+          calidad: rama.calidad,
+          objetoId: rama.objetoId
+        });
+      run = [];
+    };
+    for (let k = 0; k < n - 1; k++) {
+      const ax = aPantallaX(vp, p[2 * k]), ay = aPantallaY(vp, p[2 * k + 1]);
+      const bx = aPantallaX(vp, p[2 * k + 2]), by = aPantallaY(vp, p[2 * k + 3]);
+      const dxPx = Math.abs(bx - ax), dyPx = Math.abs(by - ay);
+      if (dxPx === 0 && dyPx === 0)
+        continue;
+      if (dyPx > pendienteMax * dxPx) {
+        cerrar();
+        continue;
+      }
+      if (run.length === 0)
+        run.push(p[2 * k], p[2 * k + 1]);
+      run.push(p[2 * k + 2], p[2 * k + 3]);
+    }
+    cerrar();
+  }
+  return salida;
+}
+function curvaConBlowupVertical(ramas, vp) {
+  const semiY = (vp.domY[1] - vp.domY[0]) / 2;
+  const epsX = 0.02 * (vp.domX[1] - vp.domX[0]);
+  for (const r of ramas) {
+    const p = r.puntos;
+    const n = p.length >> 1;
+    if (n < 2)
+      continue;
+    const extremos = [[0, 1], [n - 1, n - 2]];
+    for (const [ie, iv] of extremos) {
+      const x = p[2 * ie], y = p[2 * ie + 1];
+      const interior = x > vp.domX[0] + epsX && x < vp.domX[1] - epsX;
+      if (!interior || Math.abs(y) <= semiY)
+        continue;
+      const dxPx = aPantallaX(vp, x) - aPantallaX(vp, p[2 * iv]);
+      const dyPx = aPantallaY(vp, y) - aPantallaY(vp, p[2 * iv + 1]);
+      if (Math.abs(dyPx) > 3 * Math.abs(dxPx))
+        return true;
+    }
+  }
+  return false;
+}
+function factorRampaVerticalidad(pendiente) {
+  const FACTOR_MAX = 10;
+  const p = Math.abs(pendiente);
+  if (!Number.isFinite(p))
+    return FACTOR_MAX;
+  return Math.max(1, Math.min(FACTOR_MAX, p));
+}
+function yEnRamas(ramas, worldX) {
+  for (const rama of ramas) {
+    const t = rama.parametro;
+    const p = rama.puntos;
+    if (!t || t.length < 2)
+      continue;
+    if (worldX < t[0] || worldX > t[t.length - 1])
+      continue;
+    let lo = 0;
+    let hi = t.length - 1;
+    while (hi - lo > 1) {
+      const mid = lo + hi >> 1;
+      if (t[mid] <= worldX)
+        lo = mid;
+      else
+        hi = mid;
+    }
+    const xa = t[lo], xb = t[hi];
+    const ya = p[lo * 2 + 1], yb = p[hi * 2 + 1];
+    const r = xb === xa ? 0 : (worldX - xa) / (xb - xa);
+    return ya + r * (yb - ya);
+  }
+  return null;
+}
+
+// src/motor/interaction/Navegacion.ts
+var MAPA = {
+  w: "w",
+  a: "a",
+  s: "s",
+  d: "d",
+  arrowup: "w",
+  arrowleft: "a",
+  arrowdown: "s",
+  arrowright: "d"
+};
+var VEL_PAN_PX = 175;
+var VEL_ZOOM_POR_SEG = 2.5;
+var FACTOR_PRECISION = 0.1;
+var RIGIDEZ_CAMARA = 2.5;
+var ALTURA_ESCAPE_SEMIALTURAS = 18;
+var FACTOR_ARRANQUE_ANCLA = 10;
+var FIN_MOVIMIENTO_PX = 0.5;
+var Navegacion = class {
+  constructor(canvas, camara, curva, onCambio) {
+    this.canvas = canvas;
+    this.camara = camara;
+    this.curva = curva;
+    this.onCambio = onCambio;
+    this._railOn = false;
+    this._railX = 0;
+    this._railY = null;
+    // Estado del modo carril de inercia (asíntotas verticales):
+    //   • _pendiente = verticalidad local (|Δy/Δx| en mundo, celdas 1:1 ⇒ ≈ pantalla) del último
+    //     avance → rampa de velocidad del PRÓXIMO frame. ∞ tras un salto (entra casi-vertical, ×MAX).
+    //   • _sinVecina = no hay rama vecina en la dirección de marcha (curva de Caso B). Mientras el punto
+    //     no ESCAPE, la cámara va FIJA en él: su muelle de Y se endurece con la misma rampa de
+    //     verticalidad que acelera al punto, así lo acompaña hasta el borde de la zona recorrible en vez
+    //     de quedarse rezagada en la línea base (con el muelle suave la cámara llegaba a cy≈0.7 con el
+    //     punto ya en y≈8: al anclar, el viaje a y=0 medía dos décimas y no se veía).
+    //   • _anclaY  = Caso B en curso: la cámara dejó de perseguir al punto en Y y se anima a y=0.
+    //   • _d0Ancla = |cy| al entrar en Caso B; referencia de la curva de velocidad ×10→×1.
+    //   • _dxReenganche = DESFASE en x (mundo) entre la cámara y el punto tras un salto de Caso A:
+    //     camX = railX − _dxReenganche. El salto traslada el punto a la rama vecina de golpe; si la
+    //     cámara lo acompañara (camX = railX siempre), el punto quedaría clavado en el centro y serían
+    //     los ejes, la rejilla y la curva los que darían el brinco → se lee como TELETRANSPORTE en
+    //     cuanto el hueco es angosto o el borde poco vertical (x⁻²). Absorbiendo el corte, la cámara se
+    //     queda donde estaba y REENGANCHA al punto con el mismo muelle exponencial (RIGIDEZ_CAMARA).
+    //     Solo se amortigua la DISCONTINUIDAD: el movimiento continuo se sigue exacto (un muelle sobre
+    //     railX rezagaría también el recorrido → se sentiría como lag).
+    //   • _camaraEnMovimiento = queda animación de cámara por terminar (reenganche del salto o viaje a
+    //     y=0). Mantiene vivo el bucle aunque se suelten las teclas: si no, soltar A/D a mitad de la
+    //     animación la dejaría congelada donde estuviera (el muelle solo avanza dentro del bucle).
+    //   • _escape / _yEscape / _xEscape / _dirSubida / _signoEscape = MODO ESCAPE de Caso B. El punto
+    //     deja de leerse de la polilínea y su `y` pasa a INTEGRARSE aquí, a la misma velocidad de
+    //     pantalla. Hace falta porque la geometría es finita: la rama que sube al polo termina en una
+    //     PUNTA (hasta donde llegó el refinado) y el trazador la cierra con un vértice de clamp a 3
+    //     semi-alturas. Caminando el arco, el punto rebasaba la punta, BAJABA por ese segmento
+    //     sintético (330, 329, 328…) y se clavaba en y=21 (=3·7). Integrando la y, sube sin límite y
+    //     el regreso con D es EXACTO ("se hace y se deshace"), cosa que la re-proyección sobre una
+    //     polilínea re-trazada cada frame no garantiza. La `x` queda fijada en la de la fuga: sobre la
+    //     asíntota la curva ya es esa vertical.
+    this._pendiente = 0;
+    this._sinVecina = false;
+    this._escape = false;
+    this._yEscape = 0;
+    this._xEscape = 0;
+    this._yFuga = 0;
+    this._dirSubida = 0;
+    this._signoEscape = 1;
+    this._anclaY = false;
+    this._d0Ancla = 0;
+    this._dxReenganche = 0;
+    this._camaraEnMovimiento = false;
+    this.teclas = /* @__PURE__ */ new Set();
+    this.fino = false;
+    // Shift mantenido → modo precisión (velocidad ×0.1)
+    this.raf = null;
+    this.ultimo = 0;
+    this.limpiezas = [];
+    this.paso = (t) => {
+      if (this.teclas.size === 0 && !(this._railOn && this._camaraEnMovimiento)) {
+        this.raf = null;
+        this.ultimo = 0;
+        this.onCambio();
+        return;
+      }
+      const dt = this.ultimo ? Math.min(0.05, (t - this.ultimo) / 1e3) : 0;
+      this.ultimo = t;
+      if (dt > 0) {
+        const vp = this.camara.viewport();
+        const escala = this.fino ? FACTOR_PRECISION : 1;
+        if (this._railOn) {
+          let dirX = 0;
+          if (this.teclas.has("a"))
+            dirX -= 1;
+          if (this.teclas.has("d"))
+            dirX += 1;
+          let dirZoom = 0;
+          if (this.teclas.has("w"))
+            dirZoom -= 1;
+          if (this.teclas.has("s"))
+            dirZoom += 1;
+          const ySeed = this.ySemilla(vp);
+          const factor = dirZoom !== 0 ? Math.pow(VEL_ZOOM_POR_SEG, dirZoom * dt * escala) : 1;
+          if (this.curva.tieneAsintotasVerticales()) {
+            this.pasoCarrilAsintota(vp, dirX, escala, dt, factor, ySeed);
           } else {
-            push(eIzq(), eInf());
-            push(eDer(), eSup());
+            const deltaPx = dirX * VEL_PAN_PX * escala * dt;
+            const pos = this.curva.avanzarArco(this._railX, ySeed, deltaPx, vp);
+            if (pos) {
+              this._railX = pos.x;
+              this._railY = pos.y;
+            }
+            this.camara.enfocarCarril(this._railX, this._railY, factor);
+          }
+          this.onCambio();
+        } else {
+          let mx = 0, my = 0;
+          if (this.teclas.has("a"))
+            mx -= 1;
+          if (this.teclas.has("d"))
+            mx += 1;
+          if (this.teclas.has("w"))
+            my += 1;
+          if (this.teclas.has("s"))
+            my -= 1;
+          if (mx !== 0 || my !== 0) {
+            const norm3 = Math.hypot(mx, my);
+            const v = VEL_PAN_PX * escala * dt;
+            const dx = mx / norm3 * v * ((vp.domX[1] - vp.domX[0]) / vp.anchoPx);
+            const dy = my / norm3 * v * ((vp.domY[1] - vp.domY[0]) / vp.altoPx);
+            this.camara.panear(dx, dy);
+            this.onCambio();
+          }
+        }
+      }
+      this.raf = requestAnimationFrame(this.paso);
+    };
+    canvas.tabIndex = 0;
+    canvas.style.outline = "none";
+    const onKeyDown = (e3) => {
+      this.fino = e3.shiftKey;
+      const d = MAPA[e3.key.toLowerCase()];
+      if (!d)
+        return;
+      e3.preventDefault();
+      e3.stopPropagation();
+      this.teclas.add(d);
+      if (this.raf === null)
+        this.raf = requestAnimationFrame(this.paso);
+    };
+    const onKeyUp = (e3) => {
+      this.fino = e3.shiftKey;
+      const d = MAPA[e3.key.toLowerCase()];
+      if (d) {
+        e3.preventDefault();
+        this.teclas.delete(d);
+      }
+    };
+    const onFocus = () => {
+      canvas.style.outline = "1px solid rgba(100,150,255,0.35)";
+    };
+    const onBlur = () => {
+      canvas.style.outline = "none";
+      this.teclas.clear();
+      this.fino = false;
+    };
+    canvas.addEventListener("keydown", onKeyDown);
+    canvas.addEventListener("keyup", onKeyUp);
+    canvas.addEventListener("focus", onFocus);
+    canvas.addEventListener("blur", onBlur);
+    this.limpiezas.push(
+      () => canvas.removeEventListener("keydown", onKeyDown),
+      () => canvas.removeEventListener("keyup", onKeyUp),
+      () => canvas.removeEventListener("focus", onFocus),
+      () => canvas.removeEventListener("blur", onBlur)
+    );
+  }
+  /**
+   * Un frame del carril de INERCIA en curvas con asíntota vertical. Dos comportamientos, elegidos EN
+   * TIEMPO REAL por si hay o no rama vecina ALCANZABLE (`hayVecina`, medido sobre la geometría
+   * recortada por PENDIENTE) — nunca por el tipo de función ni por el encuadre de la cámara:
+   *
+   *  • CASO A (tan x, sec x, x⁻² — hay vecina): la cámara persigue al punto LIBREMENTE en X y en Y con
+   *    el muelle de inercia, sin tope de viewport. El punto sube por la rama (rampa de VERTICALIDAD
+   *    ×1→×10) hasta donde la curva deja de ser recorrible (pendiente en pantalla > 50) y SALTA a la
+   *    vecina, que entra por su tramo simétrico. La cámara no acompaña el corte en X: lo absorbe como
+   *    desfase (`_dxReenganche`) y reengancha; el corte en Y lo suaviza el propio muelle. Como el corte
+   *    de la curva es GEOMÉTRICO, el cruce ocurre en el mismo punto de la función a cualquier zoom.
+   *
+   *  • CASO B (arccot(x²)/(2√x) — sin vecina: convergencia real, el dominio termina ahí): dos fases.
+   *    APROXIMACIÓN — la cámara va FIJA en el punto y sube con él (muelle endurecido por la rampa,
+   *    ver `centroCamaraSeguimiento`). FUGA — al superar `ALTURA_ESCAPE_SEMIALTURAS`·semiY el punto
+   *    entra en MODO ESCAPE: su `y` se integra aquí (sube sin límite, a velocidad de pantalla
+   *    constante) en vez de leerse de la polilínea, y la cámara deja de perseguirlo en Y para animarse
+   *    al destino FIJO y=0 con curva ×10→×1 (`centroCamaraAncla`); en X lo sigue con normalidad.
+   *    Invertir la dirección deshace el camino exactamente y re-engancha el punto a la curva.
+   */
+  pasoCarrilAsintota(vp, dirX, escala, dt, factor, ySeed) {
+    var _a;
+    const semiY = (vp.domY[1] - vp.domY[0]) / 2;
+    const cyActual = (vp.domY[0] + vp.domY[1]) / 2;
+    const semiX = (vp.domX[1] - vp.domX[0]) / 2;
+    const alturaEscape = ALTURA_ESCAPE_SEMIALTURAS * semiY;
+    if (dirX !== 0 && this._escape) {
+      const pasoMundo = VEL_PAN_PX * escala * factorRampaVerticalidad(Infinity) * dt * ((vp.domY[1] - vp.domY[0]) / vp.altoPx);
+      const sentido = (dirX >= 0 ? 1 : -1) === this._dirSubida ? 1 : -1;
+      this._yEscape += sentido * this._signoEscape * pasoMundo;
+      this._pendiente = Infinity;
+      this._sinVecina = true;
+      if (sentido < 0 && Math.abs(this._yEscape) <= Math.abs(this._yFuga)) {
+        this._escape = false;
+        this._railX = this._xEscape;
+        this._railY = this._yFuga;
+      } else {
+        this._railX = this._xEscape;
+        this._railY = this._yEscape;
+      }
+    } else if (dirX !== 0) {
+      const dir = dirX >= 0 ? 1 : -1;
+      const rampa = factorRampaVerticalidad(this._pendiente);
+      const deltaPx = dirX * VEL_PAN_PX * escala * rampa * dt;
+      const hayVecina = this.curva.hayVecina(this._railX, ySeed, dir, vp);
+      this._sinVecina = !hayVecina;
+      const pos = this.curva.avanzarArco(this._railX, ySeed, deltaPx, vp, hayVecina);
+      if (pos) {
+        const yAnt = (_a = this._railY) != null ? _a : pos.y;
+        const dx = Math.abs(pos.x - this._railX);
+        const enChorro = !hayVecina && this._pendiente > PENDIENTE_CORTE_CARRIL;
+        this._pendiente = pos.evento === "salto" || pos.evento === "tope" ? Infinity : dx > 1e-12 ? Math.abs(pos.y - yAnt) / dx : Infinity;
+        this._dxReenganche += pos.hueco;
+        this._railX = pos.x;
+        this._railY = pos.y;
+        const subiendo = Math.abs(pos.y) >= Math.abs(yAnt);
+        if (enChorro && subiendo && (Math.abs(pos.y) > alturaEscape || pos.evento === "tope")) {
+          this._escape = true;
+          this._yFuga = pos.y;
+          this._yEscape = this._yFuga;
+          this._xEscape = this._railX;
+          this._dirSubida = dir;
+          this._signoEscape = Math.sign(this._yFuga) || 1;
+        }
+      }
+    } else if (!this._escape) {
+      const pos = this.curva.avanzarArco(this._railX, ySeed, 0, vp);
+      if (pos) {
+        this._railX = pos.x;
+        this._railY = pos.y;
+      }
+    }
+    if (this._escape && !this._anclaY) {
+      this._anclaY = true;
+      this._d0Ancla = Math.abs(cyActual);
+    } else if (!this._escape && this._anclaY) {
+      this._anclaY = false;
+    }
+    const cyObjetivo = this._anclaY ? this.centroCamaraAncla(cyActual, dt, semiY, vp.altoPx) : this.centroCamaraSeguimiento(cyActual, dt);
+    const cxObjetivo = this.centroCamaraReenganche(semiX, vp.anchoPx, dt);
+    this._camaraEnMovimiento = this._dxReenganche !== 0 || this._anclaY && cyObjetivo !== 0;
+    this.camara.enfocarCarril(cxObjetivo, cyObjetivo, factor);
+  }
+  /** Centro horizontal objetivo de la cámara: el punto MENOS el desfase que dejó el último salto de
+   *  Caso A. El desfase se disuelve con el MISMO muelle exponencial (framerate-independiente,
+   *  `RIGIDEZ_CAMARA`) que reengancha la Y en Caso B, para que ambos reenganches se sientan igual; el
+   *  movimiento continuo, en cambio, se sigue EXACTO. Se acota a una semianchura porque la geometría
+   *  solo se traza sobre `domX`: un punto fuera del encuadre no tendría polilínea donde apoyarse el
+   *  frame siguiente (hueco mayor que la vista, con zoom muy cerca) → ahí la cámara lo arrastra pegado
+   *  al borde en vez de perderlo. */
+  centroCamaraReenganche(semiX, anchoPx, dt) {
+    if (this._dxReenganche === 0)
+      return this._railX;
+    const dx = this._dxReenganche * Math.exp(-RIGIDEZ_CAMARA * dt);
+    const acotado = Math.max(-semiX, Math.min(semiX, dx));
+    const pxRestantes = Math.abs(acotado) / (2 * semiX) * anchoPx;
+    this._dxReenganche = !Number.isFinite(acotado) || pxRestantes < FIN_MOVIMIENTO_PX ? 0 : acotado;
+    return this._railX - this._dxReenganche;
+  }
+  /** Centro vertical objetivo: PERSECUCIÓN del punto con el muelle de inercia, sin tope alguno.
+   *
+   *  • CASO A (hay vecina): rigidez base. Como railY pasa poco tiempo en los extremos rápidos de la
+   *    rama (junto al polo) y mucho en su parte lenta, el muelle se asienta de por sí cerca de la
+   *    línea base y no se dispara al cruzar; el corte de y del salto también lo suaviza.
+   *  • CASO B (sin vecina): la rigidez se multiplica por la MISMA rampa de verticalidad que acelera
+   *    al punto, así la cámara va FIJA en él y sube a su lado hasta el borde de la zona recorrible.
+   *    Sin eso, el punto (1.5 unidades/frame en la asíntota) dejaba atrás al muelle suave y el
+   *    posterior viaje a y=0 arrancaba a dos décimas del destino: no se veía animación ninguna. */
+  centroCamaraSeguimiento(cyActual, dt) {
+    const rY = this._railY;
+    if (rY === null)
+      return cyActual;
+    const rigidez = RIGIDEZ_CAMARA * (this._sinVecina ? factorRampaVerticalidad(this._pendiente) : 1);
+    return cyActual + (rY - cyActual) * (1 - Math.exp(-rigidez * dt));
+  }
+  /** CASO B · Centro vertical objetivo: el MISMO motor de inercia apuntado a un destino FIJO, y=0
+   *  (el eje X a media altura), en vez de al punto —que se va a infinito—. La rigidez se escala de
+   *  ×FACTOR_ARRANQUE_ANCLA (lejos del destino) a ×1 (encima de él): arranca rápido, sale de la zona
+   *  del polo y DESACELERA hasta asentarse; a menos de medio píxel se fija en y=0 exacto. */
+  centroCamaraAncla(cyActual, dt, semiY, altoPx) {
+    if (this._d0Ancla <= 0)
+      return 0;
+    const fraccion = Math.min(1, Math.abs(cyActual) / this._d0Ancla);
+    const rigidez = RIGIDEZ_CAMARA * (1 + (FACTOR_ARRANQUE_ANCLA - 1) * fraccion);
+    const cy = cyActual * Math.exp(-rigidez * dt);
+    const pxRestantes = Math.abs(cy) / (2 * semiY) * altoPx;
+    return !Number.isFinite(cy) || pxRestantes < FIN_MOVIMIENTO_PX ? 0 : cy;
+  }
+  /**
+   * y de partida para localizar el punto del carril en la polilínea. railY mantenido si
+   * es válido; si no, la y por x en railX; y si TAMPOCO existe (arranque sobre una asíntota
+   * o fuera del dominio en railX), el CENTRO vertical de la vista como semilla. Nunca null:
+   * garantiza que avanzarArco pueda enganchar el punto de la curva más cercano en pantalla.
+   */
+  ySemilla(vp) {
+    if (this._railY !== null && Number.isFinite(this._railY))
+      return this._railY;
+    const yx = this.curva.y(this._railX);
+    if (yx !== null && Number.isFinite(yx))
+      return yx;
+    return (vp.domY[0] + vp.domY[1]) / 2;
+  }
+  /**
+   * Enciende/apaga el carril. En AMBOS sentidos restaura la vista a los dominios
+   * por defecto (deshace el pan/zoom acumulado). Al encender, el punto arranca en x=0
+   * si la curva existe ahí; si no (asíntota como 1/x, o dominio x>0 como arccot(x²)/(2√x)),
+   * se ENGANCHA al punto de la curva más cercano en pantalla (no se conserva la posición
+   * de la sesión anterior).
+   */
+  alternarCarril() {
+    this._railOn = !this._railOn;
+    this.camara.restaurarVista();
+    this._railX = 0;
+    this._railY = null;
+    this._pendiente = 0;
+    this._sinVecina = false;
+    this._escape = false;
+    this._anclaY = false;
+    this._d0Ancla = 0;
+    this._dxReenganche = 0;
+    this._camaraEnMovimiento = false;
+    if (this._railOn) {
+      this.canvas.focus();
+      this.onCambio();
+      const vp = this.camara.viewport();
+      const pos = this.curva.avanzarArco(0, this.ySemilla(vp), 0, vp);
+      this._railY = pos ? pos.y : null;
+      if (pos)
+        this._railX = pos.x;
+    }
+    this.onCambio();
+  }
+  get railOn() {
+    return this._railOn;
+  }
+  get railX() {
+    return this._railX;
+  }
+  /** y del punto del carril (la MISMA sobre la que se centró la cámara), o null. */
+  get railY() {
+    return this._railY;
+  }
+  destruir() {
+    if (this.raf !== null)
+      cancelAnimationFrame(this.raf);
+    for (const f of this.limpiezas)
+      f();
+  }
+};
+
+// src/motor/tracing/explicit/TrazadorExplicitoAdaptativo.ts
+var TrazadorExplicitoAdaptativo = class {
+  trazar(f, objetoId, viewport, tolerancia) {
+    const evalX = (x) => f.eval(x);
+    const domX = viewport.domX;
+    const domY = viewport.domY;
+    const H = viewport.altoPx;
+    const interactivo = tolerancia.pasada === "interactiva";
+    const MUESTRAS2 = interactivo ? Math.min(2e3, Math.max(1e3, Math.floor((domX[1] - domX[0]) * 20))) : Math.min(8e3, Math.max(2e3, Math.floor((domX[1] - domX[0]) * 50)));
+    const dx = (domX[1] - domX[0]) / MUESTRAS2;
+    const SALTO_PX_MAX = 8;
+    const PROF_MAX3 = interactivo ? 12 : 18;
+    const Hmundo = domY[1] - domY[0];
+    const yTop = domY[1] + Hmundo;
+    const yBot = domY[0] - Hmundo;
+    const pxMundo = (domX[1] - domX[0]) / Math.max(1, viewport.anchoPx);
+    const syPx = (y) => H - (y - domY[0]) / (domY[1] - domY[0]) * H;
+    const polilineas = [];
+    const asintotas = [];
+    let segmento = [];
+    const flush = () => {
+      if (segmento.length >= 4)
+        polilineas.push(segmento);
+      segmento = [];
+    };
+    const emit = (x, y) => {
+      segmento.push(x, Number.isFinite(y) ? y : y > 0 ? yTop : yBot);
+    };
+    const emitPolo = (x, y) => {
+      segmento.push(x, y >= 0 ? yTop : yBot);
+    };
+    const registrarAsintota = (x) => {
+      asintotas.push(x);
+    };
+    const esOverflowPersistente = (xInf, xFin) => {
+      const dir = Math.sign(xInf - xFin) || 1;
+      const borde = dir > 0 ? domX[1] : domX[0];
+      const PASOS = 16;
+      const paso = (borde - xInf) / PASOS;
+      if (Math.abs(paso) < 1e-12)
+        return false;
+      for (let k = 1; k <= PASOS; k++) {
+        if (Number.isFinite(evalX(xInf + k * paso)))
+          return false;
+      }
+      return true;
+    };
+    const detectarAsintotasMismaRama = () => {
+      const out = [];
+      const N = Math.min(4e3, Math.max(500, Math.ceil((domX[1] - domX[0]) * 30)));
+      const paso = (domX[1] - domX[0]) / N;
+      const magLado = (xPolo, d) => {
+        const a = evalX(xPolo - d), b = evalX(xPolo + d);
+        const af = Number.isFinite(a) ? Math.abs(a) : -Infinity;
+        const bf = Number.isFinite(b) ? Math.abs(b) : -Infinity;
+        return Math.max(af, bf);
+      };
+      const registrar = (xIzq, xDer) => {
+        let lo = xIzq, hi = xDer;
+        for (let k = 0; k < 60; k++) {
+          const m12 = lo + (hi - lo) / 3;
+          const m22 = hi - (hi - lo) / 3;
+          if (Math.abs(evalX(m12)) < Math.abs(evalX(m22)))
+            lo = m12;
+          else
+            hi = m22;
+        }
+        const xPolo = (lo + hi) / 2;
+        const m1 = magLado(xPolo, 1e-3);
+        const m2 = magLado(xPolo, 1e-7);
+        const m3 = magLado(xPolo, 1e-11);
+        const diverge = Number.isFinite(m3) && m3 > m2 + 2 && m2 > m1 + 2;
+        if (diverge && !out.some((q) => Math.abs(q - xPolo) < paso))
+          out.push(xPolo);
+      };
+      let xA = domX[0], yA = evalX(xA);
+      let xB = xA + paso, yB = evalX(xB);
+      for (let i2 = 2; i2 <= N; i2++) {
+        const xC = domX[0] + i2 * paso;
+        const yC = evalX(xC);
+        if ((yB === Infinity || yB === -Infinity) && Number.isFinite(yA) && Number.isFinite(yC) && Math.sign(yA) === Math.sign(yC)) {
+          registrar(xA, xC);
+        } else if (Number.isFinite(yA) && Number.isFinite(yB) && Number.isFinite(yC)) {
+          const aB = Math.abs(yB);
+          const maxLocal = Math.abs(yA) < aB && aB > Math.abs(yC) && aB > 1.5 && Math.sign(yA) === Math.sign(yB) && Math.sign(yB) === Math.sign(yC);
+          if (maxLocal)
+            registrar(xA, xC);
+        }
+        xA = xB;
+        yA = yB;
+        xB = xC;
+        yB = yC;
+      }
+      return out;
+    };
+    const asintotasMismaRama = detectarAsintotasMismaRama();
+    const esSaltoFinito = (xa, ya, xb, yb) => {
+      const tol = 0.05 * Math.abs(yb - ya);
+      const N = 8;
+      for (let k = 1; k < N; k++) {
+        const v = evalX(xa + k / N * (xb - xa));
+        if (!Number.isFinite(v))
+          return false;
+        if (Math.abs(v - ya) > tol && Math.abs(v - yb) > tol)
+          return false;
+      }
+      return true;
+    };
+    const tramo = (xa, ya, xb, yb, prof) => {
+      const finA = Number.isFinite(ya), finB = Number.isFinite(yb);
+      const pyA = finA ? syPx(ya) : ya > 0 ? -1e7 : 1e7;
+      const pyB = finB ? syPx(yb) : yb > 0 ? -1e7 : 1e7;
+      const saltoPx = Math.abs(pyB - pyA);
+      const fueraMismoLado = ya > domY[1] && yb > domY[1] || ya < domY[0] && yb < domY[0];
+      const poloEnTramo = asintotasMismaRama.some(
+        (q) => q > Math.min(xa, xb) && q < Math.max(xa, xb)
+      );
+      const cambioSigno = finA && finB && ya * yb < 0;
+      const refinar = prof < PROF_MAX3 && (poloEnTramo || cambioSigno || saltoPx > SALTO_PX_MAX && !fueraMismoLado);
+      if (refinar) {
+        const xm = (xa + xb) / 2;
+        const ym = evalX(xm);
+        tramo(xa, ya, xm, ym, prof + 1);
+        tramo(xm, ym, xb, yb, prof + 1);
+        return;
+      }
+      const cruza = ya > domY[1] && yb < domY[0] || ya < domY[0] && yb > domY[1];
+      const algunNoFinito = !finA || !finB;
+      const poloMismoLado = poloEnTramo && finA && finB && !cruza && ya * yb > 0;
+      if (cruza || algunNoFinito || poloMismoLado) {
+        let esPolo = cruza || poloMismoLado;
+        if (!esPolo && finA !== finB) {
+          const xf = finA ? xa : xb;
+          const yf = finA ? ya : yb;
+          const xn = finA ? xb : xa;
+          let lo = xf, hi = xn, magCerca = Math.abs(yf);
+          for (let k = 0; k < 40; k++) {
+            const mid = (lo + hi) / 2;
+            const ym = evalX(mid);
+            if (Number.isFinite(ym)) {
+              lo = mid;
+              magCerca = Math.abs(ym);
+            } else
+              hi = mid;
+          }
+          esPolo = !Number.isFinite(magCerca) || magCerca > Math.abs(yf) + 1;
+        }
+        if (esPolo && !cruza && finA !== finB) {
+          const yInf = finA ? yb : ya;
+          if (yInf === Infinity || yInf === -Infinity) {
+            const xInf = finA ? xb : xa;
+            const xFin = finA ? xa : xb;
+            if (esOverflowPersistente(xInf, xFin))
+              esPolo = false;
+          }
+        }
+        if (esPolo) {
+          if (finA) {
+            emit(xa, ya);
+            emitPolo(xa, ya);
+          }
+          if (!poloMismoLado)
+            registrarAsintota((xa + xb) / 2);
+          flush();
+          if (finB) {
+            emitPolo(xb, yb);
+            emit(xb, yb);
           }
         } else {
-          if (positivoEnCentro) {
-            push(eIzq(), eInf());
-            push(eDer(), eSup());
-          } else {
-            push(eInf(), eDer());
-            push(eIzq(), eSup());
+          if (finA)
+            emit(xa, ya);
+          flush();
+          if (finB)
+            emit(xb, yb);
+        }
+      } else {
+        const tocaVista = Math.min(ya, yb) < domY[1] && Math.max(ya, yb) > domY[0];
+        const agotadoSubpixel = prof >= PROF_MAX3 && finA && finB && xb - xa < pxMundo;
+        if (agotadoSubpixel && (tocaVista && Math.abs(yb - ya) > Hmundo || saltoPx > SALTO_PX_MAX && !fueraMismoLado && esSaltoFinito(xa, ya, xb, yb)))
+          flush();
+        emit(xb, yb);
+      }
+    };
+    let x0 = domX[0];
+    let y0 = evalX(x0);
+    if (Number.isFinite(y0))
+      emit(x0, y0);
+    for (let i2 = 1; i2 <= MUESTRAS2; i2++) {
+      const x1 = domX[0] + i2 * dx;
+      const y1 = evalX(x1);
+      tramo(x0, y0, x1, y1, 0);
+      x0 = x1;
+      y0 = y1;
+    }
+    flush();
+    for (const xp of asintotasMismaRama)
+      registrarAsintota(xp);
+    const ramas = [];
+    for (const poli of polilineas) {
+      const puntos = Float64Array.from(poli);
+      const parametro = new Float64Array(puntos.length / 2);
+      for (let k = 0; k < parametro.length; k++)
+        parametro[k] = puntos[k * 2];
+      ramas.push({ puntos, cerrada: false, calidad: "best-effort", objetoId, parametro });
+    }
+    const asintotasOut = asintotas.map(
+      (x) => ({ tipo: "vertical", valor: x })
+    );
+    return { ramas, asintotas: asintotasOut };
+  }
+};
+
+// src/motor/tracing/continuation/TrazadorContinuacion.ts
+var PASO_PX_FINAL = 2.5;
+var PASO_PX_INTERACTIVO = 4.5;
+var MAX_PASOS = 2e4;
+var MAX_COMPONENTES = 200;
+var MAX_PUNTOS_TOTAL = 2e5;
+var MAX_EVALS_FINAL = 6e5;
+var MAX_EVALS_INTERACTIVO = 18e4;
+var COS_GIRO_MAX = 0.7;
+var COS_GIRO_RECTO = 0.5;
+var FWD_MIN = 0.2;
+var PASOS_MINIMOS_CURVA = 24;
+var CURVA_POR_SEMILLA = 60;
+var CURVA_POR_DUPLICADO = 50;
+var CURVA_POR_CIERRE = 40;
+var DIVISOR_SUELO_PASO = 512;
+function escalaCurva(semillas) {
+  if (semillas.length < 2)
+    return Infinity;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const s of semillas) {
+    x0 = Math.min(x0, s.punto.x);
+    x1 = Math.max(x1, s.punto.x);
+    y0 = Math.min(y0, s.punto.y);
+    y1 = Math.max(y1, s.punto.y);
+  }
+  const d = Math.hypot(x1 - x0, y1 - y0);
+  return Number.isFinite(d) && d > 0 ? d : Infinity;
+}
+var TrazadorContinuacion = class {
+  trazar(F, objetoId, semillas, _singularidades, viewport, tolerancia) {
+    const anchoMundo = viewport.domX[1] - viewport.domX[0];
+    const h = anchoMundo * 1e-5 || 1e-9;
+    const pasoPx = tolerancia.pasada === "interactiva" ? PASO_PX_INTERACTIVO : PASO_PX_FINAL;
+    const escala = escalaCurva(semillas);
+    const porPantalla = Math.max(1e-12, anchoMundo / viewport.anchoPx * pasoPx);
+    const hMax = Number.isFinite(escala) ? Math.min(porPantalla, Math.max(porPantalla / DIVISOR_SUELO_PASO, escala / PASOS_MINIMOS_CURVA)) : porPantalla;
+    const umbralSemilla = Math.min(hMax * 1.5, escala / CURVA_POR_SEMILLA);
+    const umbralDuplicado = Math.min(hMax * 1.5, escala / CURVA_POR_DUPLICADO);
+    const radioCierre = Math.min(hMax, escala / CURVA_POR_CIERRE);
+    const presupuesto = {
+      evals: 0,
+      max: tolerancia.pasada === "interactiva" ? MAX_EVALS_INTERACTIVO : MAX_EVALS_FINAL
+    };
+    const Fc = {
+      eval: (x, y) => {
+        presupuesto.evals++;
+        return F.eval(x, y);
+      }
+    };
+    const grad = (x, y) => [
+      (Fc.eval(x + h, y) - Fc.eval(x - h, y)) / (2 * h),
+      (Fc.eval(x, y + h) - Fc.eval(x, y - h)) / (2 * h)
+    ];
+    const ramas = [];
+    const visitada = new Array(semillas.length).fill(false);
+    let puntosEmitidos = 0;
+    const proyectadas = semillas.map((s) => {
+      var _a;
+      return (_a = this.corregir(Fc, grad, s.punto, hMax)) != null ? _a : s.punto;
+    });
+    for (let s = 0; s < semillas.length && ramas.length < MAX_COMPONENTES; s++) {
+      if (visitada[s])
+        continue;
+      if (presupuesto.evals > presupuesto.max)
+        break;
+      if (puntosEmitidos > MAX_PUNTOS_TOTAL)
+        break;
+      visitada[s] = true;
+      const p0 = this.arranque(Fc, grad, semillas[s].punto, hMax);
+      if (!p0)
+        continue;
+      const comp = this.trazarComponente(Fc, grad, p0, viewport, hMax, presupuesto, radioCierre);
+      if (!comp || comp.pts.length < 4)
+        continue;
+      puntosEmitidos += comp.pts.length / 2;
+      this.marcarVisitadas(proyectadas, visitada, comp.pts, umbralSemilla, hMax);
+      ramas.push({
+        puntos: Float64Array.from(comp.pts),
+        cerrada: comp.cerrada,
+        calidad: "best-effort",
+        objetoId
+        // Sin `parametro` x: una implícita no es monovaluada en x, así que el
+        // crosshair/carril por-x no aplica (lo omiten al ver parametro ausente).
+      });
+    }
+    return this.eliminarDuplicados(ramas, umbralDuplicado, hMax);
+  }
+  // Descarta ramas redundantes: si > FRAC_CUBIERTA de los puntos de una rama caen a < `umbral`
+  // de una rama ya conservada, es un re-trazado y se elimina.
+  //
+  // La distancia se mide a los SEGMENTOS de las ramas conservadas, no a sus vértices: dos
+  // trazados de la MISMA curva, arrancados desde semillas distintas, colocan sus vértices
+  // INTERCALADOS (hasta medio paso unos de otros), así que con un umbral pequeño la comparación
+  // vértice-a-vértice no los reconocía y el duplicado sobrevivía —el corazón salía con 3 ramas y
+  // media curva dibujada dos veces—. Contra los segmentos la distancia real es ~0 y el umbral
+  // puede seguir siendo pequeño, que es lo que impide fusionar dos arcos realmente distintos.
+  // Rejilla espacial → O(total de puntos), sin O(n²).
+  eliminarDuplicados(ramas, umbral, paso) {
+    const FRAC_CUBIERTA = 0.6;
+    const u2 = umbral * umbral;
+    const celda = Math.max(paso, umbral) * 1.5;
+    const clave = (cx, cy) => cx + "," + cy;
+    const hash = /* @__PURE__ */ new Map();
+    const distSeg2 = (p, i2, px, py) => {
+      const ax = p[i2 * 2], ay = p[i2 * 2 + 1];
+      const bx = p[(i2 + 1) * 2], by = p[(i2 + 1) * 2 + 1];
+      const vx = bx - ax, vy = by - ay;
+      const L2 = vx * vx + vy * vy;
+      let t = L2 > 0 ? ((px - ax) * vx + (py - ay) * vy) / L2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const dx = px - (ax + t * vx), dy = py - (ay + t * vy);
+      return dx * dx + dy * dy;
+    };
+    const cubierto = (x, y) => {
+      const cx = Math.floor(x / celda), cy = Math.floor(y / celda);
+      for (let a = -1; a <= 1; a++) {
+        for (let b = -1; b <= 1; b++) {
+          const arr = hash.get(clave(cx + a, cy + b));
+          if (!arr)
+            continue;
+          for (const [p, i2] of arr) {
+            const n = p.length / 2;
+            if (i2 > 0 && distSeg2(p, i2 - 1, x, y) < u2)
+              return true;
+            if (i2 < n - 1 && distSeg2(p, i2, x, y) < u2)
+              return true;
           }
         }
+      }
+      return false;
+    };
+    const conservadas = [];
+    for (const rama of ramas) {
+      const p = rama.puntos;
+      const n = p.length / 2;
+      let cubiertos = 0;
+      for (let k = 0; k < p.length; k += 2)
+        if (cubierto(p[k], p[k + 1]))
+          cubiertos++;
+      if (n > 0 && cubiertos / n > FRAC_CUBIERTA)
+        continue;
+      conservadas.push(rama);
+      for (let i2 = 0; i2 < n; i2++) {
+        const cx = Math.floor(p[i2 * 2] / celda), cy = Math.floor(p[i2 * 2 + 1] / celda);
+        const kk = clave(cx, cy);
+        let arr = hash.get(kk);
+        if (!arr) {
+          arr = [];
+          hash.set(kk, arr);
+        }
+        arr.push([p, i2]);
+      }
+    }
+    return conservadas;
+  }
+  /**
+   * Punto de ARRANQUE utilizable a partir de una semilla: sobre F=0 y desde el cual se
+   * puede DAR UN PASO. Si el directo no sirve, se busca en el entorno de la semilla.
+   *
+   * POR QUÉ el criterio es "puede dar un paso" y no "tiene tangente": el corrector de
+   * Newton converge a un punto de la curva… que puede ser una CÚSPIDE, donde la tangente
+   * existe pero el trazado no arranca. La astroide `x^{2/3}+y^{2/3}=1` lo exhibe puro: al
+   * alejar el zoom, las aristas de la rejilla son tan largas que TODAS las semillas caen
+   * sobre los ejes, y desde ahí Newton converge exactamente a las cuatro cúspides. El
+   * primer paso desde una cúspide gira ~63°, más de lo que admiten `COS_GIRO_MAX` (45°) y
+   * `COS_GIRO_RECTO` (60°) → se rechaza en TODAS las escalas → la componente sale con
+   * cero puntos y la curva DESAPARECÍA entera.
+   *
+   * Un punto un poco apartado de la cúspide sí es un buen arranque (ahí la curva es
+   * suave), y desde él la continuación recorre el arco y se detiene sola en las cúspides,
+   * como debe. Se prueban 8 direcciones a dos distancias. Es un ARRANQUE, no una
+   * clasificación de la singularidad: solo hay que entrar en la curva bien orientado.
+   */
+  arranque(F, grad, semilla, hMax) {
+    const hMin = hMax / 64;
+    const util = (p) => {
+      if (!p)
+        return null;
+      const t = this.tangente(grad, p, null);
+      if (!t)
+        return null;
+      const atras = { x: -t.x, y: -t.y };
+      const puede = this.pasoAdaptativo(F, grad, p, t, hMax, hMin) || this.pasoAdaptativo(F, grad, p, atras, hMax, hMin);
+      return puede ? p : null;
+    };
+    const directo = util(this.corregir(F, grad, semilla, hMax));
+    if (directo)
+      return directo;
+    for (const d of [hMax, hMax * 0.25, hMax * 4, hMax * 16]) {
+      for (let k = 0; k < 8; k++) {
+        const a = k * Math.PI / 4;
+        const q = { x: semilla.x + Math.cos(a) * d, y: semilla.y + Math.sin(a) * d };
+        const p = util(this.corregir(F, grad, q, hMax));
+        if (p)
+          return p;
+      }
+    }
+    return null;
+  }
+  // Tangente unitaria (⟂ gradiente), con signo consistente respecto a `prev`.
+  tangente(grad, p, prev) {
+    const [gx, gy] = grad(p.x, p.y);
+    const n = Math.hypot(gx, gy);
+    if (!Number.isFinite(n) || n < 1e-30)
+      return null;
+    let tx = -gy / n, ty = gx / n;
+    if (prev && tx * prev.x + ty * prev.y < 0) {
+      tx = -tx;
+      ty = -ty;
+    }
+    return { x: tx, y: ty };
+  }
+  // Proyecta p sobre F=0 con Newton a lo largo del gradiente. Devuelve null si NO
+  // converge (criterio clave: no aceptar puntos sin convergencia, p.ej. cerca de ∇F≈0).
+  corregir(F, grad, p, hh) {
+    let x = p.x, y = p.y;
+    const tol = Math.max(1e-12, hh * 0.01);
+    let conv = false;
+    for (let it = 0; it < 10; it++) {
+      const f = F.eval(x, y);
+      if (!Number.isFinite(f))
+        return null;
+      const [gx, gy] = grad(x, y);
+      const g2 = gx * gx + gy * gy;
+      if (!Number.isFinite(g2) || g2 < 1e-30)
+        return null;
+      const k = f / g2;
+      const dx = -k * gx, dy = -k * gy;
+      x += dx;
+      y += dy;
+      if (Math.hypot(dx, dy) < tol) {
+        conv = true;
         break;
       }
     }
-  };
-  const refinarCelda = (x0, y0, x1, y1, v00, v10, v11, v01, nivel) => {
-    if (!Number.isFinite(v00) || !Number.isFinite(v10) || !Number.isFinite(v11) || !Number.isFinite(v01))
-      return;
-    if (nivel >= maxNivelCelda) {
-      emitCelda(x0, y0, x1, y1, v00, v10, v11, v01);
-      return;
+    if (!conv)
+      return null;
+    return Number.isFinite(F.eval(x, y)) ? { x, y } : null;
+  }
+  fueraDeLimites(p, vp) {
+    const mx = (vp.domX[1] - vp.domX[0]) * 0.5;
+    const my = (vp.domY[1] - vp.domY[0]) * 0.5;
+    return p.x < vp.domX[0] - mx || p.x > vp.domX[1] + mx || p.y < vp.domY[0] - my || p.y > vp.domY[1] + my;
+  }
+  // Un paso normal por la tangente con paso adaptativo. Devuelve el avance aceptado o
+  // null si en ninguna escala (h…hMin) hay un paso convergente, hacia delante y suave.
+  pasoAdaptativo(F, grad, p, dirAnt, h, hMin) {
+    const T = this.tangente(grad, p, dirAnt);
+    if (!T)
+      return null;
+    let hh = h;
+    for (let intento = 0; intento < 9; intento++) {
+      const pc = this.corregir(F, grad, { x: p.x + T.x * hh, y: p.y + T.y * hh }, hh);
+      if (pc) {
+        const dx = pc.x - p.x, dy = pc.y - p.y;
+        const L = Math.hypot(dx, dy);
+        if (L > 1e-15) {
+          const ux = dx / L, uy = dy / L;
+          const giro = ux * dirAnt.x + uy * dirAnt.y;
+          const fwd = ux * T.x + uy * T.y;
+          if (fwd > FWD_MIN && giro > COS_GIRO_MAX) {
+            return { punto: pc, dir: { x: ux, y: uy }, h: hh };
+          }
+        }
+      }
+      hh *= 0.5;
+      if (hh < hMin)
+        break;
     }
-    const todasPos = v00 > 0 && v10 > 0 && v11 > 0 && v01 > 0;
-    const todasNeg = v00 < 0 && v10 < 0 && v11 < 0 && v01 < 0;
-    const hayCruce = !todasPos && !todasNeg;
-    const minC = Math.min(Math.abs(v00), Math.abs(v10), Math.abs(v11), Math.abs(v01));
-    const xm = (x0 + x1) / 2, ym = (y0 + y1) / 2;
-    const diag2 = Math.hypot(x1 - x0, y1 - y0);
-    const vc = F(xm, ym);
-    const gx = (F(xm + hGrad, ym) - F(xm - hGrad, ym)) / (2 * hGrad);
-    const gy = (F(xm, ym + hGrad) - F(xm, ym - hGrad)) / (2 * hGrad);
-    const gradFino = Math.hypot(gx, gy);
-    const varCelda = Number.isFinite(gradFino) ? gradFino * diag2 : Infinity;
-    const cerca = hayCruce || Number.isFinite(vc) && vc * v00 < 0 || Math.min(minC, Math.abs(vc)) <= varCelda;
-    if (!cerca) {
-      emitCelda(x0, y0, x1, y1, v00, v10, v11, v01);
-      return;
+    return null;
+  }
+  // Cruce de una singularidad en LÍNEA RECTA: extrapola por dirAnt y reproyecta. De
+  // hMax hacia abajo: la primera distancia que cae en una continuación casi recta hacia
+  // delante se acepta (nodo transversal). Si ninguna sirve → null (cúspide: fin limpio).
+  cruceRecto(F, grad, p, dirAnt, hMax, hMin) {
+    for (let hh = hMax; hh >= hMin; hh *= 0.5) {
+      const pc = this.corregir(F, grad, { x: p.x + dirAnt.x * hh, y: p.y + dirAnt.y * hh }, hh);
+      if (!pc)
+        continue;
+      const dx = pc.x - p.x, dy = pc.y - p.y;
+      const L = Math.hypot(dx, dy);
+      if (L < hMin * 0.5)
+        continue;
+      const ux = dx / L, uy = dy / L;
+      if (ux * dirAnt.x + uy * dirAnt.y > COS_GIRO_RECTO) {
+        return { punto: pc, dir: { x: ux, y: uy }, h: hh };
+      }
     }
-    if (nivel < maxNivelCelda && Number.isFinite(gradFino)) {
-      const ggx = (v10 - v00 + (v11 - v01)) / (2 * (x1 - x0));
-      const ggy = (v01 - v00 + (v11 - v10)) / (2 * (y1 - y0));
-      const gradGrueso = Math.hypot(ggx, ggy);
-      const loboCentral = (todasPos || todasNeg) && Number.isFinite(vc) && vc * v00 < 0;
-      if (gradFino > gradGrueso * 1.8 || loboCentral) {
-        const vm0 = F(xm, y0), v1m = F(x1, ym), vm1 = F(xm, y1), v0m = F(x0, ym);
-        refinarCelda(x0, y0, xm, ym, v00, vm0, vc, v0m, nivel + 1);
-        refinarCelda(xm, y0, x1, ym, vm0, v10, v1m, vc, nivel + 1);
-        refinarCelda(xm, ym, x1, y1, vc, v1m, v11, vm1, nivel + 1);
-        refinarCelda(x0, ym, xm, y1, v0m, vc, vm1, v01, nivel + 1);
+    return null;
+  }
+  // Recorre la curva en UNA dirección desde p0 con dirección de avance inicial dir0.
+  // `radioCierre`: a qué distancia de p0 se considera que el lazo se ha cerrado. Va atado a la
+  // CURVA, no al paso —es el TERCER umbral que no debe confundirse con hMax—: si fuese un
+  // múltiplo del paso, con paso grueso sobre una curva pequeña el trazado se daría por cerrado
+  // a los tres pasos y devolvería un muñón (curva mutilada). Desacoplarlo es lo que permite
+  // usar un paso barato sin perder curva.
+  trazarDireccion(F, grad, p0, dir0, vp, hMax, presupuesto, radioCierre) {
+    const pts = [];
+    const hMin = hMax / 64;
+    let p = p0;
+    let dirAnt = dir0;
+    let h = hMax;
+    let arco = 0;
+    let cerrada = false;
+    for (let i2 = 0; i2 < MAX_PASOS; i2++) {
+      if (presupuesto.evals > presupuesto.max)
+        break;
+      let av = this.pasoAdaptativo(F, grad, p, dirAnt, h, hMin);
+      if (!av)
+        av = this.cruceRecto(F, grad, p, dirAnt, hMax, hMin);
+      if (!av)
+        break;
+      arco += Math.hypot(av.punto.x - p.x, av.punto.y - p.y);
+      if (i2 > 2 && arco > radioCierre * 6 && Math.hypot(av.punto.x - p0.x, av.punto.y - p0.y) < radioCierre) {
+        cerrada = true;
+        break;
+      }
+      if (this.fueraDeLimites(av.punto, vp)) {
+        pts.push(av.punto);
+        break;
+      }
+      pts.push(av.punto);
+      dirAnt = av.dir;
+      p = av.punto;
+      h = Math.min(hMax, av.h * 1.3);
+    }
+    return { pts, cerrada };
+  }
+  // Traza la componente completa: hacia delante y, si no cerró, hacia atrás.
+  trazarComponente(F, grad, p0, vp, hMax, presupuesto, radioCierre) {
+    const t0 = this.tangente(grad, p0, null);
+    if (!t0)
+      return null;
+    const adelante = this.trazarDireccion(F, grad, p0, t0, vp, hMax, presupuesto, radioCierre);
+    let orden;
+    if (adelante.cerrada) {
+      orden = [p0, ...adelante.pts];
+    } else {
+      const atras = this.trazarDireccion(
+        F,
+        grad,
+        p0,
+        { x: -t0.x, y: -t0.y },
+        vp,
+        hMax,
+        presupuesto,
+        radioCierre
+      );
+      orden = [...atras.pts.reverse(), p0, ...adelante.pts];
+    }
+    if (orden.length < 2)
+      return null;
+    const pts = [];
+    for (const q of orden)
+      pts.push(q.x, q.y);
+    if (adelante.cerrada && orden.length > 2)
+      pts.push(orden[0].x, orden[0].y);
+    return { pts, cerrada: adelante.cerrada };
+  }
+  // Marca como visitadas las semillas que YA están sobre la componente recién trazada, para no
+  // volver a trazar la misma curva desde otra semilla.
+  //
+  // Contra los SEGMENTOS de la polilínea, no contra sus vértices. Una semilla está sobre la
+  // CURVA, pero los vértices están espaciados un paso: medida a los vértices, una semilla
+  // perfectamente válida puede quedar a medio paso del más cercano y ESCAPARSE → lanza un
+  // re-trazado completo de la misma curva que luego `eliminarDuplicados` tira a la basura. Con
+  // cientos de semillas eso eran decenas de trazados redundantes (el lag al hacer zoom). Contra
+  // los segmentos, la distancia real es el error de trazado (ínfimo) → se absorben todas, y el
+  // umbral puede ser PEQUEÑO, que es lo que impide comerse las semillas de los arcos vecinos.
+  //
+  // Por REJILLA ESPACIAL, no por doble bucle: O(semillas × puntos) se disparaba con cientos de
+  // semillas y ramas de miles de puntos (medido: UNA pasada de 245 s, otro cuelgue del hilo).
+  marcarVisitadas(proyectadas, visitada, pts, umbral, paso) {
+    const u2 = umbral * umbral;
+    const celda = Math.max(paso, umbral) * 1.5;
+    const n = pts.length / 2;
+    const hash = /* @__PURE__ */ new Map();
+    for (let i2 = 0; i2 < n; i2++) {
+      const clave = Math.floor(pts[i2 * 2] / celda) + "," + Math.floor(pts[i2 * 2 + 1] / celda);
+      let arr = hash.get(clave);
+      if (!arr) {
+        arr = [];
+        hash.set(clave, arr);
+      }
+      arr.push(i2);
+    }
+    const distSeg2 = (i2, px, py) => {
+      const ax = pts[i2 * 2], ay = pts[i2 * 2 + 1];
+      const bx = pts[(i2 + 1) * 2], by = pts[(i2 + 1) * 2 + 1];
+      const vx = bx - ax, vy = by - ay;
+      const L2 = vx * vx + vy * vy;
+      let t = L2 > 0 ? ((px - ax) * vx + (py - ay) * vy) / L2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const dx = px - (ax + t * vx), dy = py - (ay + t * vy);
+      return dx * dx + dy * dy;
+    };
+    for (let s = 0; s < proyectadas.length; s++) {
+      if (visitada[s])
+        continue;
+      const sx = proyectadas[s].x, sy = proyectadas[s].y;
+      const cx = Math.floor(sx / celda), cy = Math.floor(sy / celda);
+      buscar:
+        for (let a = -1; a <= 1; a++) {
+          for (let b = -1; b <= 1; b++) {
+            const arr = hash.get(cx + a + "," + (cy + b));
+            if (!arr)
+              continue;
+            for (const i2 of arr) {
+              if (i2 > 0 && distSeg2(i2 - 1, sx, sy) < u2) {
+                visitada[s] = true;
+                break buscar;
+              }
+              if (i2 < n - 1 && distSeg2(i2, sx, sy) < u2) {
+                visitada[s] = true;
+                break buscar;
+              }
+            }
+          }
+        }
+    }
+  }
+};
+
+// src/motor/tracing/parametric/TrazadorParametricoAdaptativo.ts
+var N0_FINAL = 400;
+var N0_INTERACTIVO = 200;
+var PROF_MAX_FINAL = 20;
+var PROF_MAX_INTERACTIVO = 14;
+var SALTO_PX_FINAL = 10;
+var SALTO_PX_INTERACTIVO = 16;
+var MAX_EVALS_FINAL2 = 3e5;
+var MAX_EVALS_INTERACTIVO2 = 1e5;
+var TrazadorParametricoAdaptativo = class {
+  trazar(p, objetoId, viewport, tolerancia) {
+    const [t0, t1] = p.dominio;
+    if (!(t1 > t0) || !Number.isFinite(t0) || !Number.isFinite(t1))
+      return [];
+    const interactivo = tolerancia.pasada === "interactiva";
+    const N0 = interactivo ? N0_INTERACTIVO : N0_FINAL;
+    const PROF_MAX3 = interactivo ? PROF_MAX_INTERACTIVO : PROF_MAX_FINAL;
+    const SALTO_PX = interactivo ? SALTO_PX_INTERACTIVO : SALTO_PX_FINAL;
+    const desvBase = Number.isFinite(tolerancia.desviacionMaxPx) && tolerancia.desviacionMaxPx > 0 ? tolerancia.desviacionMaxPx : 0.5;
+    const DESV = Math.max(0.05, desvBase) * (interactivo ? 2 : 1);
+    const SALTO_DISC = Math.max(viewport.anchoPx, viewport.altoPx) * 0.5;
+    const ax = viewport.anchoPx / (viewport.domX[1] - viewport.domX[0]);
+    const ay = viewport.altoPx / (viewport.domY[1] - viewport.domY[0]);
+    const sx = (x) => (x - viewport.domX[0]) * ax;
+    const sy = (y) => viewport.altoPx - (y - viewport.domY[0]) * ay;
+    const mx = viewport.domX[1] - viewport.domX[0];
+    const my = viewport.domY[1] - viewport.domY[0];
+    const enMargen = (x, y) => x > viewport.domX[0] - mx && x < viewport.domX[1] + mx && y > viewport.domY[0] - my && y < viewport.domY[1] + my;
+    const presupuesto = {
+      evals: 0,
+      max: interactivo ? MAX_EVALS_INTERACTIVO2 : MAX_EVALS_FINAL2
+    };
+    const ev = (t) => {
+      presupuesto.evals++;
+      const q = p.eval(t);
+      const util = Number.isFinite(q.x) && Number.isFinite(q.y) && enMargen(q.x, q.y);
+      return { x: q.x, y: q.y, sx: util ? sx(q.x) : NaN, sy: util ? sy(q.y) : NaN, util };
+    };
+    const ramas = [];
+    let seg = [];
+    let corte = false;
+    const flush = () => {
+      if (seg.length >= 4)
+        ramas.push({ puntos: Float64Array.from(seg), cerrada: false, calidad: "best-effort", objetoId });
+      seg = [];
+    };
+    const push = (q) => {
+      seg.push(q.x, q.y);
+    };
+    const tramo = (ta, A2, tb, B, prof) => {
+      if (presupuesto.evals > presupuesto.max) {
+        if (A2.util)
+          push(A2);
         return;
       }
+      if (A2.util && B.util) {
+        const dxs = B.sx - A2.sx, dys = B.sy - A2.sy;
+        const cuerda = Math.hypot(dxs, dys);
+        if (prof < PROF_MAX3) {
+          const tm = (ta + tb) / 2;
+          const M = ev(tm);
+          if (M.util) {
+            const dev = cuerda < 1e-9 ? Math.hypot(M.sx - A2.sx, M.sy - A2.sy) : Math.abs(dxs * (A2.sy - M.sy) - (A2.sx - M.sx) * dys) / cuerda;
+            if (dev > DESV || cuerda > SALTO_PX) {
+              tramo(ta, A2, tm, M, prof + 1);
+              tramo(tm, M, tb, B, prof + 1);
+              return;
+            }
+          } else {
+            tramo(ta, A2, tm, M, prof + 1);
+            tramo(tm, M, tb, B, prof + 1);
+            return;
+          }
+        }
+        if (cuerda > SALTO_DISC) {
+          push(A2);
+          flush();
+          corte = true;
+          push(B);
+          return;
+        }
+        push(B);
+        return;
+      }
+      if (A2.util && !B.util) {
+        let lo = ta, hi = tb, ultimo = A2;
+        for (let k = 0; k < 24; k++) {
+          const M = ev((lo + hi) / 2);
+          if (M.util) {
+            lo = (lo + hi) / 2;
+            ultimo = M;
+          } else
+            hi = (lo + hi) / 2;
+        }
+        push(ultimo);
+        flush();
+        corte = true;
+        return;
+      }
+      if (!A2.util && B.util) {
+        if (seg.length > 0)
+          flush();
+        let lo = tb, hi = ta, ultimo = B;
+        for (let k = 0; k < 24; k++) {
+          const M = ev((lo + hi) / 2);
+          if (M.util) {
+            lo = (lo + hi) / 2;
+            ultimo = M;
+          } else
+            hi = (lo + hi) / 2;
+        }
+        corte = true;
+        push(ultimo);
+        push(B);
+        return;
+      }
+      if (seg.length > 0) {
+        flush();
+        corte = true;
+      }
+    };
+    const dt = (t1 - t0) / N0;
+    let tA = t0;
+    let A = ev(tA);
+    if (A.util)
+      push(A);
+    else
+      corte = true;
+    for (let i2 = 1; i2 <= N0 && presupuesto.evals <= presupuesto.max; i2++) {
+      const tB = t0 + i2 * dt;
+      const B = ev(tB);
+      tramo(tA, A, tB, B, 0);
+      tA = tB;
+      A = B;
     }
-    emitCelda(x0, y0, x1, y1, v00, v10, v11, v01);
+    flush();
+    if (!corte && ramas.length === 1) {
+      const r = ramas[0].puntos, n = r.length;
+      if (n >= 6) {
+        const d = Math.hypot(sx(r[0]) - sx(r[n - 2]), sy(r[1]) - sy(r[n - 1]));
+        if (d < Math.max(1, DESV * 2))
+          ramas[0] = { ...ramas[0], cerrada: true };
+      }
+    }
+    return ramas;
+  }
+};
+
+// src/motor/discovery/sampled/DescubrimientoMuestreado.ts
+var CELDAS_REFINADAS = 16;
+var PROF_MAX = 5;
+var SUB = 4;
+var MAX_SUBDIVISIONES = 240;
+var MAX_SEMILLAS_REFINADO = 96;
+var CELDAS_RESUELTA = 3;
+var DescubrimientoMuestreado = class {
+  descubrir(F, viewport, tolerancia) {
+    const [x0, x1] = viewport.domX;
+    const [y0, y1] = viewport.domY;
+    const interactivo = tolerancia.pasada === "interactiva";
+    const divX = interactivo ? 22 : 14;
+    const divY = interactivo ? 13 : 8;
+    const cols = Math.min(110, Math.max(interactivo ? 16 : 24, Math.round(viewport.anchoPx / divX)));
+    const rows = Math.min(80, Math.max(interactivo ? 10 : 16, Math.round(viewport.altoPx / divY)));
+    const dx = (x1 - x0) / cols;
+    const dy = (y1 - y0) / rows;
+    const xs = [];
+    const ys = [];
+    for (let i2 = 0; i2 <= cols; i2++)
+      xs[i2] = x0 + i2 * dx;
+    for (let j = 0; j <= rows; j++)
+      ys[j] = y0 + j * dy;
+    const val = [];
+    for (let i2 = 0; i2 <= cols; i2++) {
+      val[i2] = [];
+      for (let j = 0; j <= rows; j++)
+        val[i2][j] = F.eval(xs[i2], ys[j]);
+    }
+    const semillas = [];
+    const cruceReal = (a, b, xm, ym) => {
+      if (!(Number.isFinite(a) && Number.isFinite(b) && a * b < 0))
+        return false;
+      const fm = F.eval(xm, ym);
+      return Number.isFinite(fm) && Math.abs(fm) <= Math.max(Math.abs(a), Math.abs(b));
+    };
+    for (let j = 0; j <= rows; j++) {
+      for (let i2 = 0; i2 < cols; i2++) {
+        const va = val[i2][j], vb = val[i2 + 1][j];
+        if (cruceReal(va, vb, xs[i2] + dx / 2, ys[j])) {
+          const t = va / (va - vb);
+          semillas.push({ punto: { x: xs[i2] + t * dx, y: ys[j] }, confianza: 1 });
+        }
+      }
+    }
+    for (let i2 = 0; i2 <= cols; i2++) {
+      for (let j = 0; j < rows; j++) {
+        const va = val[i2][j], vb = val[i2][j + 1];
+        if (cruceReal(va, vb, xs[i2], ys[j] + dy / 2)) {
+          const t = va / (va - vb);
+          semillas.push({ punto: { x: xs[i2], y: ys[j] + t * dy }, confianza: 1 });
+        }
+      }
+    }
+    if (semillas.length > 0) {
+      let sx0 = Infinity, sx1 = -Infinity, sy0 = Infinity, sy1 = -Infinity;
+      for (const s of semillas) {
+        sx0 = Math.min(sx0, s.punto.x);
+        sx1 = Math.max(sx1, s.punto.x);
+        sy0 = Math.min(sy0, s.punto.y);
+        sy1 = Math.max(sy1, s.punto.y);
+      }
+      const diagNube = Math.hypot(sx1 - sx0, sy1 - sy0);
+      const diagCelda = Math.hypot(dx, dy);
+      if (diagNube > CELDAS_RESUELTA * diagCelda)
+        return { semillas: deduplicarSemillas(semillas), singularidades: [] };
+    }
+    const candidatas = [];
+    for (let i2 = 0; i2 < cols; i2++) {
+      for (let j = 0; j < rows; j++) {
+        const m = minAbs([val[i2][j], val[i2 + 1][j], val[i2][j + 1], val[i2 + 1][j + 1]]);
+        if (Number.isFinite(m))
+          candidatas.push({ i: i2, j, m });
+      }
+    }
+    candidatas.sort((a, b) => a.m - b.m);
+    const cola = candidatas.slice(0, CELDAS_REFINADAS).map((c) => ({
+      x0: xs[c.i],
+      x1: xs[c.i + 1],
+      y0: ys[c.j],
+      y1: ys[c.j + 1],
+      prof: 0,
+      m: c.m
+    }));
+    this.refinar(F, cruceReal, cola, semillas);
+    return { semillas: deduplicarSemillas(semillas), singularidades: [] };
+  }
+  /**
+   * Refinado quadtree POR NIVELES sobre una cola de celdas sospechosas: se subdivide en SUB×SUB,
+   * se siembran los cambios de signo que aparezcan a esa resolución, y los sub-cuadros que NO
+   * produjeron semilla vuelven a la cola un nivel más hondos. El orden de exploración es
+   * **primero por PROFUNDIDAD (anchura), y a igualdad de nivel por |F| menor**.
+   *
+   * POR QUÉ por NIVELES y no por |F| a secas (que sería lo natural, ya que el mínimo de |F| es 0
+   * y se alcanza SOBRE la curva): con prioridad puramente por |F| la cola SE MUERE DE HAMBRE. La
+   * celda VECINA a la curva tiene una esquina con |F| pequeño y FIJO (esa esquina es un nodo: su
+   * valor no cambia por mucho que se subdivida), así que sus descendientes conservan esa m
+   * minúscula y se cuelan siempre por delante de la celda que SÍ contiene la curva —cuyas
+   * esquinas pueden tener |F| mayor—. Medido en el corazón a semiY=27.5: la cola gastaba las 240
+   * subdivisiones cavando una esquina sin curva y devolvía CERO semillas. Por niveles, toda celda
+   * candidata se subdivide antes de que nadie baje otro nivel: la curva se encuentra a la primera.
+   *
+   * Y POR QUÉ una cola y no un descenso por un único camino: bajando solo por el sub-cuadro de |F|
+   * menor se siembra únicamente la parte de la curva que cae en él. La astroide ocupa VARIOS
+   * sub-cuadros, así que unos arcos recibían semillas y otros no → curva MUTILADA en bandas
+   * concretas de zoom, distintas en cada pasada → PARPADEO.
+   */
+  refinar(F, cruceReal, cola, semillas) {
+    let subdivisiones = 0;
+    while (cola.length > 0 && subdivisiones < MAX_SUBDIVISIONES && semillas.length < MAX_SEMILLAS_REFINADO) {
+      let k = 0;
+      for (let i2 = 1; i2 < cola.length; i2++) {
+        const a = cola[i2], b = cola[k];
+        if (a.prof < b.prof || a.prof === b.prof && a.m < b.m)
+          k = i2;
+      }
+      const c = cola[k];
+      cola[k] = cola[cola.length - 1];
+      cola.pop();
+      subdivisiones++;
+      const dx = (c.x1 - c.x0) / SUB, dy = (c.y1 - c.y0) / SUB;
+      const xs = [], ys = [];
+      for (let i2 = 0; i2 <= SUB; i2++)
+        xs[i2] = c.x0 + i2 * dx;
+      for (let j = 0; j <= SUB; j++)
+        ys[j] = c.y0 + j * dy;
+      const val = [];
+      for (let i2 = 0; i2 <= SUB; i2++) {
+        val[i2] = [];
+        for (let j = 0; j <= SUB; j++)
+          val[i2][j] = F.eval(xs[i2], ys[j]);
+      }
+      for (let j = 0; j <= SUB; j++)
+        for (let i2 = 0; i2 < SUB; i2++) {
+          const va = val[i2][j], vb = val[i2 + 1][j];
+          if (cruceReal(va, vb, xs[i2] + dx / 2, ys[j]))
+            semillas.push({ punto: { x: xs[i2] + va / (va - vb) * dx, y: ys[j] }, confianza: 1 });
+        }
+      for (let i2 = 0; i2 <= SUB; i2++)
+        for (let j = 0; j < SUB; j++) {
+          const va = val[i2][j], vb = val[i2][j + 1];
+          if (cruceReal(va, vb, xs[i2], ys[j] + dy / 2))
+            semillas.push({ punto: { x: xs[i2], y: ys[j] + va / (va - vb) * dy }, confianza: 1 });
+        }
+      if (c.prof + 1 > PROF_MAX)
+        continue;
+      for (let i2 = 0; i2 < SUB; i2++)
+        for (let j = 0; j < SUB; j++) {
+          const m = minAbs([val[i2][j], val[i2 + 1][j], val[i2][j + 1], val[i2 + 1][j + 1]]);
+          if (!Number.isFinite(m))
+            continue;
+          cola.push({ x0: xs[i2], x1: xs[i2 + 1], y0: ys[j], y1: ys[j + 1], prof: c.prof + 1, m });
+        }
+    }
+  }
+};
+var RESOLUCION_SEMILLAS = 120;
+function deduplicarSemillas(semillas) {
+  if (semillas.length < 2)
+    return [...semillas];
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const s of semillas) {
+    x0 = Math.min(x0, s.punto.x);
+    x1 = Math.max(x1, s.punto.x);
+    y0 = Math.min(y0, s.punto.y);
+    y1 = Math.max(y1, s.punto.y);
+  }
+  const diag2 = Math.hypot(x1 - x0, y1 - y0);
+  if (!Number.isFinite(diag2) || diag2 <= 0)
+    return [...semillas];
+  const celda = diag2 / RESOLUCION_SEMILLAS;
+  const vistas = /* @__PURE__ */ new Set();
+  const salida = [];
+  for (const s of semillas) {
+    const clave = Math.floor(s.punto.x / celda) + "," + Math.floor(s.punto.y / celda);
+    if (vistas.has(clave))
+      continue;
+    vistas.add(clave);
+    salida.push(s);
+  }
+  return salida;
+}
+function minAbs(vs) {
+  let m = Infinity;
+  for (const v of vs)
+    if (Number.isFinite(v))
+      m = Math.min(m, Math.abs(v));
+  return m;
+}
+
+// src/motor/fields/funcionRealMathjs.ts
+function crearFuncionReal(exprNormalizada) {
+  try {
+    const g = compilarFuncion(exprNormalizada, "x");
+    return {
+      eval: (x) => {
+        const v = g(x);
+        return typeof v === "number" ? v : NaN;
+      }
+    };
+  } catch (e3) {
+    return { eval: () => NaN };
+  }
+}
+
+// src/motor/fields/campoEscalarMathjs.ts
+function crearCampoEscalar(exprDiferencia) {
+  try {
+    const g = compilarExpresion(exprDiferencia);
+    return {
+      eval: (x, y) => {
+        const v = g({ x, y });
+        return typeof v === "number" ? v : NaN;
+      }
+    };
+  } catch (e3) {
+    return { eval: () => NaN };
+  }
+}
+
+// src/motor/fields/parametrizacionMathjs.ts
+var aNumero = (v) => typeof v === "number" ? v : NaN;
+function crearParametrizacionCartesiana(exprX, exprY, dominio, periodica) {
+  try {
+    const gx = compilarFuncion(exprX, "t");
+    const gy = compilarFuncion(exprY, "t");
+    return {
+      eval: (t) => ({ x: aNumero(gx(t)), y: aNumero(gy(t)) }),
+      dominio,
+      periodica
+    };
+  } catch (e3) {
+    return { eval: () => ({ x: NaN, y: NaN }), dominio, periodica };
+  }
+}
+function crearParametrizacionPolar(exprR, dominio, periodica) {
+  try {
+    const gr = compilarFuncion(exprR, "theta");
+    return {
+      eval: (t) => {
+        const r = aNumero(gr(t));
+        return { x: r * Math.cos(t), y: r * Math.sin(t) };
+      },
+      dominio,
+      periodica
+    };
+  } catch (e3) {
+    return { eval: () => ({ x: NaN, y: NaN }), dominio, periodica };
+  }
+}
+
+// src/motor/parsing/periodoPolar.ts
+var DOS_PI = 2 * Math.PI;
+var DOMINIO_POLAR_DEFECTO = [0, DOS_PI];
+var TRIG = /* @__PURE__ */ new Set(["sin", "cos", "tan", "cot", "sec", "csc"]);
+var MULT_MAX = 60;
+var aNumero2 = (v) => typeof v === "number" ? v : NaN;
+var mcd = (a, b) => b === 0 ? a : mcd(b, a % b);
+var mcm = (a, b) => a / mcd(a, b) * b;
+function numeradorFraccion(x, maxDen = 1e3) {
+  if (!Number.isFinite(x) || x <= 0)
+    return null;
+  let h0 = 0, h1 = 1, k0 = 1, k1 = 0, b = x;
+  for (let i2 = 0; i2 < 64; i2++) {
+    const a = Math.floor(b);
+    const h2 = a * h1 + h0, k2 = a * k1 + k0;
+    if (k2 > maxDen)
+      break;
+    h0 = h1;
+    h1 = h2;
+    k0 = k1;
+    k1 = k2;
+    if (Math.abs(h1 / k1 - x) < 1e-9)
+      break;
+    const frac = b - a;
+    if (frac < 1e-12)
+      break;
+    b = 1 / frac;
+  }
+  return h1 > 0 ? h1 : null;
+}
+function contieneTheta(n) {
+  return n.filter((nn) => nn.type === "SymbolNode" && nn.name === "theta").length > 0;
+}
+function pendienteLineal(arg2) {
+  let g;
+  try {
+    g = compilarFuncion(arg2.toString(), "theta");
+  } catch (e3) {
+    return null;
+  }
+  const y0 = aNumero2(g(0.3)), y1 = aNumero2(g(1.3)), y2 = aNumero2(g(2.3));
+  if (![y0, y1, y2].every(Number.isFinite))
+    return null;
+  const a1 = y1 - y0, a2 = y2 - y1;
+  if (Math.abs(a1 - a2) > 1e-7)
+    return null;
+  return a1;
+}
+function periodoValido(exprR, P4) {
+  let g;
+  try {
+    g = compilarFuncion(exprR, "theta");
+  } catch (e3) {
+    return false;
+  }
+  let ok = 0;
+  for (const th of [0.1, 0.9, 1.7, 2.6, 3.9, 5.1]) {
+    const a = aNumero2(g(th)), b = aNumero2(g(th + P4));
+    if (!Number.isFinite(a) || !Number.isFinite(b))
+      continue;
+    if (Math.abs(a - b) > 1e-6 * (1 + Math.abs(a)))
+      return false;
+    ok++;
+  }
+  return ok >= 2;
+}
+function dominioPolar(exprR) {
+  let m = 1;
+  let algunTrig = false;
+  try {
+    const arbol = parse2(exprR);
+    const trigs = arbol.filter(
+      (n) => n.type === "FunctionNode" && n.fn && TRIG.has(n.fn.name)
+    );
+    for (const t of trigs) {
+      const arg2 = t.args[0];
+      if (!arg2 || !contieneTheta(arg2))
+        continue;
+      const a = pendienteLineal(arg2);
+      if (a === null)
+        return DOMINIO_POLAR_DEFECTO;
+      if (Math.abs(a) < 1e-9)
+        continue;
+      const num = numeradorFraccion(1 / Math.abs(a));
+      if (num === null)
+        return DOMINIO_POLAR_DEFECTO;
+      algunTrig = true;
+      m = mcm(m, num);
+      if (m >= MULT_MAX) {
+        m = MULT_MAX;
+        break;
+      }
+    }
+  } catch (e3) {
+    return DOMINIO_POLAR_DEFECTO;
+  }
+  if (!algunTrig)
+    return DOMINIO_POLAR_DEFECTO;
+  const P4 = DOS_PI * m;
+  return periodoValido(exprR, P4) ? [0, P4] : DOMINIO_POLAR_DEFECTO;
+}
+
+// src/motor/parsing/construirObjeto.ts
+var DOMINIO_DEFECTO = [0, 2 * Math.PI];
+var norm2 = (s) => insertarProductoImplicito(normalizarEntrada(s));
+function construirObjeto(source, id) {
+  const s = source.trim();
+  const par = intentarParametrica(s);
+  if (par)
+    return parametrica(id, source, par[0], par[1]);
+  const comp = funcionDelParametro(s);
+  if (comp) {
+    const f = explicita(id, source, renombrarParametroAX(norm2(comp.expr)));
+    return comp.eje === "x" ? { ...f, salida: "x" } : f;
+  }
+  const partes = source.split("=");
+  if (partes.length === 2) {
+    const lhs = norm2(partes[0].trim());
+    const rhs = norm2(partes[1].trim());
+    if (lhs === "y")
+      return explicita(id, source, rhs);
+    if (rhs === "y")
+      return explicita(id, source, lhs);
+    if (lhs === "r")
+      return polar(id, source, partes[1]);
+    if (rhs === "r")
+      return polar(id, source, partes[0]);
+    return implicita(id, source, `(${lhs})-(${rhs})`);
+  }
+  const expr = norm2(partes[0].trim());
+  if (contieneYLibre(expr))
+    return implicita(id, source, expr);
+  return explicita(id, source, expr);
+}
+function intentarParametrica(s) {
+  if (s.length < 2 || s[0] !== "(")
+    return null;
+  if (cierreParentesis(s, 0) !== s.length - 1)
+    return null;
+  const interior = s.slice(1, -1);
+  const coma = comaNivel0(interior);
+  if (coma === -1)
+    return null;
+  if (comaNivel0(interior.slice(coma + 1)) !== -1)
+    return null;
+  const xs = interior.slice(0, coma).trim();
+  const ys = interior.slice(coma + 1).trim();
+  if (!xs || !ys)
+    return null;
+  return [norm2(xs), norm2(ys)];
+}
+function cierreParentesis(texto, inicio) {
+  let prof = 0;
+  for (let i2 = inicio; i2 < texto.length; i2++) {
+    if (texto[i2] === "(")
+      prof++;
+    else if (texto[i2] === ")" && --prof === 0)
+      return i2;
+  }
+  return -1;
+}
+function comaNivel0(texto) {
+  let prof = 0;
+  for (let i2 = 0; i2 < texto.length; i2++) {
+    const c = texto[i2];
+    if (c === "(" || c === "[" || c === "{")
+      prof++;
+    else if (c === ")" || c === "]" || c === "}")
+      prof--;
+    else if (c === "," && prof === 0)
+      return i2;
+  }
+  return -1;
+}
+function explicita(id, source, expr) {
+  return { id, tipo: "explicita", fuente: source, variables: ["x"], f: crearFuncionReal(expr) };
+}
+function implicita(id, source, exprDiferencia) {
+  return { id, tipo: "implicita", fuente: source, variables: ["x", "y"], F: crearCampoEscalar(exprDiferencia) };
+}
+function parametrica(id, source, exprX, exprY) {
+  return {
+    id,
+    tipo: "parametrica",
+    fuente: source,
+    variables: ["t"],
+    p: crearParametrizacionCartesiana(exprX, exprY, DOMINIO_DEFECTO, true)
   };
-  for (let i2 = 0; i2 < nx; i2++) {
-    for (let j = 0; j < ny; j++) {
-      const v00 = val[i2][j];
-      const v10 = val[i2 + 1][j];
-      const v11 = val[i2 + 1][j + 1];
-      const v01 = val[i2][j + 1];
-      const x0 = xs[i2], x1 = xs[i2 + 1];
-      const y0 = ys[j], y1 = ys[j + 1];
-      if (maxNivelCelda > 0) {
-        refinarCelda(x0, y0, x1, y1, v00, v10, v11, v01, 0);
-      } else {
-        if (!Number.isFinite(v00) || !Number.isFinite(v10) || !Number.isFinite(v11) || !Number.isFinite(v01))
+}
+function polar(id, source, ladoExpr) {
+  const expr = norm2(ladoExpr.trim().replace(/θ/g, "theta"));
+  return {
+    id,
+    tipo: "polar",
+    fuente: source,
+    variables: ["theta"],
+    p: crearParametrizacionPolar(expr, dominioPolar(expr), true)
+  };
+}
+
+// src/motor/parsing/dividirEcuaciones.ts
+var NO_ES_ETIQUETA = /* @__PURE__ */ new Set(["x", "y", "e", "i"]);
+function desenvolverDefinicionFuncion(ec) {
+  const m = /^([a-zA-Z])\s*(?:\\left)?\(\s*x\s*(?:\\right)?\)\s*=([\s\S]+)$/.exec(ec);
+  if (!m || NO_ES_ETIQUETA.has(m[1]))
+    return ec;
+  return m[2].trim();
+}
+function dividirEcuaciones(source) {
+  let s = source.trim();
+  for (; ; ) {
+    const ini = s.match(/^\\begin\{[a-zA-Z*]+\}(?:\{[^}]*\}|\[[^\]]*\])*\s*/);
+    const fin = s.match(/\s*\\end\{[a-zA-Z*]+\}$/);
+    if (!ini || !fin)
+      break;
+    s = s.slice(ini[0].length, s.length - fin[0].length);
+  }
+  const lineas = s.split(/\r?\n|\\\\(?:\[[^\]]*\])?/).map((l) => l.replace(/&/g, "").trim()).filter((l) => l.length > 0).map(desenvolverDefinicionFuncion);
+  return fusionarComponentes(lineas);
+}
+
+// src/motor/parsing/dobleSigno.ts
+var CENTINELAS = [["pm", 1], ["mp", -1]];
+function tieneDobleSigno(exprNorm) {
+  return /(?<![a-zA-Z0-9_])(pm|mp)\s*\(/.test(exprNorm);
+}
+function cierreParentesis2(texto, inicio) {
+  let prof = 0;
+  for (let i2 = inicio; i2 < texto.length; i2++) {
+    if (texto[i2] === "(")
+      prof++;
+    else if (texto[i2] === ")" && --prof === 0)
+      return i2;
+  }
+  return -1;
+}
+function resolverCentinelas(exprNorm, rama) {
+  let expr = exprNorm;
+  for (const [nombre, signoBase] of CENTINELAS) {
+    const marca = new RegExp(`(?<![a-zA-Z0-9_])${nombre}\\s*\\(`);
+    for (let m = marca.exec(expr); m; m = marca.exec(expr)) {
+      const abre = m.index + m[0].length - 1;
+      const cierra = cierreParentesis2(expr, abre);
+      if (cierra === -1)
+        break;
+      const cuerpo = expr.slice(abre + 1, cierra);
+      const signo2 = signoBase * rama;
+      expr = expr.slice(0, m.index) + `(${signo2}*(${cuerpo}))` + expr.slice(cierra + 1);
+    }
+  }
+  return expr;
+}
+function expandirDobleSigno(exprNorm) {
+  if (!tieneDobleSigno(exprNorm))
+    return [exprNorm];
+  return [resolverCentinelas(exprNorm, 1), resolverCentinelas(exprNorm, -1)];
+}
+
+// src/motor/analysis/puntosNotablesDeRama.ts
+var LIMITE_POR_CATEGORIA = 30;
+function recolectar(ramas, objetoId, viewport) {
+  const raices = [];
+  const vertices = [];
+  const interseccionesY = [];
+  const agregarExtremos = (xp, yp, x, y, xn, yn, sinParam) => {
+    if (x !== xp && x !== xn && (yp < y && y > yn || yp > y && y < yn))
+      vertices.push({ punto: { x, y }, tipo: "vertice", objetoId });
+    if (sinParam && y !== yp && y !== yn && (xp < x && x > xn || xp > x && x < xn))
+      vertices.push({ punto: { x, y }, tipo: "vertice", objetoId });
+  };
+  for (const rama of ramas) {
+    const p = rama.puntos;
+    const n = p.length / 2;
+    if (n < 2)
+      continue;
+    const sinParam = rama.parametro === void 0;
+    for (let i2 = 1; i2 < n; i2++) {
+      const x = p[i2 * 2], y = p[i2 * 2 + 1];
+      const xp = p[(i2 - 1) * 2], yp = p[(i2 - 1) * 2 + 1];
+      if (yp < 0 && y > 0 || yp > 0 && y < 0) {
+        const r = yp / (yp - y);
+        raices.push({ punto: { x: xp + r * (x - xp), y: 0 }, tipo: "raiz", objetoId });
+      } else if (y === 0) {
+        let s = i2 + 1;
+        while (s < n && p[s * 2] === x && p[s * 2 + 1] === 0)
+          s++;
+        let a = i2 - 1;
+        while (a >= 0 && p[a * 2] === x && p[a * 2 + 1] === 0)
+          a--;
+        const ySig = s < n ? p[s * 2 + 1] : NaN;
+        const yAnt = a >= 0 ? p[a * 2 + 1] : NaN;
+        if (yAnt !== 0 && ySig !== 0)
+          raices.push({ punto: { x, y: 0 }, tipo: "raiz", objetoId });
+      }
+      if (xp <= 0 && x >= 0 || xp >= 0 && x <= 0) {
+        const r = xp === x ? 0 : (0 - xp) / (x - xp);
+        interseccionesY.push({
+          punto: { x: 0, y: yp + r * (y - yp) },
+          tipo: "interseccion-y",
+          objetoId
+        });
+      }
+      if (i2 < n - 1)
+        agregarExtremos(xp, yp, x, y, p[(i2 + 1) * 2], p[(i2 + 1) * 2 + 1], sinParam);
+    }
+    if (rama.cerrada && n >= 3)
+      agregarExtremos(
+        p[(n - 2) * 2],
+        p[(n - 2) * 2 + 1],
+        // penúltima (antes de la costura)
+        p[0],
+        p[1],
+        // costura (= última muestra)
+        p[2],
+        p[3],
+        // segunda (después de la costura)
+        sinParam
+      );
+  }
+  if (viewport) {
+    const epsY = (viewport.domY[1] - viewport.domY[0]) / viewport.altoPx * 0.5;
+    const margenX = (viewport.domX[1] - viewport.domX[0]) / viewport.anchoPx * 2;
+    for (const rama of ramas) {
+      const p = rama.puntos;
+      const n = p.length / 2;
+      if (n < 2 || rama.cerrada)
+        continue;
+      for (const i2 of [0, n - 1]) {
+        const x = p[i2 * 2], y = p[i2 * 2 + 1];
+        if (Math.abs(y) > epsY)
           continue;
-        emitCelda(x0, y0, x1, y1, v00, v10, v11, v01);
+        const paso = i2 === 0 ? 1 : -1;
+        let v = i2 + paso;
+        while (v + paso >= 0 && v + paso < n && p[v * 2] === x && p[v * 2 + 1] === y)
+          v += paso;
+        const yVecina = p[v * 2 + 1];
+        if (y === 0 && yVecina === 0)
+          continue;
+        if (x < viewport.domX[0] + margenX || x > viewport.domX[1] - margenX)
+          continue;
+        if (raices.some((r) => Math.abs(r.punto.x - x) <= margenX))
+          continue;
+        raices.push({ punto: { x, y: 0 }, tipo: "raiz", objetoId });
       }
     }
   }
-  return segmentos;
+  const tolX = viewport ? (viewport.domX[1] - viewport.domX[0]) / viewport.anchoPx * 3 : 1e-6;
+  const tolY = viewport ? (viewport.domY[1] - viewport.domY[0]) / viewport.altoPx * 3 : 1e-6;
+  return {
+    raices: dedupe(raices, tolX, tolY),
+    vertices: dedupe(vertices, tolX, tolY),
+    interseccionesY: dedupe(interseccionesY, tolX, tolY)
+  };
+}
+function dedupe(pts, tolX, tolY) {
+  const out = [];
+  for (const p of pts)
+    if (!out.some((q) => Math.abs(q.punto.x - p.punto.x) <= tolX && Math.abs(q.punto.y - p.punto.y) <= tolY))
+      out.push(p);
+  return out;
+}
+function analizarPuntosNotables(ramas, objetoId, viewport) {
+  const { raices, vertices, interseccionesY } = recolectar(ramas, objetoId, viewport);
+  const out = [];
+  if (interseccionesY.length <= LIMITE_POR_CATEGORIA)
+    out.push(...interseccionesY);
+  if (raices.length <= LIMITE_POR_CATEGORIA)
+    out.push(...raices);
+  if (vertices.length <= LIMITE_POR_CATEGORIA)
+    out.push(...vertices);
+  return out;
+}
+function resumenPuntosNotables(ramas, objetoId, viewport) {
+  return recolectar(ramas, objetoId, viewport);
 }
 
-// src/engines/obs-system/SystemEngine.ts
+// src/motor/analysis/separarImplicita.ts
+function campoTranspuesto(F) {
+  return { eval: (x, y) => F.eval(y, x) };
+}
+var XS = [0.37, 1.13, -0.91, 2.07, -1.6];
+var YS = [0.41, -0.72, 2.33, 1.05, -0.3];
+var TOL_REL = 1e-6;
+var A_MIN = 1e-9;
+var N_MAX = 6;
 function despejarRamas(F) {
-  const xs = [0.37, 1.13, -0.91, 2.07, -1.6];
-  const ys = [0.41, -0.72, 2.33, 1.05, -0.3];
-  const h = 1e-5;
-  let a0 = null;
-  let esLineal = true;
-  for (let i2 = 0; i2 < xs.length; i2++) {
-    const d = (F(xs[i2], ys[i2] + h) - F(xs[i2], ys[i2] - h)) / (2 * h);
-    if (!Number.isFinite(d)) {
-      esLineal = false;
-      break;
+  for (let n = 1; n <= N_MAX; n++) {
+    let a0 = null;
+    let ok = true;
+    for (let i2 = 0; i2 < XS.length; i2++) {
+      const x = XS[i2], y = YS[i2];
+      const f0 = F.eval(x, 0), fy = F.eval(x, y);
+      if (!Number.isFinite(f0) || !Number.isFinite(fy)) {
+        ok = false;
+        break;
+      }
+      const yn = Math.pow(y, n);
+      if (Math.abs(yn) < 1e-12) {
+        ok = false;
+        break;
+      }
+      const a = (fy - f0) / yn;
+      if (a0 === null)
+        a0 = a;
+      else if (Math.abs(a - a0) > TOL_REL * (1 + Math.abs(a0))) {
+        ok = false;
+        break;
+      }
     }
-    if (a0 === null)
-      a0 = d;
-    else if (Math.abs(d - a0) > 1e-6 * (1 + Math.abs(a0))) {
-      esLineal = false;
-      break;
-    }
+    if (ok && a0 !== null && Math.abs(a0) >= A_MIN)
+      return ramasMonomio(F, n, a0);
   }
-  if (esLineal && a0 !== null && Math.abs(a0) >= 1e-9) {
-    const a3 = a0;
-    return [(x) => -F(x, 0) / a3];
+  return null;
+}
+function ramasMonomio(F, n, a) {
+  const g = (x) => -F.eval(x, 0) / a;
+  if (n % 2 === 1) {
+    return [{ eval: (x) => {
+      const v = g(x);
+      return Math.sign(v) * Math.pow(Math.abs(v), 1 / n);
+    } }];
   }
-  let a2 = null;
-  for (let i2 = 0; i2 < xs.length; i2++) {
-    const x = xs[i2];
-    const y = Math.abs(ys[i2]) + 0.5;
-    const f0 = F(x, 0), fy = F(x, y), fmy = F(x, -y);
-    if (!Number.isFinite(f0) || !Number.isFinite(fy) || !Number.isFinite(fmy))
-      return null;
-    if (Math.abs(fy - fmy) > 1e-6 * (1 + Math.abs(fy)))
-      return null;
-    const a3 = (fy - f0) / (y * y);
-    if (a2 === null)
-      a2 = a3;
-    else if (Math.abs(a3 - a2) > 1e-6 * (1 + Math.abs(a2)))
-      return null;
-  }
-  if (a2 === null || Math.abs(a2) < 1e-9)
-    return null;
-  const a = a2;
-  const g = (x) => -F(x, 0) / a;
   return [
-    (x) => {
+    { eval: (x) => {
       const v = g(x);
-      return v >= 0 ? Math.sqrt(v) : NaN;
-    },
-    // rama +
-    (x) => {
+      return v >= 0 ? Math.pow(v, 1 / n) : NaN;
+    } },
+    { eval: (x) => {
       const v = g(x);
-      return v >= 0 ? -Math.sqrt(v) : NaN;
-    }
-    // rama −
+      return v >= 0 ? -Math.pow(v, 1 / n) : NaN;
+    } }
   ];
 }
-var COLORES = [
+var TRIGS = [
+  { tipo: "tan", T: Math.tan },
+  { tipo: "cot", T: (y) => 1 / Math.tan(y) },
+  { tipo: "sin", T: Math.sin },
+  { tipo: "cos", T: Math.cos },
+  { tipo: "sec", T: (y) => 1 / Math.cos(y) },
+  { tipo: "csc", T: (y) => 1 / Math.sin(y) }
+];
+function separarTrigY(F) {
+  const [y1, y2, ...resto] = YS;
+  for (const { tipo, T } of TRIGS) {
+    const T1 = T(y1), T2 = T(y2);
+    let validos = 0, maxA = 0, ok = true;
+    for (const x of XS) {
+      const F1 = F.eval(x, y1), F2 = F.eval(x, y2);
+      if (!Number.isFinite(F1) || !Number.isFinite(F2))
+        continue;
+      const a = (F1 - F2) / (T1 - T2);
+      const c = F1 - a * T1;
+      let escala = 1 + Math.abs(a) + Math.abs(c);
+      let valido = true;
+      for (const y of resto) {
+        const real = F.eval(x, y);
+        if (!Number.isFinite(real)) {
+          valido = false;
+          break;
+        }
+        escala = Math.max(escala, 1 + Math.abs(real));
+        if (Math.abs(a * T(y) + c - real) > TOL_REL * escala) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok)
+        break;
+      if (!valido)
+        continue;
+      validos++;
+      maxA = Math.max(maxA, Math.abs(a));
+    }
+    if (ok && validos >= 3 && maxA >= A_MIN) {
+      const g = (x) => {
+        const F1 = F.eval(x, y1), F2 = F.eval(x, y2);
+        const a = (F1 - F2) / (T1 - T2);
+        return -(F1 - a * T1) / a;
+      };
+      return { tipo, g };
+    }
+  }
+  return null;
+}
+var MONOMIOS = [
+  // 1/|y| (par): 1/|x|+1/|y|=1 ⇒ |y| = 1/g ⇒ y = ±1/g, solo donde g>0.
+  {
+    nombre: "1/|y|",
+    M: (y) => 1 / Math.abs(y),
+    nRamas: 2,
+    inversa: (g) => g > 0 ? [1 / g, -1 / g] : []
+  },
+  // 1/y (impar): 1/x+1/y=1 ⇒ y = 1/g (real para todo g≠0).
+  {
+    nombre: "1/y",
+    M: (y) => 1 / y,
+    nRamas: 1,
+    inversa: (g) => g !== 0 && Number.isFinite(g) ? [1 / g] : []
+  },
+  // 1/y² (par): 1/x²+1/y²=1 ⇒ y = ±1/√g, solo donde g>0.
+  {
+    nombre: "1/y^2",
+    M: (y) => 1 / (y * y),
+    nRamas: 2,
+    inversa: (g) => g > 0 ? [1 / Math.sqrt(g), -1 / Math.sqrt(g)] : []
+  },
+  // |y| (par): |x|+|y|=1 (rombo) ⇒ y = ±g, solo donde g≥0.
+  {
+    nombre: "|y|",
+    M: (y) => Math.abs(y),
+    nRamas: 2,
+    inversa: (g) => g >= 0 ? [g, -g] : []
+  }
+];
+function ramasMonomioY(F) {
+  const [y1, y2, ...resto] = YS;
+  for (const m of MONOMIOS) {
+    const M1 = m.M(y1), M2 = m.M(y2);
+    if (!Number.isFinite(M1) || !Number.isFinite(M2) || Math.abs(M1 - M2) < 1e-12)
+      continue;
+    let validos = 0, maxA = 0, ok = true;
+    for (const x of XS) {
+      const F1 = F.eval(x, y1), F2 = F.eval(x, y2);
+      if (!Number.isFinite(F1) || !Number.isFinite(F2))
+        continue;
+      const a = (F1 - F2) / (M1 - M2);
+      const c = F1 - a * M1;
+      let escala = 1 + Math.abs(a) + Math.abs(c);
+      let valido = true;
+      for (const y of resto) {
+        const real = F.eval(x, y);
+        if (!Number.isFinite(real)) {
+          valido = false;
+          break;
+        }
+        escala = Math.max(escala, 1 + Math.abs(real));
+        if (Math.abs(a * m.M(y) + c - real) > TOL_REL * escala) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok)
+        break;
+      if (!valido)
+        continue;
+      validos++;
+      maxA = Math.max(maxA, Math.abs(a));
+    }
+    if (!ok || validos < 3 || maxA < A_MIN)
+      continue;
+    const g = (x) => {
+      const F1 = F.eval(x, y1), F2 = F.eval(x, y2);
+      const a = (F1 - F2) / (M1 - M2);
+      return -(F1 - a * M1) / a;
+    };
+    return Array.from({ length: m.nRamas }, (_, k) => ({
+      eval: (x) => {
+        const ys = m.inversa(g(x));
+        return k < ys.length ? ys[k] : NaN;
+      }
+    }));
+  }
+  return null;
+}
+function tienePolos(F) {
+  const N = 2e3, x0 = -50, x1 = 50;
+  const paso = (x1 - x0) / N;
+  let prev = F.eval(x0, 0);
+  for (let i2 = 1; i2 <= N; i2++) {
+    const x = x0 + i2 * paso;
+    const v = F.eval(x, 0);
+    if (!Number.isFinite(v)) {
+      prev = v;
+      continue;
+    }
+    if (Number.isFinite(prev) && prev * v < 0) {
+      if (Math.min(Math.abs(prev), Math.abs(v)) > 1)
+        return true;
+    }
+    prev = v;
+  }
+  return false;
+}
+function localizarPolos(F, x0, x1) {
+  const N = Math.min(2e4, Math.max(1500, Math.ceil((x1 - x0) / 0.08)));
+  const paso = (x1 - x0) / N;
+  const polos = [];
+  let xa = x0, fa = F.eval(x0, 0);
+  for (let i2 = 1; i2 <= N; i2++) {
+    const xb = x0 + i2 * paso;
+    const fb = F.eval(xb, 0);
+    if (Number.isFinite(fa) && Number.isFinite(fb) && fa * fb < 0 && Math.min(Math.abs(fa), Math.abs(fb)) > 1) {
+      let lo = xa, hi = xb, flo = fa;
+      for (let k = 0; k < 50; k++) {
+        const m = (lo + hi) / 2, fm = F.eval(m, 0);
+        if (!Number.isFinite(fm) || flo * fm < 0)
+          hi = m;
+        else {
+          lo = m;
+          flo = fm;
+        }
+      }
+      polos.push((lo + hi) / 2);
+    }
+    xa = xb;
+    fa = fb;
+  }
+  return polos;
+}
+
+// src/motor/providers/ProveedorImplicitoSeparable.ts
+var ProveedorImplicitoSeparable = class {
+  /**
+   * `transpuesta=true` → las ramas despejadas son x=g(y) (separable en X, p.ej.
+   * tan(y)+x=5; `campo` es el TRANSPUESTO Ft(x,y)=F(y,x)): se transpone el viewport
+   * a la entrada, se trabaja igual que siempre en el mundo transpuesto, y se giran
+   * las coordenadas del resultado a la salida (ver `girarGeometria`).
+   */
+  constructor(objetoId, ramasExplicitas, trazador, campo, transpuesta = false) {
+    this.objetoId = objetoId;
+    this.ramasExplicitas = ramasExplicitas;
+    this.trazador = trazador;
+    this.campo = campo;
+    this.transpuesta = transpuesta;
+  }
+  geometria(viewport, tolerancia) {
+    if (this.transpuesta) {
+      const vpT = crearViewport(
+        viewport.domY,
+        viewport.domX,
+        viewport.altoPx,
+        viewport.anchoPx,
+        viewport.dpr
+      );
+      return girarGeometria(this.geometriaEnEjePropio(vpT, tolerancia), this.objetoId, tolerancia);
+    }
+    return this.geometriaEnEjePropio(viewport, tolerancia);
+  }
+  geometriaEnEjePropio(viewport, tolerancia) {
+    const polos = localizarPolos(this.campo, viewport.domX[0], viewport.domX[1]);
+    const H = viewport.domY[1] - viewport.domY[0];
+    const yTop = viewport.domY[1] + H, yBot = viewport.domY[0] - H;
+    const ramas = [];
+    const asintotas = [];
+    for (const f of this.ramasExplicitas) {
+      const r = this.trazador.trazar(f, this.objetoId, viewport, tolerancia);
+      for (const rama of r.ramas)
+        for (const sub2 of partirEnPolos(rama, polos, yTop, yBot))
+          ramas.push(sub2);
+      for (const a of r.asintotas)
+        asintotas.push(a);
+    }
+    const esFinal = tolerancia.pasada === "final";
+    const puntosNotables = esFinal ? analizarPuntosNotables(ramas, this.objetoId, viewport) : [];
+    return {
+      ramas,
+      singularidades: [],
+      puntosNotables,
+      asintotas: esFinal ? dedupAsintotas(asintotas) : []
+    };
+  }
+};
+function partirEnPolos(rama, polos, yTop, yBot) {
+  const t = rama.parametro;
+  if (polos.length === 0 || !t || t.length < 2)
+    return [rama];
+  const p = rama.puntos;
+  const n = t.length;
+  const cortes = [];
+  for (let k = 0; k < n - 1; k++) {
+    const lo = Math.min(t[k], t[k + 1]), hi = Math.max(t[k], t[k + 1]);
+    const px = polos.find((q) => q > lo && q < hi);
+    if (px !== void 0)
+      cortes.push({ k, px });
+  }
+  if (cortes.length === 0)
+    return [rama];
+  const out = [];
+  const yBorde = (y) => {
+    if (y >= 0)
+      return y < yTop ? yTop : null;
+    return y > yBot ? yBot : null;
+  };
+  const empuja = (a, b, prePx2, postPx) => {
+    if (b < a)
+      return;
+    const pts = [], par = [];
+    if (prePx2 !== null) {
+      const ye = yBorde(p[a * 2 + 1]);
+      if (ye !== null) {
+        pts.push(prePx2, ye);
+        par.push(prePx2);
+      }
+    }
+    for (let i2 = a; i2 <= b; i2++) {
+      pts.push(p[i2 * 2], p[i2 * 2 + 1]);
+      par.push(t[i2]);
+    }
+    if (postPx !== null) {
+      const ye = yBorde(p[b * 2 + 1]);
+      if (ye !== null) {
+        pts.push(postPx, ye);
+        par.push(postPx);
+      }
+    }
+    if (pts.length >= 4)
+      out.push({ puntos: Float64Array.from(pts), cerrada: false, calidad: rama.calidad, objetoId: rama.objetoId, parametro: Float64Array.from(par) });
+  };
+  let ini = 0;
+  let prePx = null;
+  for (const { k, px } of cortes) {
+    empuja(ini, k, prePx, px);
+    ini = k + 1;
+    prePx = px;
+  }
+  empuja(ini, n - 1, prePx, null);
+  return out;
+}
+function girarGeometria(g, objetoId, tolerancia) {
+  const ramas = g.ramas.map((r) => {
+    const p = r.puntos;
+    const q = new Float64Array(p.length);
+    for (let i2 = 0; i2 < p.length; i2 += 2) {
+      q[i2] = p[i2 + 1];
+      q[i2 + 1] = p[i2];
+    }
+    return { puntos: q, cerrada: r.cerrada, calidad: r.calidad, objetoId };
+  });
+  const asintotas = g.asintotas.map((a) => a.tipo === "vertical" ? { tipo: "horizontal", valor: a.valor } : a.tipo === "horizontal" ? { tipo: "vertical", valor: a.valor } : a);
+  const esFinal = tolerancia.pasada === "final";
+  return {
+    ramas,
+    singularidades: [],
+    puntosNotables: esFinal ? analizarPuntosNotables(ramas, objetoId) : [],
+    asintotas
+  };
+}
+function dedupAsintotas(asintotas) {
+  const out = [];
+  for (const a of asintotas) {
+    if (a.tipo === "vertical" && out.some((b) => b.tipo === "vertical" && Math.abs(b.valor - a.valor) < 1e-6))
+      continue;
+    out.push(a);
+  }
+  return out;
+}
+
+// src/motor/providers/ProveedorExplicito.ts
+var ProveedorExplicito = class {
+  constructor(objeto, trazador) {
+    this.objeto = objeto;
+    this.trazador = trazador;
+    this.objetoId = objeto.id;
+  }
+  geometria(viewport, tolerancia) {
+    if (this.objeto.salida === "x") {
+      const vpT = crearViewport(
+        viewport.domY,
+        viewport.domX,
+        viewport.altoPx,
+        viewport.anchoPx,
+        viewport.dpr
+      );
+      return girarGeometria(this.geometriaEnEjePropio(vpT, tolerancia), this.objetoId, tolerancia);
+    }
+    return this.geometriaEnEjePropio(viewport, tolerancia);
+  }
+  geometriaEnEjePropio(viewport, tolerancia) {
+    const { ramas, asintotas } = this.trazador.trazar(
+      this.objeto.f,
+      this.objeto.id,
+      viewport,
+      tolerancia
+    );
+    const esFinal = tolerancia.pasada === "final";
+    const puntosNotables = esFinal ? analizarPuntosNotables(ramas, this.objeto.id, viewport) : [];
+    return {
+      ramas,
+      singularidades: [],
+      puntosNotables,
+      asintotas: esFinal ? asintotas : []
+    };
+  }
+};
+
+// src/motor/providers/ProveedorImplicito.ts
+var ProveedorImplicito = class {
+  constructor(objeto, descubrimiento, trazador, trazadorExplicito) {
+    this.objeto = objeto;
+    this.descubrimiento = descubrimiento;
+    this.trazador = trazador;
+    this.trazadorExplicito = trazadorExplicito;
+    this.objetoId = objeto.id;
+  }
+  geometria(viewport, tolerancia) {
+    const { semillas, singularidades } = this.descubrimiento.descubrir(
+      this.objeto.F,
+      viewport,
+      tolerancia
+    );
+    const ramas = this.trazador.trazar(
+      this.objeto.F,
+      this.objeto.id,
+      semillas,
+      singularidades,
+      viewport,
+      tolerancia
+    );
+    const esFinal = tolerancia.pasada === "final";
+    return {
+      ramas: parametrizarMonotonasEnX(ramas),
+      singularidades: [],
+      puntosNotables: esFinal ? this.puntosNotablesPorDespeje(viewport, tolerancia) : [],
+      asintotas: []
+    };
+  }
+  /**
+   * Puntos notables por DESPEJE: si F = a·yⁿ + c(x) se despeja a 1–2 ramas y=f(x)
+   * (`despejarRamas`), se muestrean con el sampler explícito y se analizan con el
+   * MISMO `analizarPuntosNotables` que las explícitas → puntos INVARIANTES respecto a
+   * la forma despejada equivalente. Si no se puede despejar, vacío (sin análisis
+   * implícito directo). Las ramas muestreadas son EFÍMERAS: solo para el análisis, la
+   * geometría dibujada sigue siendo la de continuación.
+   */
+  puntosNotablesPorDespeje(viewport, tolerancia) {
+    const ramasExplicitas = despejarRamas(this.objeto.F);
+    if (!ramasExplicitas)
+      return [];
+    const ramas = [];
+    for (const f of ramasExplicitas)
+      for (const r of this.trazadorExplicito.trazar(f, this.objeto.id, viewport, tolerancia).ramas)
+        ramas.push(r);
+    return analizarPuntosNotables(ramas, this.objeto.id, viewport);
+  }
+};
+function parametrizarMonotonasEnX(ramas) {
+  return ramas.map((r) => {
+    const p = r.puntos;
+    const n = p.length / 2;
+    if (n < 2)
+      return r;
+    let creciente = true, decreciente = true;
+    for (let i2 = 1; i2 < n; i2++) {
+      const xa = p[(i2 - 1) * 2], xb = p[i2 * 2];
+      if (!(xb > xa))
+        creciente = false;
+      if (!(xb < xa))
+        decreciente = false;
+    }
+    if (!creciente && !decreciente)
+      return r;
+    const puntos = decreciente ? invertirPolilinea(p) : p;
+    const parametro = new Float64Array(n);
+    for (let i2 = 0; i2 < n; i2++)
+      parametro[i2] = puntos[i2 * 2];
+    return { ...r, puntos, parametro };
+  });
+}
+function invertirPolilinea(p) {
+  const n = p.length / 2;
+  const q = new Float64Array(p.length);
+  for (let i2 = 0; i2 < n; i2++) {
+    q[i2 * 2] = p[(n - 1 - i2) * 2];
+    q[i2 * 2 + 1] = p[(n - 1 - i2) * 2 + 1];
+  }
+  return q;
+}
+
+// src/motor/providers/ProveedorImplicitoPeriodico.ts
+var PI2 = Math.PI;
+var INVERSAS = {
+  tan: { periodo: PI2, bases: [{ inv: Math.atan, rango: [-PI2 / 2, PI2 / 2] }] },
+  cot: { periodo: PI2, bases: [{ inv: (v) => PI2 / 2 - Math.atan(v), rango: [0, PI2] }] },
+  sin: {
+    periodo: 2 * PI2,
+    bases: [
+      { inv: Math.asin, rango: [-PI2 / 2, PI2 / 2] },
+      { inv: (v) => PI2 - Math.asin(v), rango: [PI2 / 2, 3 * PI2 / 2] }
+    ]
+  },
+  cos: {
+    periodo: 2 * PI2,
+    bases: [
+      { inv: Math.acos, rango: [0, PI2] },
+      { inv: (v) => -Math.acos(v), rango: [-PI2, 0] }
+    ]
+  },
+  sec: {
+    periodo: 2 * PI2,
+    bases: [
+      { inv: (v) => Math.acos(1 / v), rango: [0, PI2] },
+      { inv: (v) => -Math.acos(1 / v), rango: [-PI2, 0] }
+    ]
+  },
+  csc: {
+    periodo: 2 * PI2,
+    bases: [
+      { inv: (v) => Math.asin(1 / v), rango: [-PI2 / 2, PI2 / 2] },
+      { inv: (v) => PI2 - Math.asin(1 / v), rango: [PI2 / 2, 3 * PI2 / 2] }
+    ]
+  }
+};
+var MAX_COPIAS = 400;
+var ProveedorImplicitoPeriodico = class {
+  constructor(objetoId, sep, trazador, transpuesta = false) {
+    this.objetoId = objetoId;
+    this.sep = sep;
+    this.trazador = trazador;
+    this.transpuesta = transpuesta;
+  }
+  geometria(viewport, tolerancia) {
+    if (this.transpuesta) {
+      const vpT = crearViewport(
+        viewport.domY,
+        viewport.domX,
+        viewport.altoPx,
+        viewport.anchoPx,
+        viewport.dpr
+      );
+      return girarGeometria(this.geometriaEnEjePropio(vpT, tolerancia), this.objetoId, tolerancia);
+    }
+    return this.geometriaEnEjePropio(viewport, tolerancia);
+  }
+  geometriaEnEjePropio(viewport, tolerancia) {
+    const { periodo, bases } = INVERSAS[this.sep.tipo];
+    const g = this.sep.g;
+    const pxPorY = viewport.altoPx / (viewport.domY[1] - viewport.domY[0]);
+    const ramas = [];
+    for (const b of bases) {
+      const y0 = b.rango[0] - periodo / 2, y1 = b.rango[1] + periodo / 2;
+      const vpBase = crearViewport(
+        viewport.domX,
+        [y0, y1],
+        viewport.anchoPx,
+        Math.max(4, pxPorY * (y1 - y0)),
+        viewport.dpr
+      );
+      const base = this.trazador.trazar(
+        { eval: (x) => b.inv(g(x)) },
+        this.objetoId,
+        vpBase,
+        tolerancia
+      );
+      let kLo = Math.ceil((viewport.domY[0] - b.rango[1]) / periodo) - 1;
+      let kHi = Math.floor((viewport.domY[1] - b.rango[0]) / periodo) + 1;
+      if (kHi - kLo + 1 > MAX_COPIAS) {
+        const kC = Math.round((viewport.domY[0] + viewport.domY[1]) / 2 / periodo);
+        kLo = kC - MAX_COPIAS / 2;
+        kHi = kC + MAX_COPIAS / 2;
+      }
+      for (let k = kLo; k <= kHi; k++) {
+        for (const r of base.ramas)
+          ramas.push(trasladarY(r, k * periodo));
+      }
+    }
+    const esFinal = tolerancia.pasada === "final";
+    return {
+      ramas,
+      singularidades: [],
+      puntosNotables: esFinal ? analizarPuntosNotables(ramas, this.objetoId, viewport) : [],
+      asintotas: []
+    };
+  }
+};
+function trasladarY(r, dy) {
+  if (dy === 0)
+    return r;
+  const p = r.puntos;
+  const q = new Float64Array(p.length);
+  for (let i2 = 0; i2 < p.length; i2 += 2) {
+    q[i2] = p[i2];
+    q[i2 + 1] = p[i2 + 1] + dy;
+  }
+  return { puntos: q, cerrada: r.cerrada, calidad: r.calidad, objetoId: r.objetoId, parametro: r.parametro };
+}
+
+// src/motor/providers/ProveedorParametrico.ts
+var ProveedorParametrico = class {
+  constructor(objeto, trazador) {
+    this.objeto = objeto;
+    this.trazador = trazador;
+    this.objetoId = objeto.id;
+  }
+  geometria(viewport, tolerancia) {
+    const ramas = this.trazador.trazar(this.objeto.p, this.objeto.id, viewport, tolerancia);
+    return { ramas, singularidades: [], puntosNotables: [], asintotas: [] };
+  }
+};
+
+// src/motor/providers/ProveedorConCache.ts
+function firma(vp, t) {
+  return `${vp.domX[0]}|${vp.domX[1]}|${vp.domY[0]}|${vp.domY[1]}|${vp.anchoPx}|${vp.altoPx}|${t.pasada}|${t.desviacionMaxPx}|${t.pasoMaxPx}`;
+}
+var ProveedorConCache = class {
+  constructor(interno) {
+    this.interno = interno;
+    this.claveCache = null;
+    this.geometriaCache = null;
+    this.objetoId = interno.objetoId;
+  }
+  geometria(viewport, tolerancia) {
+    const clave = firma(viewport, tolerancia);
+    if (clave === this.claveCache && this.geometriaCache !== null) {
+      return this.geometriaCache;
+    }
+    const g = this.interno.geometria(viewport, tolerancia);
+    this.claveCache = clave;
+    this.geometriaCache = g;
+    return g;
+  }
+};
+
+// src/motor/providers/ProveedorSinPuntosEje.ts
+var ProveedorSinPuntosEje = class {
+  constructor(interno) {
+    this.interno = interno;
+    this.objetoId = interno.objetoId;
+  }
+  geometria(viewport, tolerancia) {
+    const g = this.interno.geometria(viewport, tolerancia);
+    return {
+      ...g,
+      puntosNotables: g.puntosNotables.filter(
+        (pn) => pn.tipo !== "raiz" && pn.tipo !== "interseccion-y"
+      )
+    };
+  }
+};
+
+// src/motor/providers/ProveedorUnion.ts
+var ProveedorUnion = class {
+  constructor(objetoId, internos) {
+    this.objetoId = objetoId;
+    this.internos = internos;
+  }
+  geometria(viewport, tolerancia) {
+    const gs = this.internos.map((p) => p.geometria(viewport, tolerancia));
+    return {
+      ramas: gs.flatMap((g) => g.ramas),
+      singularidades: gs.flatMap((g) => g.singularidades),
+      puntosNotables: gs.flatMap((g) => g.puntosNotables),
+      asintotas: gs.flatMap((g) => g.asintotas)
+    };
+  }
+};
+
+// src/motor/rendering/RendererCanvas2D.ts
+var css = (c) => `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${c[3]})`;
+var LIM_PX = 1e6;
+var clampPx = (v) => v < -LIM_PX ? -LIM_PX : v > LIM_PX ? LIM_PX : v;
+var RELLENO_POSITIVO = "rgba(90, 165, 255, 0.20)";
+var RELLENO_NEGATIVO = "rgba(240, 110, 90, 0.20)";
+var TRAMA_POSITIVA = "rgba(140, 195, 255, 0.30)";
+var TRAMA_NEGATIVA = "rgba(255, 150, 125, 0.30)";
+var TRAMA_PASO_PX = 12;
+var BORDE_REGION = "rgba(110, 175, 255, 0.95)";
+var BORDE_GROSOR_PX = 2;
+var RendererCanvas2D = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  // Dibuja SOLO las ramas (capa intermedia). El fondo, la rejilla y los ejes los
+  // pinta el Overlay (capa inferior); el crosshair va encima. No limpia el canvas:
+  // el Overlay lo hizo al principio del frame.
+  dibujar(items, vp) {
+    const ctx = this.ctx;
+    const clamp2 = clampPx;
+    for (const { geometria, estilo } of items) {
+      ctx.strokeStyle = css(estilo.color);
+      ctx.lineWidth = estilo.grosorPx;
+      ctx.lineJoin = "round";
+      for (const rama of geometria.ramas) {
+        const p = rama.puntos;
+        if (p.length < 4)
+          continue;
+        ctx.beginPath();
+        ctx.moveTo(clamp2(aPantallaX(vp, p[0])), clamp2(aPantallaY(vp, p[1])));
+        for (let k = 2; k < p.length; k += 2) {
+          ctx.lineTo(clamp2(aPantallaX(vp, p[k])), clamp2(aPantallaY(vp, p[k + 1])));
+        }
+        ctx.stroke();
+      }
+    }
+  }
+  // Relleno de la región bajo la curva de una integral definida (obs-integral), capa
+  // ENTRE la rejilla/asíntotas y las ramas (el trazo de la curva queda encima). Recibe las
+  // polilíneas YA recortadas a x∈[a,b] por `recortarRegion` (analysis). Cada polilínea se
+  // parte en tramos de signo constante (corte en y=0) y se rellena hasta el eje con su
+  // tinte: frío arriba (f>0), cálido abajo (f<0) → el ÁREA CON SIGNO es visible. Si el eje
+  // y=0 queda fuera de vista, el relleno llega al borde del lienzo (sigue siendo "al eje").
+  dibujarRegion(regiones, vp) {
+    if (regiones.length === 0)
+      return;
+    const ctx = this.ctx;
+    const ejeY = Math.max(0, Math.min(vp.altoPx, aPantallaY(vp, 0)));
+    const tramar = (color) => {
+      ctx.save();
+      ctx.clip();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      const fase = (aPantallaX(vp, 0) + aPantallaY(vp, 0)) % TRAMA_PASO_PX;
+      const cMax = vp.anchoPx + vp.altoPx;
+      ctx.beginPath();
+      for (let c = fase - TRAMA_PASO_PX; c < cMax + TRAMA_PASO_PX; c += TRAMA_PASO_PX) {
+        ctx.moveTo(c - vp.altoPx, vp.altoPx);
+        ctx.lineTo(c, 0);
+      }
+      ctx.stroke();
+      ctx.restore();
+    };
+    ctx.save();
+    for (const poly of regiones) {
+      let run = [];
+      let signo2 = 0;
+      const rellenar = () => {
+        if (run.length >= 4 && signo2 !== 0) {
+          ctx.beginPath();
+          ctx.moveTo(run[0], ejeY);
+          for (let i2 = 0; i2 < run.length; i2 += 2)
+            ctx.lineTo(run[i2], run[i2 + 1]);
+          ctx.lineTo(run[run.length - 2], ejeY);
+          ctx.closePath();
+          ctx.fillStyle = signo2 > 0 ? RELLENO_POSITIVO : RELLENO_NEGATIVO;
+          ctx.fill();
+          tramar(signo2 > 0 ? TRAMA_POSITIVA : TRAMA_NEGATIVA);
+        }
+        run = [];
+        signo2 = 0;
+      };
+      let px = 0, py = 0, hay = false;
+      for (let k = 0; k < poly.length; k += 2) {
+        const x = poly[k], y = poly[k + 1];
+        const s = y > 0 ? 1 : y < 0 ? -1 : 0;
+        if (hay && s !== 0 && signo2 !== 0 && s !== signo2) {
+          const t = py / (py - y);
+          const cortePx = clampPx(aPantallaX(vp, px + (x - px) * t));
+          run.push(cortePx, ejeY);
+          rellenar();
+          run.push(cortePx, ejeY);
+          signo2 = s;
+        }
+        if (s !== 0 && signo2 === 0)
+          signo2 = s;
+        run.push(clampPx(aPantallaX(vp, x)), clampPx(aPantallaY(vp, y)));
+        px = x;
+        py = y;
+        hay = true;
+      }
+      rellenar();
+      if (poly.length >= 4) {
+        ctx.strokeStyle = BORDE_REGION;
+        ctx.lineWidth = BORDE_GROSOR_PX;
+        for (const k of [0, poly.length - 2]) {
+          const bx = clampPx(aPantallaX(vp, poly[k]));
+          const by = clampPx(aPantallaY(vp, poly[k + 1]));
+          ctx.beginPath();
+          ctx.moveTo(bx, ejeY);
+          ctx.lineTo(bx, by);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+  // Asíntotas verticales y horizontales como líneas punteadas (estilo overlay).
+  // Lee Geometria.asintotas; agnóstico de cómo se detectaron.
+  dibujarAsintotas(items, vp) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = "rgba(100, 150, 255, 0.3)";
+    ctx.lineWidth = 1;
+    for (const { geometria } of items) {
+      for (const a of geometria.asintotas) {
+        if (typeof a.valor !== "number")
+          continue;
+        if (a.tipo === "vertical") {
+          const px = aPantallaX(vp, a.valor);
+          if (px < 0 || px > vp.anchoPx)
+            continue;
+          ctx.beginPath();
+          ctx.moveTo(px, 0);
+          ctx.lineTo(px, vp.altoPx);
+          ctx.stroke();
+        } else if (a.tipo === "horizontal") {
+          const py = aPantallaY(vp, a.valor);
+          if (py < 0 || py > vp.altoPx)
+            continue;
+          ctx.beginPath();
+          ctx.moveTo(0, py);
+          ctx.lineTo(vp.anchoPx, py);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+  // Marcadores de puntos notables (anillo tenue + disco naranja). Radio en
+  // píxeles → tamaño constante con el zoom. Lee Geometria.puntosNotables.
+  dibujarPuntosNotables(items, vp) {
+    const ctx = this.ctx;
+    for (const { geometria } of items) {
+      for (const pn of geometria.puntosNotables) {
+        const px = aPantallaX(vp, pn.punto.x);
+        const py = aPantallaY(vp, pn.punto.y);
+        if (px < 0 || px > vp.anchoPx || py < 0 || py > vp.altoPx)
+          continue;
+        ctx.beginPath();
+        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(px, py, 3, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255, 160, 40, 1.0)";
+        ctx.fill();
+      }
+    }
+  }
+  // Marcadores de intersección del sistema (anillo tenue + disco morado, el
+  // COLOR_PUNTO_SOLUCION del obs-system original). Solo conoce Punto+Viewport.
+  dibujarIntersecciones(puntos, vp) {
+    const ctx = this.ctx;
+    for (const p of puntos) {
+      const px = aPantallaX(vp, p.x);
+      const py = aPantallaY(vp, p.y);
+      if (px < 0 || px > vp.anchoPx || py < 0 || py > vp.altoPx)
+        continue;
+      ctx.beginPath();
+      ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(168, 85, 247, 1.0)";
+      ctx.fill();
+    }
+  }
+};
+
+// src/motor/rendering/overlay/Overlay.ts
+function pasoBonito(rango, maxTicks) {
+  var _a;
+  const base = Math.pow(10, Math.floor(Math.log10(rango / maxTicks)));
+  const pasos = [1, 2, 5, 10].map((m) => m * base);
+  return (_a = pasos.find((p) => rango / p <= maxTicks)) != null ? _a : pasos[pasos.length - 1];
+}
+function ticksConPaso(min3, max3, paso, capN) {
+  if (!(paso > 0))
+    return [];
+  const inicio = Math.ceil(min3 / paso) * paso;
+  const n = Math.floor((max3 + 1e-9 - inicio) / paso);
+  if (!Number.isFinite(n) || n < 0)
+    return [];
+  const ticks = [];
+  for (let i2 = 0; i2 <= Math.min(n, capN); i2++) {
+    ticks.push(parseFloat((inicio + i2 * paso).toPrecision(10)));
+  }
+  return ticks;
+}
+function generarTicksCuadrados(vp, maxTicks = 10) {
+  const rangoX = vp.domX[1] - vp.domX[0];
+  const rangoY = vp.domY[1] - vp.domY[0];
+  if (!(rangoX > 0) || !(rangoY > 0))
+    return { x: [], y: [] };
+  const rangoMin = Math.min(rangoX, rangoY);
+  const paso = pasoBonito(rangoMin, maxTicks);
+  const cap = 4 * maxTicks * Math.max(1, Math.ceil(Math.max(rangoX, rangoY) / rangoMin));
+  return {
+    x: ticksConPaso(vp.domX[0], vp.domX[1], paso, cap),
+    y: ticksConPaso(vp.domY[0], vp.domY[1], paso, cap)
+  };
+}
+function formatearNumero(n) {
+  if (Math.abs(n) < 1e-9)
+    return "0";
+  if (Math.abs(n) >= 1e3 || Math.abs(n) < 0.01 && n !== 0)
+    return n.toExponential(1);
+  return parseFloat(n.toPrecision(4)).toString();
+}
+var Overlay = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  /** Pinta el fondo + grid + ejes + ticks + etiquetas para este viewport. */
+  dibujar(vp) {
+    const ctx = this.ctx;
+    const W = vp.anchoPx;
+    const H = vp.altoPx;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#1e1e1e";
+    ctx.fillRect(0, 0, W, H);
+    const { x: ticksX, y: ticksY } = generarTicksCuadrados(vp);
+    ctx.strokeStyle = "rgba(130,130,150,0.12)";
+    ctx.lineWidth = 0.5;
+    for (const x of ticksX) {
+      const px = aPantallaX(vp, x);
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, H);
+      ctx.stroke();
+    }
+    for (const y of ticksY) {
+      const py = aPantallaY(vp, y);
+      ctx.beginPath();
+      ctx.moveTo(0, py);
+      ctx.lineTo(W, py);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(160,160,170,0.7)";
+    ctx.lineWidth = 1;
+    if (vp.domY[0] <= 0 && vp.domY[1] >= 0) {
+      const y = aPantallaY(vp, 0);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+    if (vp.domX[0] <= 0 && vp.domX[1] >= 0) {
+      const x = aPantallaX(vp, 0);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+    const ceroY = Math.max(4, Math.min(H - 4, aPantallaY(vp, 0)));
+    const ceroX = Math.max(4, Math.min(W - 4, aPantallaX(vp, 0)));
+    ctx.font = "11px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    for (const x of ticksX) {
+      if (Math.abs(x) < 1e-9)
+        continue;
+      const px = aPantallaX(vp, x);
+      if (px < 10 || px > W - 10)
+        continue;
+      ctx.strokeStyle = "rgba(160,160,170,0.5)";
+      ctx.lineWidth = 0.75;
+      ctx.beginPath();
+      ctx.moveTo(px, ceroY - 3);
+      ctx.lineTo(px, ceroY + 3);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(160,160,170,0.85)";
+      ctx.fillText(formatearNumero(x), px, ceroY + 5);
+    }
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (const y of ticksY) {
+      if (Math.abs(y) < 1e-9)
+        continue;
+      const py = aPantallaY(vp, y);
+      if (py < 10 || py > H - 10)
+        continue;
+      ctx.strokeStyle = "rgba(160,160,170,0.5)";
+      ctx.lineWidth = 0.75;
+      ctx.beginPath();
+      ctx.moveTo(ceroX - 3, py);
+      ctx.lineTo(ceroX + 3, py);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(160,160,170,0.85)";
+      ctx.fillText(formatearNumero(y), ceroX - 6, py);
+    }
+  }
+};
+
+// src/motor/rendering/Crosshair.ts
+var Crosshair = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  /**
+   * Cruz (+) propia del cursor, centrada exactamente en (px, py) del ratón.
+   * Sustituye al cursor del sistema (oculto con cursor:none en el canvas). Mismo
+   * estilo que obs-system: 14px, blanca, 1.25px. Es independiente del crosshair
+   * matemático: se muestra siempre que el puntero esté sobre el plano.
+   */
+  dibujarCursorCruz(px, py) {
+    const R = 7;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = "rgba(235, 238, 245, 0.95)";
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.moveTo(px - R, py);
+    ctx.lineTo(px + R, py);
+    ctx.moveTo(px, py - R);
+    ctx.lineTo(px, py + R);
+    ctx.stroke();
+    ctx.restore();
+  }
+  /**
+   * Dibuja la cruz en cursorPx (px CSS). Sigue la curva SELECCIONADA (`item`, que el
+   * host elige con los botones de color); el marcador toma el color de esa curva.
+   * Obtiene la y INTERPOLANDO la `Rama` (no evalúa f). `anclado` añade el anillo
+   * naranja del modo carril.
+   */
+  dibujar(vp, cursorPx, item, anclado = false, yMundo) {
+    const ctx = this.ctx;
+    const W = vp.anchoPx;
+    const H = vp.altoPx;
+    const worldX = aMundoX(vp, cursorPx);
+    const y = yMundo !== void 0 ? yMundo : item ? yEnRamas(item.geometria.ramas, worldX) : null;
+    if (y === null || !Number.isFinite(y))
+      return;
+    const py = aPantallaY(vp, y);
+    const yVisible = py >= 0 && py <= H;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.setLineDash([1.5, 5]);
+    ctx.strokeStyle = "rgba(140, 170, 255, 0.3)";
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.moveTo(cursorPx, 0);
+    ctx.lineTo(cursorPx, H);
+    ctx.stroke();
+    if (yVisible) {
+      ctx.beginPath();
+      ctx.moveTo(0, py);
+      ctx.lineTo(W, py);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.lineCap = "butt";
+    if (yVisible) {
+      ctx.beginPath();
+      ctx.arc(cursorPx, py, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cursorPx, py, 3, 0, Math.PI * 2);
+      const c = item == null ? void 0 : item.estilo.color;
+      ctx.fillStyle = c ? `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, 1)` : "rgba(80, 160, 255, 1.0)";
+      ctx.fill();
+      if (anclado) {
+        ctx.strokeStyle = "rgba(255, 160, 40, 0.9)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cursorPx, py, 7, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    const aLaDerecha = cursorPx < W * 0.75;
+    ctx.textAlign = aLaDerecha ? "left" : "right";
+    ctx.textBaseline = "top";
+    ctx.font = "11px monospace";
+    const tx = cursorPx + (aLaDerecha ? 5 : -5);
+    ctx.fillStyle = "rgba(200, 210, 255, 0.9)";
+    ctx.fillText(`x = ${formatearNumero(worldX)}`, tx, 4);
+    ctx.fillText(`y = ${formatearNumero(y)}`, tx, 18);
+    ctx.restore();
+  }
+};
+
+// src/motor/analysis/interseccionesRamas.ts
+var MAX_PUNTOS = 200;
+var LIMITE_CELDAS = 256;
+function interseccionSegmentos(ax, ay, bx, by, cx, cy, dx, dy) {
+  const rx = bx - ax, ry = by - ay;
+  const sx = dx - cx, sy = dy - cy;
+  const det2 = rx * sy - ry * sx;
+  if (Math.abs(det2) <= 1e-12 * Math.hypot(rx, ry) * Math.hypot(sx, sy))
+    return null;
+  const qx = cx - ax, qy = cy - ay;
+  const t = (qx * sy - qy * sx) / det2;
+  const u = (qx * ry - qy * rx) / det2;
+  const EPS = 1e-9;
+  if (t < -EPS || t > 1 + EPS || u < -EPS || u > 1 + EPS)
+    return null;
+  return { x: ax + t * rx, y: ay + t * ry };
+}
+function solapanColineales(ax, ay, bx, by, cx, cy, dx, dy, eps) {
+  const rx = bx - ax, ry = by - ay, sx = dx - cx, sy = dy - cy;
+  const lenR = Math.hypot(rx, ry), lenS = Math.hypot(sx, sy);
+  if (lenR < 1e-12 || lenS < 1e-12)
+    return false;
+  if (Math.abs(rx * sy - ry * sx) > 1e-6 * lenR * lenS)
+    return false;
+  const qx = cx - ax, qy = cy - ay;
+  if (Math.abs(rx * qy - ry * qx) / lenR > eps)
+    return false;
+  const inv2 = 1 / (lenR * lenR);
+  let tc = (qx * rx + qy * ry) * inv2;
+  let td = ((dx - ax) * rx + (dy - ay) * ry) * inv2;
+  if (tc > td) {
+    const t = tc;
+    tc = td;
+    td = t;
+  }
+  const lo = Math.max(0, tc), hi = Math.min(1, td);
+  if (hi <= lo)
+    return false;
+  return (hi - lo) * lenR > 0.5 * Math.min(lenR, lenS);
+}
+function interseccionesDeGeometrias(geometrias, epsilonMundo, maxPuntos = MAX_PUNTOS, region, estado) {
+  const out = [];
+  for (let i2 = 0; i2 < geometrias.length && out.length < maxPuntos; i2++) {
+    for (let j = i2 + 1; j < geometrias.length && out.length < maxPuntos; j++) {
+      cruzarRamas(geometrias[i2].ramas, geometrias[j].ramas, epsilonMundo, maxPuntos, out, region, estado);
+    }
+  }
+  return out;
+}
+function segmentosDe(ramas, region) {
+  let n = 0;
+  for (const r of ramas)
+    n += Math.max(0, r.puntos.length / 2 - 1);
+  const segs = new Float64Array(n * 4);
+  let k = 0;
+  for (const r of ramas) {
+    const p = r.puntos;
+    for (let m = 0; m + 3 < p.length; m += 2) {
+      let ax = p[m], ay = p[m + 1], bx = p[m + 2], by = p[m + 3];
+      if (!Number.isFinite(ax) || !Number.isFinite(ay) || !Number.isFinite(bx) || !Number.isFinite(by))
+        continue;
+      if (region) {
+        const dx = bx - ax, dy = by - ay;
+        let t0 = 0, t1 = 1, fuera = false;
+        for (let lado = 0; lado < 4 && !fuera; lado++) {
+          const pp = lado === 0 ? -dx : lado === 1 ? dx : lado === 2 ? -dy : dy;
+          const qq = lado === 0 ? ax - region.x0 : lado === 1 ? region.x1 - ax : lado === 2 ? ay - region.y0 : region.y1 - ay;
+          if (pp === 0) {
+            if (qq < 0)
+              fuera = true;
+            continue;
+          }
+          const t = qq / pp;
+          if (pp < 0) {
+            if (t > t1)
+              fuera = true;
+            else if (t > t0)
+              t0 = t;
+          } else {
+            if (t < t0)
+              fuera = true;
+            else if (t < t1)
+              t1 = t;
+          }
+        }
+        if (fuera)
+          continue;
+        bx = ax + t1 * dx;
+        by = ay + t1 * dy;
+        ax = ax + t0 * dx;
+        ay = ay + t0 * dy;
+      }
+      segs[k++] = ax;
+      segs[k++] = ay;
+      segs[k++] = bx;
+      segs[k++] = by;
+    }
+  }
+  return k === segs.length ? segs : segs.subarray(0, k);
+}
+function agregarUnico(out, p, eps, maxPuntos) {
+  if (out.length >= maxPuntos)
+    return;
+  for (const q of out)
+    if (Math.hypot(q.x - p.x, q.y - p.y) < eps)
+      return;
+  out.push(p);
+}
+function cruzarRamas(ramasA, ramasB, eps, maxPuntos, out, region, estado) {
+  const A = segmentosDe(ramasA, region);
+  const B = segmentosDe(ramasB, region);
+  const nA = A.length / 4, nB = B.length / 4;
+  if (nA === 0 || nB === 0)
+    return;
+  const longitudes = new Float64Array(nA);
+  for (let s = 0; s < nA; s++) {
+    longitudes[s] = Math.hypot(A[s * 4 + 2] - A[s * 4], A[s * 4 + 3] - A[s * 4 + 1]);
+  }
+  longitudes.sort();
+  let celda = Math.max(longitudes[nA >> 1], eps);
+  if (!(celda > 0))
+    celda = 1;
+  const mapa = /* @__PURE__ */ new Map();
+  const fuera = [];
+  for (let s = 0; s < nA; s++) {
+    const cx0 = Math.floor(Math.min(A[s * 4], A[s * 4 + 2]) / celda);
+    const cx1 = Math.floor(Math.max(A[s * 4], A[s * 4 + 2]) / celda);
+    const cy0 = Math.floor(Math.min(A[s * 4 + 1], A[s * 4 + 3]) / celda);
+    const cy1 = Math.floor(Math.max(A[s * 4 + 1], A[s * 4 + 3]) / celda);
+    if ((cx1 - cx0 + 1) * (cy1 - cy0 + 1) > LIMITE_CELDAS) {
+      fuera.push(s);
+      continue;
+    }
+    for (let cx = cx0; cx <= cx1; cx++) {
+      for (let cy = cy0; cy <= cy1; cy++) {
+        const clave = cx + "," + cy;
+        const lista = mapa.get(clave);
+        if (lista)
+          lista.push(s);
+        else
+          mapa.set(clave, [s]);
+      }
+    }
+  }
+  const visto = new Int32Array(nA).fill(-1);
+  const testear = (sa, sb) => {
+    if (visto[sa] === sb)
+      return;
+    visto[sa] = sb;
+    const ax = A[sa * 4], ay = A[sa * 4 + 1], bx = A[sa * 4 + 2], by = A[sa * 4 + 3];
+    const cx = B[sb * 4], cy = B[sb * 4 + 1], dx = B[sb * 4 + 2], dy = B[sb * 4 + 3];
+    const p = interseccionSegmentos(ax, ay, bx, by, cx, cy, dx, dy);
+    if (p)
+      agregarUnico(out, p, eps, maxPuntos);
+    else if (estado && !estado.solapa && solapanColineales(ax, ay, bx, by, cx, cy, dx, dy, eps))
+      estado.solapa = true;
+  };
+  for (let sb = 0; sb < nB && out.length < maxPuntos; sb++) {
+    const cx0 = Math.floor(Math.min(B[sb * 4], B[sb * 4 + 2]) / celda);
+    const cx1 = Math.floor(Math.max(B[sb * 4], B[sb * 4 + 2]) / celda);
+    const cy0 = Math.floor(Math.min(B[sb * 4 + 1], B[sb * 4 + 3]) / celda);
+    const cy1 = Math.floor(Math.max(B[sb * 4 + 1], B[sb * 4 + 3]) / celda);
+    if ((cx1 - cx0 + 1) * (cy1 - cy0 + 1) > LIMITE_CELDAS) {
+      for (let sa = 0; sa < nA; sa++)
+        testear(sa, sb);
+      continue;
+    }
+    for (let cx = cx0; cx <= cx1; cx++) {
+      for (let cy = cy0; cy <= cy1; cy++) {
+        const lista = mapa.get(cx + "," + cy);
+        if (lista)
+          for (const sa of lista)
+            testear(sa, sb);
+      }
+    }
+    for (const sa of fuera)
+      testear(sa, sb);
+  }
+}
+
+// src/motor/analysis/areaBajoRama.ts
+var ETIQUETA_DIVERGENTE = {
+  tipo: "etiqueta",
+  etiqueta: "Integral divergente",
+  detalle: "La integral no converge: la funci\xF3n no es acotada en el intervalo."
+};
+var ETIQUETA_FUERA_DOMINIO = {
+  tipo: "etiqueta",
+  etiqueta: "Fuera de dominio",
+  detalle: "El intervalo de integraci\xF3n sale del dominio real de la funci\xF3n."
+};
+var ETIQUETA_LIMITES = {
+  tipo: "etiqueta",
+  etiqueta: "L\xEDmites no num\xE9ricos",
+  detalle: "Los l\xEDmites de integraci\xF3n no eval\xFAan a un n\xFAmero real."
+};
+var MUESTRAS_ESCANEO = 512;
+var SPIKE_ABS = 1e5;
+var HUGE = 1e10;
+var CAP_DIVERGENCIA = 1e15;
+var TOL_SIMPSON = 1e-11;
+var PROF_MAX2 = 50;
+var TOL_CONV = 1e-4;
+var ITERS_EPS = 40;
+var signo = (v) => v > 0 ? 1 : v < 0 ? -1 : 0;
+function simpson(fa, fm, fb, a, b) {
+  return (b - a) / 6 * (fa + 4 * fm + fb);
+}
+function adaptativo(f, a, b, fa, fb, fm, entero, tol, prof) {
+  const m = (a + b) / 2;
+  const lm = (a + m) / 2, rm = (m + b) / 2;
+  const flm = f(lm), frm = f(rm);
+  if (!Number.isFinite(flm) || !Number.isFinite(frm))
+    return NaN;
+  const izq = simpson(fa, flm, fm, a, m);
+  const der = simpson(fm, frm, fb, m, b);
+  const suma = izq + der;
+  if (prof <= 0 || Math.abs(suma - entero) <= 15 * tol)
+    return suma + (suma - entero) / 15;
+  return adaptativo(f, a, m, fa, fm, flm, izq, tol / 2, prof - 1) + adaptativo(f, m, b, fm, fb, frm, der, tol / 2, prof - 1);
+}
+function integrar(f, a, b) {
+  const fa = f(a), fb = f(b), fm = f((a + b) / 2);
+  if (!Number.isFinite(fa) || !Number.isFinite(fb) || !Number.isFinite(fm))
+    return NaN;
+  const entero = simpson(fa, fm, fb, a, b);
+  const tol = TOL_SIMPSON * (1 + Math.abs(entero));
+  return adaptativo(f, a, b, fa, fb, fm, entero, tol, PROF_MAX2);
+}
+function poloEntreSignos(f, x1, x2) {
+  let a = x1, b = x2, fa = f(a);
+  for (let i2 = 0; i2 < 60; i2++) {
+    const m = (a + b) / 2, fm = f(m);
+    if (!Number.isFinite(fm))
+      return true;
+    if (Math.abs(fm) > HUGE)
+      return true;
+    if (signo(fm) === signo(fa)) {
+      a = m;
+      fa = fm;
+    } else {
+      b = m;
+    }
+  }
+  return false;
+}
+function poloEnCelda(f, xa, xb) {
+  const N = 256;
+  let mx = 0;
+  for (let i2 = 0; i2 <= N; i2++) {
+    const v = Math.abs(f(xa + (xb - xa) * i2 / N));
+    if (!Number.isFinite(v))
+      return true;
+    if (v > mx)
+      mx = v;
+  }
+  return mx > HUGE;
+}
+function escanearInterior(f, a, b) {
+  const paso = (b - a) / MUESTRAS_ESCANEO;
+  const xs = [], fs = [];
+  let escala = 0, nEscala = 0;
+  for (let i2 = 1; i2 < MUESTRAS_ESCANEO; i2++) {
+    const x = a + paso * i2, v = f(x);
+    if (Number.isNaN(v))
+      return "hueco";
+    if (v === Infinity || v === -Infinity)
+      return "polo";
+    xs.push(x);
+    fs.push(v);
+    escala += Math.abs(v);
+    nEscala++;
+  }
+  const media = nEscala > 0 ? escala / nEscala : 0;
+  const umbralPico = Math.max(SPIKE_ABS, 1e3 * media);
+  for (let i2 = 0; i2 + 1 < fs.length; i2++) {
+    if (signo(fs[i2]) !== 0 && signo(fs[i2 + 1]) !== 0 && signo(fs[i2]) !== signo(fs[i2 + 1])) {
+      if (poloEntreSignos(f, xs[i2], xs[i2 + 1]))
+        return "polo";
+    }
+    if (Math.abs(fs[i2]) > umbralPico) {
+      const xa = i2 > 0 ? xs[i2 - 1] : xs[i2];
+      const xb = i2 + 1 < xs.length ? xs[i2 + 1] : xs[i2];
+      if (poloEnCelda(f, xa, xb))
+        return "polo";
+    }
+  }
+  return null;
+}
+function integrarExtremoSingular(f, a, b, loSing, hiSing, orient) {
+  const span = b - a;
+  const epsMin = span * 1e-13;
+  let epsL = loSing ? span * 0.01 : 0;
+  let epsR = hiSing ? span * 0.01 : 0;
+  let prev = NaN, convergio = false, ultimo = NaN;
+  for (let k = 0; k < ITERS_EPS; k++) {
+    const est = integrar(f, a + epsL, b - epsR);
+    if (!Number.isFinite(est) || Math.abs(est) > CAP_DIVERGENCIA)
+      return ETIQUETA_DIVERGENTE;
+    ultimo = est;
+    if (Number.isFinite(prev) && Math.abs(est - prev) <= TOL_CONV * (1 + Math.abs(est))) {
+      convergio = true;
+      break;
+    }
+    prev = est;
+    if (loSing && epsL <= epsMin || hiSing && epsR <= epsMin)
+      break;
+    epsL /= 4;
+    epsR /= 4;
+  }
+  if (!convergio)
+    return ETIQUETA_DIVERGENTE;
+  return { tipo: "valor", valor: orient * ultimo, impropia: true };
+}
+function areaDefinida(f, a, b) {
+  if (!Number.isFinite(a) || !Number.isFinite(b))
+    return ETIQUETA_LIMITES;
+  if (a === b)
+    return { tipo: "valor", valor: 0, impropia: false };
+  const orient = a < b ? 1 : -1;
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  const g = (x) => f.eval(x);
+  const interior = escanearInterior(g, lo, hi);
+  if (interior === "hueco")
+    return ETIQUETA_FUERA_DOMINIO;
+  if (interior === "polo")
+    return ETIQUETA_DIVERGENTE;
+  const loSing = !Number.isFinite(g(lo));
+  const hiSing = !Number.isFinite(g(hi));
+  if (loSing || hiSing)
+    return integrarExtremoSingular(g, lo, hi, loSing, hiSing, orient);
+  const val = integrar(g, lo, hi);
+  if (!Number.isFinite(val) || Math.abs(val) > CAP_DIVERGENCIA)
+    return ETIQUETA_DIVERGENTE;
+  return { tipo: "valor", valor: orient * val, impropia: false };
+}
+function recortarRegion(ramas, a, b) {
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  const salida = [];
+  for (const rama of ramas) {
+    const p = rama.puntos;
+    let buffer = [];
+    const cerrar = () => {
+      if (buffer.length >= 4)
+        salida.push(Float64Array.from(buffer));
+      buffer = [];
+    };
+    for (let i2 = 0; i2 + 3 < p.length; i2 += 2) {
+      const x1 = p[i2], y1 = p[i2 + 1], x2 = p[i2 + 2], y2 = p[i2 + 3];
+      if (!(Number.isFinite(x1) && Number.isFinite(y1) && Number.isFinite(x2) && Number.isFinite(y2))) {
+        cerrar();
+        continue;
+      }
+      const dx = x2 - x1;
+      let t0 = 0, t1 = 1;
+      if (dx !== 0) {
+        const ta = (lo - x1) / dx, tb = (hi - x1) / dx;
+        t0 = Math.max(0, Math.min(ta, tb));
+        t1 = Math.min(1, Math.max(ta, tb));
+      } else if (x1 < lo || x1 > hi) {
+        cerrar();
+        continue;
+      }
+      if (t0 > t1) {
+        cerrar();
+        continue;
+      }
+      const xs = x1 + dx * t0, ys = y1 + (y2 - y1) * t0;
+      const xe = x1 + dx * t1, ye = y1 + (y2 - y1) * t1;
+      if (buffer.length === 0) {
+        buffer.push(xs, ys);
+      } else {
+        const lx = buffer[buffer.length - 2], ly = buffer[buffer.length - 1];
+        if (Math.abs(xs - lx) > 1e-9 || Math.abs(ys - ly) > 1e-9) {
+          cerrar();
+          buffer.push(xs, ys);
+        }
+      }
+      buffer.push(xe, ye);
+    }
+    cerrar();
+  }
+  return salida;
+}
+
+// src/motor/scene/autoencuadre.ts
+var FRACCION_DISPARO = 0.6;
+var OCUPACION_MAXIMA = 0.6;
+var COLCHON_PX = 2;
+var TAMANO_MINIMO = 1e-9;
+var MANTISAS = [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10];
+function cuantizarSemirrango(v) {
+  if (!Number.isFinite(v) || v <= 0)
+    return v;
+  const k = Math.floor(Math.log10(v));
+  const base = 10 ** k;
+  const m = v / base;
+  for (const cand of MANTISAS)
+    if (m <= cand * (1 + 1e-12))
+      return cand * base;
+  return 10 * base;
+}
+function semiYAutoencuadre(ramas, vp) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const r of ramas) {
+    const p = r.puntos;
+    for (let i2 = 0; i2 < p.length; i2 += 2) {
+      const x = p[i2], y = p[i2 + 1];
+      if (!Number.isFinite(x) || !Number.isFinite(y))
+        continue;
+      if (x < x0)
+        x0 = x;
+      if (x > x1)
+        x1 = x;
+      if (y < y0)
+        y0 = y;
+      if (y > y1)
+        y1 = y;
+    }
+  }
+  if (!Number.isFinite(x0) || !Number.isFinite(y0))
+    return null;
+  if (x1 - x0 < TAMANO_MINIMO && y1 - y0 < TAMANO_MINIMO)
+    return null;
+  const holguraX = (vp.domX[1] - vp.domX[0]) / vp.anchoPx * COLCHON_PX;
+  const holguraY = (vp.domY[1] - vp.domY[0]) / vp.altoPx * COLCHON_PX;
+  if (x0 <= vp.domX[0] + holguraX || x1 >= vp.domX[1] - holguraX)
+    return null;
+  if (y0 <= vp.domY[0] + holguraY || y1 >= vp.domY[1] - holguraY)
+    return null;
+  const maxAbsY = Math.max(Math.abs(y0), Math.abs(y1));
+  const maxAbsX = Math.max(Math.abs(x0), Math.abs(x1));
+  const semiNecesario = Math.max(maxAbsY, maxAbsX * vp.altoPx / vp.anchoPx) / OCUPACION_MAXIMA;
+  if (!Number.isFinite(semiNecesario) || semiNecesario <= 0)
+    return null;
+  const semiActual = (vp.domY[1] - vp.domY[0]) / 2;
+  if (semiNecesario >= semiActual * FRACCION_DISPARO)
+    return null;
+  const semi = cuantizarSemirrango(semiNecesario);
+  return semi < semiActual ? semi : null;
+}
+
+// src/motor/scene/Escena.ts
+var Escena = class {
+  constructor(objetos, overlay, renderer, crosshair) {
+    this.objetos = objetos;
+    this.overlay = overlay;
+    this.renderer = renderer;
+    this.crosshair = crosshair;
+    // Geometría calculada en el último `actualizar`, reutilizada por `pintar`.
+    this.items = [];
+    // Intersecciones del SISTEMA (cruces entre ramas de objetos distintos), en
+    // MUNDO. Se recalculan solo en pasada "final" (ver actualizar).
+    this.puntosCruce = [];
+    // true si la última pasada final ALCANZÓ el cap de intersecciones: hay más de
+    // las enumerables y el subconjunto sería sesgado → no se pintan (fallar limpio).
+    this.cruceSaturado = false;
+    // true si en la última pasada final DOS curvas coinciden en un tramo (solución
+    // continua): infinitas soluciones, cualitativamente distinto de la saturación.
+    this.cruceSolapa = false;
+    // Índice del objeto que SIGUEN el crosshair y el carril (selección de línea). El
+    // número de objetos es fijo (los del constructor), así que sobrevive a `actualizar`.
+    this.seleccion = 0;
+    // ¿Se le ha visto ALGUNA VEZ a este objeto una asíntota vertical FORMAL (declarada por el
+    // trazador)? Latch MONÓTONO: tener polos es una propiedad de la FUNCIÓN, no del encuadre — tan(x)
+    // los tiene aunque el zoom actual no muestre ninguno. Sin el latch, hacer zoom-in hasta dejar el
+    // polo fuera de la vista apagaba el modo carril de inercia y el punto acababa cabalgando el polo
+    // con la cámara pegada. Solo las pasadas FINALES exponen asíntotas (la interactiva las omite por
+    // coste), así que solo ellas lo encienden.
+    this.asintotasFormalesPorObjeto = [];
+    // Presencia EFECTIVA de asíntota vertical por objeto = formal (latcheada) OR blow-up de borde de
+    // dominio. El blow-up se deriva de la geometría y se refresca en pasada FINAL: es una heurística
+    // (extremo interior, off-screen y casi vertical) que sobre geometría interactiva muy ampliada
+    // confundiría una TANGENTE vertical (x³+y³=9 en ∛9) con una asíntota.
+    this.asintotasVertPorObjeto = [];
+    // Bloque obs-integral: límites de la integral definida (o null si no es un bloque de
+    // integral). Los fija el host tras crear la escena. El SOMBREADO se recorta del
+    // integrando (primer objeto) en `actualizar` y se cachea aquí, como `puntosCruce`.
+    this.integral = null;
+    this.regionIntegral = [];
+    // ¿Se PINTAN los marcadores de puntos notables (raíces, vértices, cortes Y) y las
+    // intersecciones del sistema? Preferencia del usuario (host), puramente de RENDER: la
+    // geometría se sigue calculando igual —el ⓘ y los tests la leen— y el crosshair/carril,
+    // que no son marcadores sino lectura interactiva, no se ven afectados.
+    this.notablesVisibles = true;
+  }
+  /**
+   * COSTOSO: recomputa la geometría de cada objeto para el viewport y la cachea.
+   * `pasada` selecciona la calidad (campo del contrato Tolerancia): "interactiva"
+   * = ligera durante un gesto; "final" = máxima calidad al asentarse. El host
+   * decide cuál con la estrategia de dos pasadas (programarRedibujo/programarFinal).
+   */
+  /**
+   * Marca esta escena como bloque de INTEGRAL DEFINIDA sobre [a,b] (obs-integral): el
+   * SOMBREADO se recorta del integrando (primer objeto) en cada `actualizar`. Lo llama
+   * el host tras crear la escena; sin llamarla, la escena se pinta como siempre.
+   */
+  fijarIntegral(a, b) {
+    this.integral = { a, b };
+  }
+  /**
+   * Muestra u oculta los MARCADORES de puntos notables e intersecciones (preferencia del
+   * plugin). Solo afecta al pintado: no se recorta nada de la geometría, así que el ⓘ
+   * sigue describiendo la curva entera y el carril/crosshair siguen funcionando.
+   */
+  mostrarNotables(visibles) {
+    this.notablesVisibles = visibles;
+  }
+  /** Región de integral cacheada (polilíneas recortadas a [a,b]); para el render y tests. */
+  regionesIntegral() {
+    return this.regionIntegral;
+  }
+  /**
+   * Semirrango vertical al que la vista debería acercarse para encuadrar la geometría YA
+   * calculada (o `null` si no procede). Criterio y guardas en `autoencuadre.ts`; aquí solo
+   * se reúnen las ramas de TODOS los objetos —en un sistema, una sola curva ilimitada basta
+   * para que no se encuadre nada— y se PODAN los vértices sintéticos de polo, que viven
+   * fuera de la vista a propósito y romperían la contención de cualquier función con asíntota.
+   */
+  encuadreAutomatico(viewport) {
+    const ramas = this.items.flatMap((it) => podarVerticesDePolo(it.geometria.ramas, viewport));
+    return semiYAutoencuadre(ramas, viewport);
+  }
+  actualizar(viewport, pasada = "final") {
+    const tolerancia = { desviacionMaxPx: 0.5, pasoMaxPx: 2, pasada };
+    this.items = this.objetos.map((o) => ({
+      geometria: o.proveedor.geometria(viewport, tolerancia),
+      estilo: o.estilo
+    }));
+    if (this.integral && this.items.length > 0) {
+      this.regionIntegral = recortarRegion(this.items[0].geometria.ramas, this.integral.a, this.integral.b);
+    }
+    if (pasada === "final") {
+      this.asintotasVertPorObjeto = this.items.map((it, i2) => {
+        if (it.geometria.asintotas.some((a) => a.tipo === "vertical"))
+          this.asintotasFormalesPorObjeto[i2] = true;
+        return this.asintotasFormalesPorObjeto[i2] === true || curvaConBlowupVertical(it.geometria.ramas, viewport);
+      });
+    }
+    if (this.objetos.length >= 2 && pasada === "final") {
+      const epsMundo = (viewport.domX[1] - viewport.domX[0]) / viewport.anchoPx * 3;
+      const region = {
+        x0: viewport.domX[0] - epsMundo,
+        x1: viewport.domX[1] + epsMundo,
+        y0: viewport.domY[0] - epsMundo,
+        y1: viewport.domY[1] + epsMundo
+      };
+      const estado = { solapa: false };
+      const crudos = interseccionesDeGeometrias(
+        this.items.map((it) => it.geometria),
+        epsMundo,
+        void 0,
+        region,
+        estado
+      );
+      this.cruceSolapa = estado.solapa;
+      this.cruceSaturado = crudos.length >= MAX_PUNTOS;
+      this.puntosCruce = this.cruceSaturado ? [] : crudos.filter((p) => p.x >= viewport.domX[0] && p.x <= viewport.domX[1] && p.y >= viewport.domY[0] && p.y <= viewport.domY[1]);
+    }
+  }
+  /**
+   * BARATO: dibuja overlay + asíntotas + ramas + puntos notables + crosshair, todo
+   * sobre la geometría YA cacheada. `anclado` marca el crosshair en modo carril.
+   */
+  pintar(viewport, cursorPx, anclado = false, yMundo, ratonPx, ratonPy) {
+    this.overlay.dibujar(viewport);
+    this.renderer.dibujarAsintotas(this.items, viewport);
+    if (this.integral)
+      this.renderer.dibujarRegion(this.regionIntegral, viewport);
+    this.renderer.dibujar(this.items, viewport);
+    if (this.notablesVisibles) {
+      this.renderer.dibujarPuntosNotables(this.items, viewport);
+      this.renderer.dibujarIntersecciones(this.puntosCruce, viewport);
+    }
+    if (cursorPx !== null && this.curvaRecorrible()) {
+      this.crosshair.dibujar(viewport, cursorPx, this.items[this.seleccion], anclado, yMundo);
+    }
+    if (ratonPx !== null && ratonPx !== void 0 && ratonPy !== null && ratonPy !== void 0) {
+      this.crosshair.dibujarCursorCruz(ratonPx, ratonPy);
+    }
+  }
+  /** Intersecciones del sistema visibles en la última pasada final (en MUNDO),
+   *  para el panel de solución del host. Agnóstico: derivadas de las Ramas. */
+  intersecciones() {
+    return this.puntosCruce;
+  }
+  /** true si en la última pasada final había MÁS intersecciones que el cap
+   *  enumerable (vista demasiado alejada): la lista/los marcadores se omiten. */
+  interseccionesSaturadas() {
+    return this.cruceSaturado;
+  }
+  /** true si en la última pasada final DOS curvas coincidían en un tramo dentro de
+   *  la vista: el sistema tiene INFINITAS soluciones (una recta/curva común), no un
+   *  conjunto de puntos aislados. */
+  solucionesInfinitas() {
+    return this.cruceSolapa;
+  }
+  /** y sobre la curva SELECCIONADA en un x de mundo, leída de la geometría cacheada
+   *  (para el carril). Agnóstico: no evalúa f. */
+  yEnCurva(worldX) {
+    const it = this.items[this.seleccion];
+    return it ? yEnRamas(it.geometria.ramas, worldX) : null;
+  }
+  /** Ramas de la curva seleccionada listas para el carril. Con `recortar` (curvas con asíntota
+   *  vertical) se descartan los tramos casi verticales (`recortarRamasPorPendiente`), para que la
+   *  rama TERMINE donde la curva deja de ser recorrible y el arco pueda alcanzar ese extremo y
+   *  saltar a la vecina. El corte es GEOMÉTRICO (pendiente), no depende del encuadre. Si no queda
+   *  nada recorrible (el punto está dentro del chorro del polo), se devuelve la geometría cruda:
+   *  el punto sigue subiendo por la asíntota en vez de quedarse sin polilínea bajo los pies. */
+  ramasCarril(ramas, viewport, recortar) {
+    const sanas = podarVerticesDePolo(ramas, viewport);
+    if (!recortar)
+      return sanas;
+    const recortadas = recortarRamasPorPendiente(sanas, viewport, PENDIENTE_CORTE_CARRIL);
+    return recortadas.length > 0 ? recortadas : sanas;
+  }
+  /** Avance de carril por LONGITUD DE ARCO EN PANTALLA sobre la curva seleccionada (nunca
+   *  fuera de ella): camina `deltaPx` px a lo largo de la polilínea desde (x,y), saltando
+   *  huecos o pegándose al borde. Con `recortar` se camina la geometría sin los tramos casi
+   *  verticales (Caso A: así el arco acaba y salta a la vecina). Devuelve además el `evento`
+   *  (salto/tope/normal). null si no hay curva legible. */
+  avanzarArcoEnCurva(x, y, deltaPx, viewport, recortar = false) {
+    const it = this.items[this.seleccion];
+    if (!it)
+      return null;
+    return avanzarPorArco(this.ramasCarril(it.geometria.ramas, viewport, recortar), x, y, deltaPx, viewport);
+  }
+  /** ¿Hay una RAMA VECINA ALCANZABLE a la que saltar avanzando en `dir` (+1/−1) desde (x,y)?
+   *  Detección Caso A (tan x: al otro lado del polo sigue la curva) / Caso B (arccot(x²)/(2√x):
+   *  convergencia real, el dominio TERMINA ahí) del carril, en tiempo real sobre la MISMA
+   *  geometría recortada por pendiente que usa el avance → lo que detecta es exactamente lo que
+   *  ocurrirá. Ver existeRamaVecina. */
+  hayRamaVecinaCarril(x, y, dir, viewport) {
+    const it = this.items[this.seleccion];
+    if (!it)
+      return false;
+    return existeRamaVecina(this.ramasCarril(it.geometria.ramas, viewport, true), x, y, dir, viewport);
+  }
+  /** ¿La curva SELECCIONADA tiene asíntotas verticales (tan, sec, 1/x…)? El carril usa
+   *  esto para activar su modo especial: congela el seguimiento vertical (para que la
+   *  rama termine en el borde de la vista y el salto de rama se dispare) y rampa la
+   *  velocidad hacia el borde. En curvas sin asíntota vertical (x²…) el carril no cambia. */
+  tieneAsintotasVerticales() {
+    return this.asintotasVertPorObjeto[this.seleccion] === true;
+  }
+  /**
+   * ¿La curva SELECCIONADA se puede RECORRER como y=f(x)? Necesita (a) que sus ramas
+   * lleven el `parametro` x-monótono que `yEnRamas` usa Y (b) que sea SINGULAR-VALUADA:
+   * las ramas no pueden SOLAPARSE en x (una recta vertical debe cortar la curva ≤1 vez).
+   *
+   * El (b) es lo que distingue una función de x de una relación multivaluada que, pese
+   * a trazarse con ramas x-monótonas, NO es función: p.ej. `tan(y)·(x²+1)=√(x+1)` sale
+   * por continuación como VARIAS ramas casi horizontales SOLAPADAS en la misma franja
+   * de x (la vertical las corta a todas) → el crosshair vertical sería ambiguo. En
+   * cambio `tan(x)` u otras con polos dan ramas en franjas de x DISJUNTAS → sí función.
+   *
+   * FALSO también para implícitas no separables (círculo x²+y²=9), separables
+   * transpuestas x=g(y) (tan y=x) y paramétricas/polares (sin `parametro`). Gobierna si
+   * el crosshair y el carril tienen sentido: si no, no se ofrecen (ni ⌖ ni crosshair).
+   */
+  curvaRecorrible() {
+    const it = this.items[this.seleccion];
+    if (!it)
+      return false;
+    const rangos = it.geometria.ramas.filter((r) => r.parametro !== void 0 && r.parametro.length >= 2).map((r) => {
+      const t = r.parametro;
+      const a = t[0], b = t[t.length - 1];
+      return a <= b ? [a, b] : [b, a];
+    }).sort((p, q) => p[0] - q[0]);
+    if (rangos.length === 0)
+      return false;
+    for (let i2 = 1; i2 < rangos.length; i2++) {
+      const prev = rangos[i2 - 1], cur = rangos[i2];
+      const solape = Math.min(prev[1], cur[1]) - cur[0];
+      const menor2 = Math.min(prev[1] - prev[0], cur[1] - cur[0]);
+      if (solape > 1e-6 && solape > 0.05 * menor2)
+        return false;
+    }
+    return true;
+  }
+  /**
+   * Resumen COMPLETO (sin el cap de dibujo) de los puntos notables de la curva
+   * SELECCIONADA, recalculado de su geometría cacheada. Para el panel ⓘ de
+   * obs-graph con curvas no explícitas: ahí "demasiados" se RESUME en texto
+   * ("infinitas raíces", …) en vez de omitirse como hace el plano. `viewport`
+   * habilita las raíces de extremo de rama (misma semántica que el dibujo).
+   */
+  resumenNotables(viewport) {
+    var _a, _b;
+    const it = this.items[this.seleccion];
+    if (!it)
+      return { raices: [], vertices: [], interseccionesY: [] };
+    return resumenPuntosNotables(it.geometria.ramas, (_b = (_a = it.geometria.ramas[0]) == null ? void 0 : _a.objetoId) != null ? _b : "", viewport);
+  }
+  /** Número de curvas del sistema (objetos de la escena). */
+  numeroCurvas() {
+    return this.objetos.length;
+  }
+  /** Color de cada curva (para los botones de selección del host). */
+  colores() {
+    return this.objetos.map((o) => o.estilo.color);
+  }
+  /** Índice de la curva que siguen crosshair y carril. */
+  seleccionActual() {
+    return this.seleccion;
+  }
+  /** Selecciona la curva que seguirán crosshair y carril (índice acotado). */
+  seleccionar(indice) {
+    if (indice >= 0 && indice < this.objetos.length)
+      this.seleccion = indice;
+  }
+};
+
+// src/motor/app/composicion.ts
+var PALETA = [
   [0.31, 0.62, 1, 1],
   // azul
   [1, 0.63, 0.2, 1],
@@ -47752,1015 +52081,3491 @@ var COLORES = [
   [0.35, 0.8, 0.85, 1]
   // cian
 ];
-var SystemEngine = class {
-  constructor(plugin, habilitado) {
+function crearProveedor(objeto) {
+  if (objeto.tipo === "implicita") {
+    const F = objeto.F;
+    const ramasY = tienePolos(F) ? despejarRamas(F) : null;
+    if (ramasY) {
+      return new ProveedorImplicitoSeparable(objeto.id, ramasY, new TrazadorExplicitoAdaptativo(), F);
+    }
+    const Ft = campoTranspuesto(F);
+    const ramasX = tienePolos(Ft) ? despejarRamas(Ft) : null;
+    if (ramasX) {
+      return new ProveedorImplicitoSeparable(objeto.id, ramasX, new TrazadorExplicitoAdaptativo(), Ft, true);
+    }
+    const trigY = separarTrigY(F);
+    if (trigY) {
+      return new ProveedorImplicitoPeriodico(objeto.id, trigY, new TrazadorExplicitoAdaptativo());
+    }
+    const trigX = separarTrigY(Ft);
+    if (trigX) {
+      return new ProveedorImplicitoPeriodico(objeto.id, trigX, new TrazadorExplicitoAdaptativo(), true);
+    }
+    const monY = ramasMonomioY(F);
+    if (monY) {
+      return new ProveedorImplicitoSeparable(objeto.id, monY, new TrazadorExplicitoAdaptativo(), F);
+    }
+    const monX = ramasMonomioY(Ft);
+    if (monX) {
+      return new ProveedorImplicitoSeparable(objeto.id, monX, new TrazadorExplicitoAdaptativo(), Ft, true);
+    }
+    return new ProveedorImplicito(
+      objeto,
+      new DescubrimientoMuestreado(),
+      new TrazadorContinuacion(),
+      new TrazadorExplicitoAdaptativo()
+      // para puntos notables por despeje (invariantes)
+    );
+  }
+  if (objeto.tipo === "parametrica" || objeto.tipo === "polar") {
+    return new ProveedorParametrico(objeto, new TrazadorParametricoAdaptativo());
+  }
+  return new ProveedorExplicito(objeto, new TrazadorExplicitoAdaptativo());
+}
+function proveedorDeEcuacion(ec, id) {
+  const ramas = tieneDobleSigno(normalizarEntrada(ec)) ? expandirDobleSigno(normalizarEntrada(ec)) : [ec];
+  if (ramas.length === 1)
+    return crearProveedor(construirObjeto(ramas[0], id));
+  return new ProveedorUnion(id, ramas.map((e3) => crearProveedor(construirObjeto(e3, id))));
+}
+function objetoEscena(ec, id, indiceColor, ocultarPuntosEje = false) {
+  const base = proveedorDeEcuacion(ec, id);
+  const proveedor = new ProveedorConCache(ocultarPuntosEje ? new ProveedorSinPuntosEje(base) : base);
+  const estilo = {
+    color: [...PALETA[indiceColor % PALETA.length]],
+    grosorPx: 2
+  };
+  return { proveedor, estilo };
+}
+function construirObjetosEscena(source) {
+  return dividirEcuaciones(source).map((ec, i2) => objetoEscena(ec, `eq-${i2}`, i2, true));
+}
+function montarEscena(ctx2d, objetos) {
+  return new Escena(objetos, new Overlay(ctx2d), new RendererCanvas2D(ctx2d), new Crosshair(ctx2d));
+}
+function crearMotor(ctx2d, source) {
+  var _a;
+  const ec = (_a = dividirEcuaciones(source)[0]) != null ? _a : "";
+  return montarEscena(ctx2d, ec ? [objetoEscena(ec, "obs-graph", 0)] : []);
+}
+function crearMotorSistema(ctx2d, source) {
+  return montarEscena(ctx2d, construirObjetosEscena(source));
+}
+
+// src/formatoExpr.ts
+function contieneVariable(n, nombre) {
+  return n.filter((nn) => nn.type === "SymbolNode" && nn.name === nombre).length > 0;
+}
+var LIMITE_EXPANSION = 16;
+function costeExpansion(n) {
+  var _a;
+  if (!n || typeof n !== "object")
+    return 1;
+  if (n.type === "ParenthesisNode")
+    return costeExpansion(n.content);
+  if (n.type === "OperatorNode") {
+    const args = (_a = n.args) != null ? _a : [];
+    if (args.length === 1)
+      return costeExpansion(args[0]);
+    const a = costeExpansion(args[0]), b = costeExpansion(args[1]);
+    if (n.op === "+" || n.op === "-")
+      return a + b;
+    if (n.op === "*")
+      return a * b;
+    if (n.op === "/")
+      return a * b;
+    if (n.op === "^") {
+      const k = valorConstanteFactor(args[1]);
+      if (k === null || !Number.isInteger(k))
+        return a;
+      return Math.pow(a, Math.abs(k));
+    }
+    return a + b;
+  }
+  return 1;
+}
+function rationalizeSeguro(expr) {
+  let nodo;
+  try {
+    nodo = typeof expr === "string" ? parse2(expr) : expr;
+  } catch (e3) {
+    return null;
+  }
+  if (costeExpansion(nodo) > LIMITE_EXPANSION)
+    return null;
+  try {
+    return rationalize(nodo);
+  } catch (e3) {
+    return null;
+  }
+}
+function esConstante(n) {
+  return n.filter((nn) => nn.type === "SymbolNode").length === 0;
+}
+function contieneFuncion(n) {
+  return n.filter((nn) => nn.type === "FunctionNode").length > 0;
+}
+function terminos(n, signo2 = 1) {
+  if (n.type === "ParenthesisNode")
+    return terminos(n.content, signo2);
+  if (n.type === "OperatorNode") {
+    if (n.op === "+" && n.args.length === 2)
+      return [...terminos(n.args[0], signo2), ...terminos(n.args[1], signo2)];
+    if (n.op === "-" && n.args.length === 2)
+      return [...terminos(n.args[0], signo2), ...terminos(n.args[1], -signo2)];
+    if (n.op === "-" && n.args.length === 1)
+      return terminos(n.args[0], -signo2);
+  }
+  if (n.type === "ConstantNode" && typeof n.value === "number" && n.value < 0)
+    return [{ signo: -signo2, nodo: parse2(String(-n.value)) }];
+  return [{ signo: signo2, nodo: n }];
+}
+function factores(n, exp3 = 1) {
+  if (n.type === "ParenthesisNode")
+    return factores(n.content, exp3);
+  if (n.type === "OperatorNode" && n.args.length === 2) {
+    if (n.op === "*")
+      return [...factores(n.args[0], exp3), ...factores(n.args[1], exp3)];
+    if (n.op === "/")
+      return [...factores(n.args[0], exp3), ...factores(n.args[1], -exp3)];
+  }
+  return [{ exp: exp3, nodo: n }];
+}
+function valorConstanteFactor(nodo) {
+  if (nodo.type === "ConstantNode" && typeof nodo.value === "number")
+    return nodo.value;
+  if (nodo.type === "ParenthesisNode")
+    return valorConstanteFactor(nodo.content);
+  if (nodo.type === "OperatorNode" && nodo.op === "-" && nodo.args.length === 1) {
+    const v = valorConstanteFactor(nodo.args[0]);
+    return v === null ? null : -v;
+  }
+  return null;
+}
+var flip = (ts) => ts.map((t) => ({ signo: -t.signo, nodo: t.nodo }));
+function serializar(orden) {
+  let out = "";
+  orden.forEach((t, i2) => {
+    const s = t.nodo.toString();
+    if (i2 === 0)
+      out = t.signo === 1 ? s : `-${s}`;
+    else
+      out += t.signo === 1 ? ` + ${s}` : ` - ${s}`;
+  });
+  return out;
+}
+var sinCeros = (ts) => ts.filter((t) => !(t.nodo.type === "ConstantNode" && t.nodo.value === 0));
+function renderTerminos(ts) {
+  const nz = sinCeros(ts);
+  if (nz.length === 0)
+    return "0";
+  return serializar([...nz.filter((t) => t.signo === 1), ...nz.filter((t) => t.signo === -1)]);
+}
+function renderCanonico(ts) {
+  const nz = sinCeros(ts);
+  if (nz.length === 0)
+    return "0";
+  if (nz.some((t) => contieneFuncion(t.nodo)))
+    return renderTerminos(nz);
+  return serializar([...nz.filter((t) => !esConstante(t.nodo)), ...nz.filter((t) => esConstante(t.nodo))]);
+}
+function cadenaProducto(n, out = []) {
+  if (n.type === "OperatorNode" && n.op === "*" && n.args.length === 2) {
+    cadenaProducto(n.args[0], out);
+    cadenaProducto(n.args[1], out);
+  } else
+    out.push(n);
+  return out;
+}
+function coeficientesAlFrente(n) {
+  const rec = (m) => {
+    const t = m.map(rec);
+    if (!(t.type === "OperatorNode" && t.op === "*" && t.args.length === 2))
+      return t;
+    const fs = cadenaProducto(t);
+    const nums = fs.filter((f) => valorConstanteFactor(f) !== null);
+    const resto = fs.filter((f) => valorConstanteFactor(f) === null);
+    if (nums.length === 0 || nums.length === fs.length)
+      return t;
+    const val = nums.reduce((a, f) => a * valorConstanteFactor(f), 1);
+    if (Math.abs(val) === 1) {
+      const cuerpo = resto.reduce((a, b) => new OperatorNode("*", "multiply", [a, b]));
+      return val === 1 ? cuerpo : new OperatorNode("-", "unaryMinus", [cuerpo]);
+    }
+    const orden = [...nums, ...resto];
+    if (orden.every((f, i2) => f === fs[i2]))
+      return t;
+    return orden.reduce((a, b) => new OperatorNode("*", "multiply", [a, b]));
+  };
+  return rec(n);
+}
+function formatearCanonico(n) {
+  return renderCanonico(terminos(coeficientesAlFrente(n)));
+}
+function strFactorSeguro(n) {
+  const s = n.toString();
+  const raiz = n.type === "ParenthesisNode" ? n.content : n;
+  const esAditivo = raiz.type === "OperatorNode" && (raiz.op === "+" || raiz.op === "-");
+  return esAditivo ? `(${s})` : s;
+}
+function mcd2(a, b) {
+  a = Math.abs(a);
+  b = Math.abs(b);
+  while (b) {
+    [a, b] = [b, a % b];
+  }
+  return a;
+}
+function fraccionExacta(v) {
+  if (!Number.isFinite(v))
+    return null;
+  if (Number.isInteger(v))
+    return { n: v, d: 1 };
+  try {
+    const f = fraction(v);
+    if (f.d > 1e6)
+      return null;
+    const val = f.s * f.n / f.d;
+    return Math.abs(val - v) < 1e-9 ? { n: f.s * f.n, d: f.d } : null;
+  } catch (e3) {
+    return null;
+  }
+}
+function terminoRacional(nodo) {
+  const fs = factores(nodo);
+  let n = 1, d = 1;
+  const simbNum = [], simbDen = [];
+  let huboDecimal = false;
+  for (const f of fs) {
+    const val = valorConstanteFactor(f.nodo);
+    if (val !== null) {
+      const fr = fraccionExacta(val);
+      if (!fr)
+        return null;
+      if (!Number.isInteger(val))
+        huboDecimal = true;
+      if (f.exp === 1) {
+        n *= fr.n;
+        d *= fr.d;
+      } else {
+        n *= fr.d;
+        d *= fr.n;
+      }
+    } else {
+      (f.exp === 1 ? simbNum : simbDen).push(strFactorSeguro(f.nodo));
+    }
+  }
+  if (!huboDecimal && d === 1)
+    return null;
+  let signo2 = 1;
+  if (n < 0) {
+    signo2 = -signo2;
+    n = -n;
+  }
+  if (d < 0) {
+    signo2 = -signo2;
+    d = -d;
+  }
+  const g = mcd2(n, d) || 1;
+  n /= g;
+  d /= g;
+  const num = [...n !== 1 || simbNum.length === 0 ? [String(n)] : [], ...simbNum].join("*");
+  const denPartes = [...d !== 1 ? [String(d)] : [], ...simbDen];
+  return { num, den: denPartes.length ? denPartes.join("*") : null, signo: signo2 };
+}
+function racionalizarFracciones(n) {
+  const ts = terminos(n);
+  if (ts.length === 0)
+    return n;
+  const racs = ts.map((t) => terminoRacional(t.nodo));
+  if (racs.every((r) => r === null))
+    return n;
+  let out = "";
+  ts.forEach((t, i2) => {
+    const rac = racs[i2];
+    if (rac) {
+      const signo2 = t.signo * rac.signo;
+      const cuerpo = (numerador) => rac.den ? `(${numerador})/(${rac.den})` : numerador;
+      if (i2 === 0)
+        out = signo2 === 1 ? cuerpo(rac.num) : cuerpo(`-${rac.num}`);
+      else
+        out += signo2 === 1 ? ` + ${cuerpo(rac.num)}` : ` - ${cuerpo(rac.num)}`;
+    } else {
+      const s = t.nodo.toString();
+      if (i2 === 0)
+        out = t.signo === 1 ? s : `-(${s})`;
+      else
+        out += t.signo === 1 ? ` + ${s}` : ` - ${s}`;
+    }
+  });
+  try {
+    return parse2(out);
+  } catch (e3) {
+    return n;
+  }
+}
+var CONSTANTES_CON_NOMBRE = /* @__PURE__ */ new Set(["pi", "e", "tau", "phi"]);
+function baseFactor(nodo) {
+  var _a, _b;
+  if (nodo.type === "SymbolNode")
+    return nodo.name;
+  if (nodo.type === "OperatorNode" && nodo.op === "^" && ((_b = (_a = nodo.args) == null ? void 0 : _a[0]) == null ? void 0 : _b.type) === "SymbolNode")
+    return nodo.args[0].name;
+  return nodo.toString();
+}
+function claveFactor(nodo) {
+  const base = baseFactor(nodo);
+  return `${CONSTANTES_CON_NOMBRE.has(base) ? 0 : 1}|${base}|${nodo.toString()}`;
+}
+function combinarYordenar(n) {
+  const ts = terminos(n);
+  if (ts.length === 0 || ts.some((t) => contieneFuncion(t.nodo)))
+    return n;
+  const descs = ts.map((t) => {
+    let num1 = 1, den1 = 1;
+    const num = [], den = [];
+    let coefSucio = false;
+    for (const f of factores(t.nodo)) {
+      const val = valorConstanteFactor(f.nodo);
+      if (val !== null) {
+        const fr = fraccionExacta(val);
+        if (!fr)
+          return null;
+        if (f.nodo.type !== "ConstantNode")
+          coefSucio = true;
+        if (f.exp === 1) {
+          num1 *= fr.n;
+          den1 *= fr.d;
+        } else {
+          num1 *= fr.d;
+          den1 *= fr.n;
+        }
+      } else
+        (f.exp === 1 ? num : den).push(f.nodo);
+    }
+    let signo2 = t.signo;
+    if (num1 < 0) {
+      signo2 = -signo2;
+      num1 = -num1;
+    }
+    if (den1 < 0) {
+      signo2 = -signo2;
+      den1 = -den1;
+    }
+    const g = mcd2(num1, den1) || 1;
+    num1 /= g;
+    den1 /= g;
+    const orden = (xs) => [...xs].sort((a, b) => claveFactor(a) < claveFactor(b) ? -1 : claveFactor(a) > claveFactor(b) ? 1 : 0);
+    const numS = orden(num), denS = orden(den);
+    const reord = coefSucio || num.some((x, i2) => x !== numS[i2]) || den.some((x, i2) => x !== denS[i2]);
+    return { signo: signo2, n: num1, d: den1, num: numS, den: denS, reord };
+  });
+  if (descs.some((x) => x === null))
+    return n;
+  const ds = descs;
+  const firma2 = (t) => `${t.num.map((s) => s.toString()).join("*")}/${t.den.map((s) => s.toString()).join("*")}`;
+  const grupos = /* @__PURE__ */ new Map();
+  for (const t of ds) {
+    const sn = t.signo * t.n;
+    const g = grupos.get(firma2(t));
+    if (!g)
+      grupos.set(firma2(t), { n: sn, d: t.d, num: t.num.map(strFactorSeguro), den: t.den.map(strFactorSeguro) });
+    else {
+      const nn = g.n * t.d + sn * g.d, dd = g.d * t.d, s = nn < 0 ? -1 : 1, an = Math.abs(nn), gg = mcd2(an, dd) || 1;
+      g.n = s * an / gg;
+      g.d = dd / gg;
+    }
+  }
+  if (grupos.size === ds.length && !ds.some((t) => t.reord))
+    return n;
+  const entradas = [...grupos.entries()].filter(([, g]) => g.n !== 0);
+  const grps = [...entradas.filter(([k]) => k !== "/"), ...entradas.filter(([k]) => k === "/")].map(([, g]) => g);
+  if (grps.length === 0)
+    return parse2("0");
+  let out = "";
+  grps.forEach((g, i2) => {
+    const signo2 = g.n < 0 ? -1 : 1, valN = Math.abs(g.n);
+    const numStr = [...valN !== 1 || g.num.length === 0 ? [String(valN)] : [], ...g.num].join("*");
+    const denPartes = [...g.d !== 1 ? [String(g.d)] : [], ...g.den];
+    const cuerpo = (numerador) => denPartes.length ? `(${numerador})/(${denPartes.join("*")})` : numerador;
+    if (i2 === 0)
+      out = signo2 === 1 ? cuerpo(numStr) : cuerpo(`-${numStr}`);
+    else
+      out += signo2 === 1 ? ` + ${cuerpo(numStr)}` : ` - ${cuerpo(numStr)}`;
+  });
+  try {
+    return parse2(out);
+  } catch (e3) {
+    return n;
+  }
+}
+var clavePot = (f) => f.nodo.toString();
+function aFraccionPot(n) {
+  var _a;
+  if (n.type === "ParenthesisNode")
+    return aFraccionPot(n.content);
+  if (n.type === "OperatorNode") {
+    const [a, b] = (_a = n.args) != null ? _a : [];
+    if (n.op === "*" && n.args.length === 2) {
+      const A = aFraccionPot(a), B = aFraccionPot(b);
+      return { num: [...A.num, ...B.num], den: [...A.den, ...B.den] };
+    }
+    if (n.op === "/" && n.args.length === 2) {
+      const A = aFraccionPot(a), B = aFraccionPot(b);
+      return { num: [...A.num, ...B.den], den: [...A.den, ...B.num] };
+    }
+    if (n.op === "-" && n.args.length === 1) {
+      const A = aFraccionPot(a);
+      return { num: [...A.num, { nodo: parse2("-1"), exp: 1 }], den: A.den };
+    }
+    if ((n.op === "+" || n.op === "-") && n.args.length === 2) {
+      const A = aFraccionPot(a), B = aFraccionPot(b);
+      const denU = unionPot(A.den, B.den);
+      const tA = renderFactoresPot([...A.num, ...restaPot(denU, A.den)]);
+      const tB = renderFactoresPot([...B.num, ...restaPot(denU, B.den)]);
+      const suma = n.op === "+" ? `${tA} + ${tB}` : `${tA} - (${tB})`;
+      return { num: [{ nodo: parse2(suma), exp: 1 }], den: denU };
+    }
+    if (n.op === "^") {
+      const k0 = valorConstanteFactor(b);
+      if (k0 !== null && Number.isInteger(k0) && k0 !== 0) {
+        const A = aFraccionPot(a), k = Math.abs(k0);
+        const pot = (fs) => fs.map((f) => ({ nodo: f.nodo, exp: f.exp * k }));
+        return k0 > 0 ? { num: pot(A.num), den: pot(A.den) } : { num: pot(A.den), den: pot(A.num) };
+      }
+    }
+  }
+  return { num: [{ nodo: n, exp: 1 }], den: [] };
+}
+function agruparPot(fs) {
+  const m = /* @__PURE__ */ new Map();
+  for (const f of fs) {
+    const k = clavePot(f), prev = m.get(k);
+    if (prev)
+      prev.exp += f.exp;
+    else
+      m.set(k, { nodo: f.nodo, exp: f.exp });
+  }
+  return m;
+}
+function unionPot(a, b) {
+  var _a, _b;
+  const ma = agruparPot(a), mb = agruparPot(b), out = [];
+  for (const k of /* @__PURE__ */ new Set([...ma.keys(), ...mb.keys()])) {
+    const fa = ma.get(k), fb = mb.get(k);
+    out.push({ nodo: (fa != null ? fa : fb).nodo, exp: Math.max((_a = fa == null ? void 0 : fa.exp) != null ? _a : 0, (_b = fb == null ? void 0 : fb.exp) != null ? _b : 0) });
+  }
+  return out;
+}
+function restaPot(a, b) {
+  var _a, _b;
+  const mb = agruparPot(b), out = [];
+  for (const [k, f] of agruparPot(a)) {
+    const exp3 = f.exp - ((_b = (_a = mb.get(k)) == null ? void 0 : _a.exp) != null ? _b : 0);
+    if (exp3 > 0)
+      out.push({ nodo: f.nodo, exp: exp3 });
+  }
+  return out;
+}
+function esSuma(n) {
+  if (n.type === "ParenthesisNode")
+    return esSuma(n.content);
+  return n.type === "OperatorNode" && (n.op === "+" || n.op === "-") && n.args.length === 2;
+}
+function esAtomo(n) {
+  if (n.type === "ParenthesisNode")
+    return esAtomo(n.content);
+  return n.type === "SymbolNode" || n.type === "ConstantNode" || n.type === "FunctionNode";
+}
+function renderFactoresPot(fs) {
+  let coefN = 1, coefD = 1;
+  const resto = [];
+  for (const f of fs) {
+    const v = valorConstanteFactor(f.nodo);
+    const fr = v !== null ? fraccionExacta(v) : null;
+    if (fr) {
+      coefN *= Math.pow(fr.n, f.exp);
+      coefD *= Math.pow(fr.d, f.exp);
+    } else
+      resto.push(f);
+  }
+  let signo2 = 1;
+  if (coefN < 0) {
+    signo2 = -signo2;
+    coefN = -coefN;
+  }
+  const g = mcd2(coefN, coefD) || 1;
+  coefN /= g;
+  coefD /= g;
+  const orden = [...resto.filter((f) => !esSuma(f.nodo)), ...resto.filter((f) => esSuma(f.nodo))];
+  const cuerpo = orden.map((f) => {
+    const base = esAtomo(f.nodo) ? f.nodo.toString() : `(${f.nodo.toString()})`;
+    return f.exp === 1 ? esAtomo(f.nodo) ? base : strFactorSeguro(f.nodo) : `${base}^${f.exp}`;
+  });
+  const partes = [
+    ...coefN !== 1 || cuerpo.length === 0 ? [String(coefN)] : [],
+    ...cuerpo
+  ];
+  let out = partes.join(" * ");
+  if (coefD !== 1)
+    out = `(${out}) / ${coefD}`;
+  return signo2 === 1 ? out : `-(${out})`;
+}
+function expandirSumaPolinomica(n) {
+  if (!esSuma(n) || contieneFuncion(n))
+    return n;
+  const s = n.toString();
+  if (s.length > 240)
+    return n;
+  const r0 = rationalizeSeguro(s);
+  if (!r0)
+    return n;
+  try {
+    const r = combinarYordenar(r0);
+    return parse2(formatearCanonico(racionalizarFracciones(r)));
+  } catch (e3) {
+    return n;
+  }
+}
+function combinarFracciones(n) {
+  const fr = aFraccionPot(n);
+  const num = restaPot(fr.num, fr.den).map((f) => ({ ...f, nodo: expandirSumaPolinomica(f.nodo) }));
+  const den = restaPot(fr.den, fr.num);
+  const numS = renderFactoresPot(num);
+  if (den.length === 0)
+    return parse2(numS);
+  return parse2(`(${numS}) / (${renderFactoresPot(den)})`);
+}
+function profundidadFraccion(n) {
+  let max3 = 0;
+  const rec = (node, d) => {
+    var _a;
+    if (!node || typeof node !== "object")
+      return;
+    const nd = node.type === "OperatorNode" && node.op === "/" ? d + 1 : d;
+    if (nd > max3)
+      max3 = nd;
+    if (node.content)
+      rec(node.content, nd);
+    for (const a of (_a = node.args) != null ? _a : [])
+      rec(a, nd);
+  };
+  rec(n, 0);
+  return max3;
+}
+function formaSimbolica(v) {
+  if (!Number.isFinite(v) || Number.isInteger(v))
+    return null;
+  const cerca = (a, b) => Math.abs(a - b) <= 1e-9 * (1 + Math.abs(b));
+  if (cerca(Math.abs(v), Math.PI))
+    return v < 0 ? "-pi" : "pi";
+  if (cerca(Math.abs(v), Math.E))
+    return v < 0 ? "-e" : "e";
+  for (let k = 2; k <= 100; k++) {
+    const lk = Math.log(k);
+    if (cerca(v, lk))
+      return `log(${k})`;
+    if (cerca(v, -lk))
+      return `-log(${k})`;
+    if (cerca(v, 1 / lk))
+      return `1/log(${k})`;
+    if (cerca(v, -1 / lk))
+      return `-1/log(${k})`;
+  }
+  for (let k = 2; k <= 40; k++) {
+    const s = Math.sqrt(k);
+    if (!Number.isInteger(s) && cerca(Math.abs(v), s))
+      return v < 0 ? `-sqrt(${k})` : `sqrt(${k})`;
+  }
+  return null;
+}
+function contieneLog(n) {
+  return n.filter((x) => {
+    var _a;
+    return x.type === "FunctionNode" && ((_a = x.fn) == null ? void 0 : _a.name) === "log";
+  }).length > 0;
+}
+function resimbolizarConstantes(n) {
+  const resimbolizado = n.transform((node) => {
+    if (node.isConstantNode && typeof node.value === "number") {
+      const s = formaSimbolica(node.value);
+      if (s)
+        return parse2(s);
+    }
+    return node;
+  });
+  const logAlFinal = (m) => {
+    const t = m.map(logAlFinal);
+    if (t.type === "OperatorNode" && t.op === "*" && t.args.length === 2) {
+      const [l, r] = t.args;
+      const dep = (x) => x.filter((y) => y.isSymbolNode && y.name === "x").length > 0;
+      if (contieneLog(l) && !dep(l) && dep(r))
+        return new OperatorNode("*", "multiply", [r, l]);
+    }
+    return t;
+  };
+  return logAlFinal(resimbolizado);
+}
+
+// src/simplificar.ts
+var REGLAS_SIMPLIFY = simplify.rules.concat(["log(e^n1) -> n1", "log(e) -> 1"]);
+function simplificarExpr(exprNorm) {
+  let base;
+  try {
+    base = parse2(exprNorm);
+  } catch (e3) {
+    return null;
+  }
+  const r = rationalizeSeguro(base);
+  if (r)
+    return r;
+  try {
+    return simplify(base, REGLAS_SIMPLIFY);
+  } catch (e3) {
+    return base;
+  }
+}
+var CONSTANTES_EVAL = /* @__PURE__ */ new Set(["pi", "e", "tau", "phi", "Infinity", "NaN"]);
+var MUESTRA = [-7.3, -2.6, -1.2, -0.7, -0.3, 0.4, 1.1, 2.7, 5.8, 11.4];
+function variablesLibres(expr) {
+  try {
+    const nombres = /* @__PURE__ */ new Set();
+    const esNombreDeFuncion = (padre, camino) => padre !== null && padre.type === "FunctionNode" && camino === "fn";
+    parse2(expr).filter(
+      (nn, camino, padre) => nn.type === "SymbolNode" && !esNombreDeFuncion(padre, camino)
+    ).forEach((nn) => {
+      if (!CONSTANTES_EVAL.has(nn.name))
+        nombres.add(nn.name);
+    });
+    return [...nombres];
+  } catch (e3) {
+    return [];
+  }
+}
+function formasEquivalentes(a, b) {
+  try {
+    const vars = [.../* @__PURE__ */ new Set([...variablesLibres(a), ...variablesLibres(b)])];
+    const fa = compilarExpresion(a), fb = compilarExpresion(b);
+    return MUESTRA.every((_, i2) => {
+      const scope = {};
+      vars.forEach((v, k) => {
+        scope[v] = MUESTRA[(i2 + 3 * k) % MUESTRA.length];
+      });
+      const va = fa(scope), vb = fb(scope);
+      const finA = typeof va === "number" && Number.isFinite(va);
+      const finB = typeof vb === "number" && Number.isFinite(vb);
+      if (!finA || !finB)
+        return finA === finB;
+      return Math.abs(va - vb) <= 1e-8 * (1 + Math.abs(va));
+    });
+  } catch (e3) {
+    return false;
+  }
+}
+function formatear(n) {
+  return formatearCanonico(racionalizarFracciones(combinarYordenar(n)));
+}
+var costo = (n) => [profundidadFraccion(n), n.toString().length];
+var menor = (a, b) => a[0] !== b[0] ? a[0] < b[0] : a[1] < b[1];
+function simplificarLado(lado) {
+  const norm3 = insertarProductoImplicito(normalizarEntrada(lado.trim()));
+  const n = simplificarExpr(norm3);
+  if (!n)
+    return norm3;
+  const actual = formatear(n);
+  if (!formasEquivalentes(actual, norm3))
+    return norm3;
+  let curNodo;
+  try {
+    curNodo = parse2(actual);
+  } catch (e3) {
+    return actual;
+  }
+  if (profundidadFraccion(curNodo) < 2)
+    return actual;
+  const candidatas = [];
+  try {
+    candidatas.push(formatear(parse2(norm3)));
+  } catch (e3) {
+  }
+  try {
+    candidatas.push(formatear(combinarFracciones(n)));
+  } catch (e3) {
+  }
+  let mejorStr = actual, mejorCosto = costo(curNodo);
+  for (const s of candidatas) {
+    try {
+      const cost = costo(parse2(s));
+      if (menor(cost, mejorCosto) && formasEquivalentes(s, norm3)) {
+        mejorStr = s;
+        mejorCosto = cost;
+      }
+    } catch (e3) {
+    }
+  }
+  return mejorStr;
+}
+function simplificarEcuaciones(ecuaciones) {
+  return ecuaciones.map((ec) => {
+    const comp = componenteParametrica(ec);
+    if (comp)
+      return `${comp.eje}(t) = ${simplificarLado(comp.expr)}`;
+    const partes = ec.split("=");
+    if (partes.length === 2)
+      return `${simplificarLado(partes[0])} = ${simplificarLado(partes[1])}`;
+    return simplificarLado(ec);
+  });
+}
+
+// src/despejar.ts
+var contieneY = (n) => contieneVariable(n, "y");
+function factorEsY(n) {
+  if (n.type === "ParenthesisNode")
+    return factorEsY(n.content);
+  if (n.type === "SymbolNode" && n.name === "y")
+    return 1;
+  if (n.type === "OperatorNode" && n.op === "-" && n.args.length === 1) {
+    const s = factorEsY(n.args[0]);
+    return s === null ? null : -s;
+  }
+  return null;
+}
+function linealEnY(t) {
+  const fs = factores(t.nodo);
+  const conYf = fs.filter((f) => contieneY(f.nodo));
+  if (conYf.length !== 1 || conYf[0].exp !== 1)
+    return null;
+  const s = factorEsY(conYf[0].nodo);
+  if (s === null)
+    return null;
+  return { signo: t.signo * s, libres: fs.filter((f) => !contieneY(f.nodo)) };
+}
+function limpiarRHS(rhs) {
+  const n = simplificarExpr(rhs);
+  return n ? formatearCanonico(racionalizarFracciones(n)) : rhs;
+}
+function renderProducto(fs) {
+  const env = (f) => `(${f.nodo.toString()})`;
+  const num = fs.filter((f) => f.exp === 1).map(env);
+  const den = fs.filter((f) => f.exp === -1).map(env);
+  const n = num.length ? num.join("*") : "1";
+  return den.length ? `(${n})/(${den.join("*")})` : n;
+}
+function ladoDerecho(t, derecha, libres, render = renderTerminos) {
+  const numTs = t.signo === 1 ? derecha : flip(derecha);
+  const numStr = render(numTs);
+  let rhs = numTs.length > 1 ? `(${numStr})` : numStr;
+  const suben = libres.filter((f) => f.exp === -1).map((f) => `(${f.nodo.toString()})`);
+  const bajan = libres.filter((f) => f.exp === 1).map((f) => `(${f.nodo.toString()})`);
+  if (suben.length)
+    rhs = [rhs, ...suben].join("*");
+  if (bajan.length)
+    rhs = `(${rhs})/(${bajan.join("*")})`;
+  return rhs;
+}
+function desParen(n) {
+  return n.type === "ParenthesisNode" ? desParen(n.content) : n;
+}
+function exponenteY(n) {
+  const nodo = desParen(n);
+  if (nodo.type === "OperatorNode" && nodo.op === "^" && nodo.args.length === 2) {
+    const base = desParen(nodo.args[0]);
+    const exp3 = desParen(nodo.args[1]);
+    if (base.type === "SymbolNode" && base.name === "y" && exp3.type === "ConstantNode" && Number.isInteger(exp3.value) && exp3.value >= 2)
+      return exp3.value;
+  }
+  return null;
+}
+function despejePotencia(t, derecha) {
+  const fs = factores(t.nodo);
+  const conYf = fs.filter((f) => contieneY(f.nodo));
+  const libres = fs.filter((f) => !contieneY(f.nodo));
+  if (conYf.length !== 1 || conYf[0].exp !== 1)
+    return null;
+  const n = exponenteY(conYf[0].nodo);
+  if (n === null)
+    return null;
+  const rad = ladoDerecho(t, derecha, libres);
+  if (n % 2 === 1)
+    return { ecuacion: `y = nthRoot(${rad}, ${n})`, completo: true };
+  const raiz = n === 2 ? `sqrt(${rad})` : `nthRoot(${rad}, ${n})`;
+  return { ecuacion: `y = pm(${raiz})`, completo: true };
+}
+function raizY(n) {
+  var _a;
+  const nodo = desParen(n);
+  if (nodo.type !== "FunctionNode")
+    return null;
+  const nombre = (_a = nodo.fn) == null ? void 0 : _a.name;
+  const arg0 = nodo.args[0] && desParen(nodo.args[0]);
+  if (!arg0 || arg0.type !== "SymbolNode" || arg0.name !== "y")
+    return null;
+  if (nombre === "sqrt" && nodo.args.length === 1)
+    return 2;
+  if (nombre === "cbrt" && nodo.args.length === 1)
+    return 3;
+  if (nombre === "nthRoot" && nodo.args.length === 2) {
+    const k = desParen(nodo.args[1]);
+    if (k.type === "ConstantNode" && Number.isInteger(k.value) && k.value >= 2)
+      return k.value;
+  }
+  return null;
+}
+function despejeRaiz(t, derecha) {
+  const fs = factores(t.nodo);
+  const conYf = fs.filter((f) => contieneY(f.nodo));
+  const libres = fs.filter((f) => !contieneY(f.nodo));
+  if (conYf.length !== 1 || conYf[0].exp !== 1)
+    return null;
+  const n = raizY(conYf[0].nodo);
+  if (n === null)
+    return null;
+  return { ecuacion: `y = (${ladoDerecho(t, derecha, libres, renderCanonico)})^${n}`, completo: true };
+}
+function exponenteEntero(n) {
+  const v = valorConstanteFactor(n);
+  return v !== null && Number.isInteger(v) ? v : null;
+}
+function esAbsDeY(n) {
+  var _a;
+  const nodo = desParen(n);
+  if (nodo.type !== "FunctionNode" || ((_a = nodo.fn) == null ? void 0 : _a.name) !== "abs" || nodo.args.length !== 1)
+    return false;
+  const arg2 = desParen(nodo.args[0]);
+  return arg2.type === "SymbolNode" && arg2.name === "y";
+}
+function absYExponente(t) {
+  const fs = factores(t.nodo);
+  const conYf = fs.filter((f) => contieneY(f.nodo));
+  const libres = fs.filter((f) => !contieneY(f.nodo));
+  if (conYf.length !== 1)
+    return null;
+  let e3 = conYf[0].exp;
+  let nucleo = desParen(conYf[0].nodo);
+  if (nucleo.type === "OperatorNode" && nucleo.op === "^" && nucleo.args.length === 2) {
+    const k = exponenteEntero(nucleo.args[1]);
+    if (k === null || k === 0)
+      return null;
+    e3 *= k;
+    nucleo = desParen(nucleo.args[0]);
+  }
+  return esAbsDeY(nucleo) ? { e: e3, libres } : null;
+}
+function limpiarAbsoluto(s) {
+  try {
+    return formatearCanonico(racionalizarFracciones(combinarFracciones(parse2(s))));
+  } catch (e3) {
+    return s;
+  }
+}
+function despejeAbsoluto(t, derecha) {
+  const info = absYExponente(t);
+  if (!info)
+    return null;
+  const { e: e3, libres } = info;
+  const R = ladoDerecho(t, derecha, libres);
+  const raizDe = (r, n) => n === 2 ? `sqrt(${r})` : `nthRoot((${r}), ${n})`;
+  const aby = e3 === 1 ? R : e3 === -1 ? `1/(${R})` : e3 > 0 ? raizDe(R, e3) : `1/(${raizDe(R, -e3)})`;
+  return { ecuacion: `y = pm(${limpiarAbsoluto(aby)})`, completo: true };
+}
+function despejeMultiplicativo(t, derecha) {
+  const fs = factores(t.nodo);
+  const conYf = fs.filter((f) => contieneY(f.nodo));
+  const libres = fs.filter((f) => !contieneY(f.nodo));
+  if (libres.length === 0 || conYf.length === 0)
+    return null;
+  return `${renderProducto(conYf)} = ${ladoDerecho(t, derecha, libres)}`;
+}
+var contieneX = (n) => contieneVariable(n, "x");
+var mcdEnteros = (a, b) => b === 0 ? Math.abs(a) : mcdEnteros(b, Math.abs(a % b));
+function simpDesp(s) {
+  try {
+    const n = simplificarExpr(s);
+    return n ? formatearCanonico(racionalizarFracciones(n)) : s;
+  } catch (e3) {
+    return s;
+  }
+}
+function simpSiConstante(s) {
+  try {
+    return contieneX(parse2(s)) ? s : simpDesp(s);
+  } catch (e3) {
+    return s;
+  }
+}
+var sumarStrings = (a) => a.length ? a.map((s) => `(${s})`).join(" + ") : "0";
+function potenciaYCoef(t) {
+  const fs = factores(t.nodo);
+  const conYf = fs.filter((f) => contieneY(f.nodo));
+  const libres = fs.filter((f) => !contieneY(f.nodo));
+  if (conYf.length !== 1 || conYf[0].exp !== 1)
+    return null;
+  const yn = desParen(conYf[0].nodo);
+  let power;
+  if (yn.type === "SymbolNode" && yn.name === "y")
+    power = 1;
+  else {
+    const k = exponenteY(yn);
+    if (k === null)
+      return null;
+    power = k;
+  }
+  const coef = renderProducto(libres);
+  return { power, coef: t.signo === 1 ? coef : `-(${coef})` };
+}
+function ramaReal(uStr, g, evalD) {
+  let fu;
+  try {
+    const c = parse2(uStr).compile();
+    fu = (x) => c.evaluate({ x });
+  } catch (e3) {
+    return false;
+  }
+  const muestras = [-2.3, -1.1, -0.4, -0.15, 0.15, 0.35, 0.7, 1.6, 3.2];
+  let viables = 0;
+  for (const x of muestras) {
+    let u;
+    try {
+      u = fu(x);
+    } catch (e3) {
+      continue;
+    }
+    if (typeof u !== "number" || !Number.isFinite(u))
+      continue;
+    const escala = 1 + x * x * x * x;
+    if (g % 2 === 0) {
+      if (u < -1e-9)
+        continue;
+      const y = Math.pow(Math.max(u, 0), 1 / g);
+      for (const yy of [y, -y]) {
+        const d = evalD(x, yy);
+        if (!Number.isFinite(d) || Math.abs(d) > 1e-6 * (escala + y * y * y * y))
+          return false;
+      }
+    } else {
+      const y = Math.sign(u) * Math.pow(Math.abs(u), 1 / g);
+      const d = evalD(x, y);
+      if (!Number.isFinite(d) || Math.abs(d) > 1e-6 * (escala + y * y * y * y))
+        return false;
+    }
+    viables++;
+  }
+  return viables >= 2;
+}
+function baseYExponente(f) {
+  const nodo = desParen(f.nodo);
+  if (nodo.type === "OperatorNode" && nodo.op === "^" && nodo.args.length === 2) {
+    const k = exponenteEntero(nodo.args[1]);
+    if (k !== null)
+      return { base: desParen(nodo.args[0]), k: k * f.exp };
+  }
+  return { base: nodo, k: f.exp };
+}
+function raizImpar(R, n) {
+  const fuera = [];
+  const dentro = [];
+  for (const f of factores(R)) {
+    const { base, k } = baseYExponente(f);
+    const pot = (e3) => e3 === 1 ? `(${base.toString()})` : `(${base.toString()})^(${e3})`;
+    if (k % n === 0)
+      fuera.push(pot(k / n));
+    else {
+      if (contieneY(base))
+        return null;
+      dentro.push(pot(k));
+    }
+  }
+  if (dentro.length === 0)
+    return fuera.length ? fuera.join("*") : "1";
+  const radicando = dentro.join("*");
+  const raiz = `nthRoot(${radicando}, ${n})`;
+  return fuera.length ? `${fuera.join("*")}*${raiz}` : raiz;
+}
+function reducirRaizImpar(L, R) {
+  var _a;
+  const intento = (potencia, otro) => {
+    const p = desParen(potencia);
+    if (!(p.type === "OperatorNode" && p.op === "^" && p.args.length === 2))
+      return null;
+    const n = exponenteEntero(p.args[1]);
+    if (n === null || n < 3 || n % 2 === 0)
+      return null;
+    const base = desParen(p.args[0]);
+    if (!contieneY(base))
+      return null;
+    const raiz = raizImpar(otro, n);
+    if (raiz === null)
+      return null;
+    try {
+      const D = simplify(parse2(`(${base.toString()}) - (${raiz})`));
+      return D && contieneY(D) ? D : null;
+    } catch (e3) {
+      return null;
+    }
+  };
+  return (_a = intento(L, R)) != null ? _a : intento(R, L);
+}
+function reducirRaizImparPorTerminos(D) {
+  const ts = terminos(D);
+  if (ts.length < 2)
+    return null;
+  for (let i2 = 0; i2 < ts.length; i2++) {
+    const p = desParen(ts[i2].nodo);
+    if (!(p.type === "OperatorNode" && p.op === "^" && p.args.length === 2))
+      continue;
+    const n = exponenteEntero(p.args[1]);
+    if (n === null || n < 3 || n % 2 === 0)
+      continue;
+    const base = desParen(p.args[0]);
+    if (!contieneY(base))
+      continue;
+    if (base.type === "SymbolNode")
+      continue;
+    const resto = ts.filter((_, j) => j !== i2);
+    const otroLado = ts[i2].signo === 1 ? flip(resto) : resto;
+    let R;
+    try {
+      R = parse2(renderTerminos(otroLado));
+    } catch (e3) {
+      continue;
+    }
+    const reducido = reducirRaizImpar(p, R);
+    if (reducido)
+      return reducido;
+  }
+  return null;
+}
+function plegarRaicesImpares(n) {
+  try {
+    return n.transform((nn) => {
+      var _a;
+      if (nn.type !== "OperatorNode" || nn.op !== "^" || nn.args.length !== 2)
+        return nn;
+      const base = desParen(nn.args[0]);
+      const k = exponenteEntero(nn.args[1]);
+      if (k === null || base.type !== "FunctionNode" || ((_a = base.fn) == null ? void 0 : _a.name) !== "nthRoot")
+        return nn;
+      if (base.args.length !== 2)
+        return nn;
+      const idx = exponenteEntero(base.args[1]);
+      if (idx === null || idx < 3 || idx % 2 === 0)
+        return nn;
+      return parse2(`nthRoot((${base.args[0].toString()})^(${k}), ${idx})`);
+    });
+  } catch (e3) {
+    return n;
+  }
+}
+function despejeCuadratico(D0, DVal = D0) {
+  let D = D0;
+  try {
+    const e3 = simplificarExpr(D0.toString());
+    if (e3)
+      D = e3;
+  } catch (e3) {
+  }
+  const ts = terminos(D);
+  const conY = ts.filter((t) => contieneY(t.nodo));
+  const sinY = ts.filter((t) => !contieneY(t.nodo));
+  if (conY.length === 0)
+    return null;
+  const pcs = conY.map(potenciaYCoef);
+  if (pcs.some((p2) => p2 === null))
+    return null;
+  const P4 = pcs;
+  const g = P4.map((p2) => p2.power).reduce(mcdEnteros);
+  if (g !== 1 && g % 2 !== 0)
+    return null;
+  const degs = P4.map((p2) => p2.power / g);
+  if (degs.some((d) => d > 2))
+    return null;
+  const A = sumarStrings(P4.filter((_, i2) => degs[i2] === 2).map((p2) => p2.coef));
+  const B = sumarStrings(P4.filter((_, i2) => degs[i2] === 1).map((p2) => p2.coef));
+  const C = sumarStrings(sinY.map((t) => t.signo === 1 ? t.nodo.toString() : `-(${t.nodo.toString()})`));
+  let evalD;
+  try {
+    const c = DVal.compile();
+    evalD = (x, y) => {
+      try {
+        return c.evaluate({ x, y });
+      } catch (e3) {
+        return NaN;
+      }
+    };
+  } catch (e3) {
+    return null;
+  }
+  if (!degs.includes(2)) {
+    if (!degs.includes(1))
+      return null;
+    const u = simpDesp(`-(${C})/(${B})`);
+    if (!ramaReal(u, g, evalD))
+      return null;
+    const raizDeU = g === 1 ? u : g === 2 ? `sqrt(${u})` : `nthRoot(${u}, ${g})`;
+    const cuerpo = simpSiConstante(raizDeU);
+    return { ecuacion: `y = ${g % 2 === 0 ? `pm(${cuerpo})` : cuerpo}`, completo: true };
+  }
+  if (g === 1) {
+    const b2 = plegarRaicesImpares(parse2(simpDesp(`(${B})^2`))).toString();
+    const m4ac = simpDesp(`-4*(${A})*(${C})`);
+    const disc2 = simpDesp(`(${b2}) + (${m4ac})`);
+    const num = simpDesp(`-(${B})`);
+    const den = simpDesp(`2*(${A})`);
+    const raiz = simpSiConstante(`sqrt(${disc2})`);
+    const yMas = `((${num}) + (${raiz}))/(${den})`;
+    const yMenos = `((${num}) - (${raiz}))/(${den})`;
+    const reales = [yMas, yMenos].filter((u) => ramaReal(u, 1, evalD));
+    if (reales.length === 0)
+      return null;
+    if (reales.length === 1)
+      return { ecuacion: `y = ${simpDesp(reales[0])}`, completo: true };
+    const conPm = (cuerpo, mas) => mas === "0" ? `pm(${cuerpo})` : `${mas} + pm(${cuerpo})`;
+    const unica = den === "1" ? conPm(raiz, num) : `(${conPm(raiz, num)})/(${den})`;
+    const separada = conPm(simpDesp(`(${raiz})/(${den})`), simpDesp(`(${num})/(${den})`));
+    const barata = [unica, separada].map((s) => ({ s, prof: profundidadFraccion(parse2(s)), len: s.length })).sort((a, b) => a.prof !== b.prof ? a.prof - b.prof : a.len - b.len)[0].s;
+    return { ecuacion: `y = ${barata}`, completo: true };
+  }
+  const p = simpDesp(`(${B})/(2*(${A}))`);
+  const disc = simpDesp(`((${B})/(2*(${A})))^2 - (${C})/(${A})`);
+  const uMas = `(-(${p})) + (sqrt(${disc}))`;
+  const uMenos = `(-(${p})) - (sqrt(${disc}))`;
+  const validas = [uMas, uMenos].filter((u) => ramaReal(u, g, evalD));
+  if (validas.length === 0)
+    return null;
+  if (validas.length === 1) {
+    const inner = simpSiConstante(`sqrt(${validas[0]})`);
+    return { ecuacion: `y = pm(${inner})`, completo: true };
+  }
+  const raizDisc = simpSiConstante(`sqrt(${disc})`);
+  return { ecuacion: `y = pm(sqrt(pm(${raizDisc}) + (${simpDesp(`-(${p})`)})))`, completo: true };
+}
+function despejar(ecuacion) {
+  var _a, _b;
+  if (componenteParametrica(ecuacion))
+    return null;
+  let partes = ecuacion.split("=");
+  const norm3 = (s) => insertarProductoImplicito(normalizarEntrada(s.trim()));
+  if (partes.length === 1 && contieneYLibre(norm3(partes[0])))
+    partes = [partes[0], "0"];
+  if (partes.length !== 2)
+    return null;
+  let D;
+  let L, R;
+  try {
+    L = parse2(norm3(partes[0]));
+    R = parse2(norm3(partes[1]));
+    D = parse2(`(${norm3(partes[0])})-(${norm3(partes[1])})`);
+  } catch (e3) {
+    return null;
+  }
+  if (!contieneY(D))
+    return null;
+  const DVal = D;
+  D = (_b = (_a = reducirRaizImpar(L, R)) != null ? _a : reducirRaizImparPorTerminos(D)) != null ? _b : D;
+  const ts = terminos(D);
+  const conY = ts.filter((t) => contieneY(t.nodo));
+  const sinY = ts.filter((t) => !contieneY(t.nodo));
+  if (conY.length === 0)
+    return null;
+  const derecha = flip(sinY);
+  if (conY.length === 1) {
+    const lin = linealEnY(conY[0]);
+    if (lin) {
+      const numerador = lin.signo === 1 ? derecha : flip(derecha);
+      if (lin.libres.length === 0)
+        return { ecuacion: `y = ${renderCanonico(numerador)}`, completo: true };
+      const rhs = `(${renderCanonico(numerador)}) / (${renderProducto(lin.libres)})`;
+      return { ecuacion: `y = ${limpiarRHS(rhs)}`, completo: true };
+    }
+    const pot = despejePotencia(conY[0], derecha);
+    if (pot)
+      return pot;
+    const raiz = despejeRaiz(conY[0], derecha);
+    if (raiz)
+      return raiz;
+    const abs3 = despejeAbsoluto(conY[0], derecha);
+    if (abs3)
+      return abs3;
+    const mult = despejeMultiplicativo(conY[0], derecha);
+    if (mult)
+      return { ecuacion: mult, completo: false };
+  }
+  const cuad = despejeCuadratico(D, DVal);
+  if (cuad)
+    return cuad;
+  return { ecuacion: `${renderTerminos(conY)} = ${renderCanonico(derecha)}`, completo: false };
+}
+function despejarEcuaciones(ecuaciones) {
+  return ecuaciones.map((ec) => {
+    var _a, _b;
+    return (_b = (_a = despejar(ec)) == null ? void 0 : _a.ecuacion) != null ? _b : ec;
+  });
+}
+function despejarY(ecuacion) {
+  const r = despejar(ecuacion);
+  return r ? { latex: bloqueALatex([r.ecuacion]), completo: r.completo } : null;
+}
+
+// src/derivar.ts
+var VAR = "x";
+var RE_OPERADOR_DERIVADA = /^\s*\\frac\s*\{\s*d\s*\}\s*\{\s*d\s*x\s*\}\s*/;
+var RE_LEIBNIZ = /\\frac\s*\{\s*d[^{}]*\}\s*\{\s*d[^{}]*\}/;
+var esFuncionDeX = (f) => !contieneYLibre(insertarProductoImplicito(normalizarEntrada(f)));
+function quitarOperadorDerivada(ec) {
+  const m = RE_OPERADOR_DERIVADA.exec(ec);
+  if (!m)
+    return null;
+  const resto = ec.slice(m[0].length).trim();
+  if (resto === "")
+    return null;
+  const usaLeft = resto.startsWith("\\left(");
+  if (!usaLeft && !resto.startsWith("("))
+    return resto;
+  let profundidad = 0;
+  for (let i2 = 0; i2 < resto.length; i2++) {
+    if (resto.startsWith("\\left(", i2)) {
+      profundidad++;
+      i2 += "\\left(".length - 1;
+      continue;
+    }
+    if (resto.startsWith("\\right)", i2)) {
+      profundidad--;
+      i2 += "\\right)".length - 1;
+    } else if (resto[i2] === "(")
+      profundidad++;
+    else if (resto[i2] === ")")
+      profundidad--;
+    if (profundidad === 0) {
+      if (i2 !== resto.length - 1)
+        return resto;
+      const abre = usaLeft ? "\\left(".length : 1;
+      const cierra = usaLeft ? "\\right)".length : 1;
+      return resto.slice(abre, resto.length - cierra).trim() || null;
+    }
+  }
+  return resto;
+}
+function extraerFuncion(ec) {
+  const interior = quitarOperadorDerivada(ec);
+  if (interior !== null)
+    return esFuncionDeX(interior) ? interior : null;
+  if (RE_LEIBNIZ.test(ec))
+    return null;
+  const partes = ec.split("=");
+  let f = null;
+  if (partes.length === 1)
+    f = partes[0].trim() || null;
+  else if (partes.length === 2) {
+    if (normalizarEntrada(partes[0].trim()) === "y")
+      f = partes[1].trim() || null;
+    else if (normalizarEntrada(partes[1].trim()) === "y")
+      f = partes[0].trim() || null;
+  }
+  return f && esFuncionDeX(f) ? f : null;
+}
+var REGLAS_DERIVADA = ["sqrt(n1)^2 -> n1"].concat(simplify.rules);
+var PUNTOS_EQUIVALENCIA = [-7.3, -2.6, -1.2, -0.7, -0.3, 0.4, 1.1, 2.7, 5.8, 11.4];
+function derivadasEquivalentes(a, b) {
+  try {
+    const fa = compilarFuncion(a, VAR), fb = compilarFuncion(b, VAR);
+    return PUNTOS_EQUIVALENCIA.every((x) => {
+      const va = fa(x), vb = fb(x);
+      const finA = typeof va === "number" && Number.isFinite(va);
+      const finB = typeof vb === "number" && Number.isFinite(vb);
+      if (!finA || !finB)
+        return finA === finB;
+      return Math.abs(va - vb) <= 1e-8 * (1 + Math.abs(va));
+    });
+  } catch (e3) {
+    return false;
+  }
+}
+function factoresProducto(n) {
+  if (n.type === "ParenthesisNode")
+    return factoresProducto(n.content);
+  if (n.type === "OperatorNode" && n.op === "*" && n.args.length === 2)
+    return [...factoresProducto(n.args[0]), ...factoresProducto(n.args[1])];
+  return [n];
+}
+function extraerSigno(n) {
+  if (n.type === "ParenthesisNode")
+    return extraerSigno(n.content);
+  if (n.type === "OperatorNode") {
+    if (n.op === "-" && n.args.length === 1) {
+      const r = extraerSigno(n.args[0]);
+      return { signo: -r.signo, mag: r.mag };
+    }
+    if (n.op === "/" && n.args.length === 2) {
+      const a = extraerSigno(n.args[0]);
+      return { signo: a.signo, mag: new OperatorNode("/", "divide", [a.mag, n.args[1]]) };
+    }
+    if (n.op === "*" && n.args.length === 2) {
+      const a = extraerSigno(n.args[0]), b = extraerSigno(n.args[1]);
+      return { signo: a.signo * b.signo, mag: new OperatorNode("*", "multiply", [a.mag, b.mag]) };
+    }
+  }
+  if (n.type === "ConstantNode" && typeof n.value === "number" && n.value < 0)
+    return { signo: -1, mag: new ConstantNode(-n.value) };
+  return { signo: 1, mag: n };
+}
+function derivadaDistribuida(norm3) {
+  let raiz;
+  try {
+    raiz = parse2(norm3);
+  } catch (e3) {
+    return null;
+  }
+  const fs = factoresProducto(raiz);
+  if (fs.length < 2)
+    return null;
+  const partes = [];
+  for (let i2 = 0; i2 < fs.length; i2++) {
+    let di;
+    try {
+      di = derivative(fs[i2], VAR);
+    } catch (e3) {
+      return null;
+    }
+    if (esCeroLiteral(di))
+      continue;
+    let termino = di;
+    for (let j = 0; j < fs.length; j++)
+      if (j !== i2)
+        termino = new OperatorNode("*", "multiply", [termino, fs[j]]);
+    try {
+      termino = combinarFracciones(simplify(termino, REGLAS_DERIVADA));
+    } catch (e3) {
+    }
+    for (const t of terminos(termino)) {
+      const { signo: signo2, mag } = extraerSigno(t.nodo);
+      partes.push({ signo: t.signo * signo2, mag });
+    }
+  }
+  if (partes.length === 0)
+    return parse2("0");
+  const orden = [...partes.filter((p) => p.signo === 1), ...partes.filter((p) => p.signo === -1)];
+  let s = "";
+  orden.forEach((p, i2) => {
+    const cuerpo = p.mag.toString();
+    if (i2 === 0)
+      s = p.signo === 1 ? cuerpo : `-(${cuerpo})`;
+    else
+      s += p.signo === 1 ? ` + ${cuerpo}` : ` - (${cuerpo})`;
+  });
+  try {
+    return parse2(s);
+  } catch (e3) {
+    return null;
+  }
+}
+function simplificarDerivada(cruda, norm3) {
+  const ref = cruda.toString();
+  const candidatas = [];
+  try {
+    const conRaices = simplify(cruda, REGLAS_DERIVADA);
+    try {
+      candidatas.push(combinarFracciones(conRaices));
+    } catch (e3) {
+    }
+    candidatas.push(conRaices);
+  } catch (e3) {
+  }
+  const dist = derivadaDistribuida(norm3);
+  if (dist)
+    candidatas.push(dist);
+  const costo2 = (n) => [profundidadFraccion(n), n.toString().length];
+  const menor2 = (a, b) => a[0] !== b[0] ? a[0] < b[0] : a[1] < b[1];
+  let mejor = cruda, mejorCosto = costo2(cruda);
+  for (const c of candidatas) {
+    try {
+      if (menor2(costo2(c), mejorCosto) && derivadasEquivalentes(c.toString(), ref)) {
+        mejor = c;
+        mejorCosto = costo2(c);
+      }
+    } catch (e3) {
+    }
+  }
+  return mejor;
+}
+var FUNCIONES_ESCALON = /* @__PURE__ */ new Set(["floor", "ceil"]);
+var esCeroLiteral = (n) => n.type === "ConstantNode" && n.value === 0;
+function derivarConEscalones(norm3) {
+  const escalones = [];
+  const sustituir = (n) => {
+    var _a, _b;
+    const m = n.map(sustituir);
+    if (m.type === "FunctionNode" && ((_a = m.args) == null ? void 0 : _a.length) === 1 && FUNCIONES_ESCALON.has((_b = m.fn) == null ? void 0 : _b.name)) {
+      const nombre = `escalonInterno${escalones.length}`;
+      escalones.push({ nombre, original: n, arg: m.args[0] });
+      return new SymbolNode(nombre);
+    }
+    return m;
+  };
+  const cuerpo = sustituir(parse2(norm3));
+  if (escalones.length === 0)
+    return derivative(norm3, VAR);
+  let total = derivative(cuerpo, VAR);
+  for (const e3 of escalones) {
+    const du = derivative(e3.arg, VAR);
+    if (du.type === "ConstantNode")
+      continue;
+    const termino = new OperatorNode("*", "multiply", [new ConstantNode(0), du]);
+    total = esCeroLiteral(total) ? termino : new OperatorNode("+", "add", [total, termino]);
+  }
+  const porNombre = new Map(escalones.map((e3) => [e3.nombre, e3.original]));
+  const restaurar = (n) => {
+    const m = n.map(restaurar);
+    return m.type === "SymbolNode" && porNombre.has(m.name) ? porNombre.get(m.name) : m;
+  };
+  return restaurar(total);
+}
+var SIMBOLO_SIGNO = { pm: "signoPmInterno", mp: "signoMpInterno" };
+var CENTINELA_DE_SIMBOLO = new Map(Object.entries(SIMBOLO_SIGNO).map(([fn, s]) => [s, fn]));
+function contarSimbolo(n, nombre) {
+  let total = 0;
+  n.forEach((h) => {
+    total += contarSimbolo(h, nombre);
+  });
+  return total + (n.type === "SymbolNode" && n.name === nombre ? 1 : 0);
+}
+var producto = (a, b) => a.type === "ConstantNode" && a.value === 1 ? b : b.type === "ConstantNode" && b.value === 1 ? a : new OperatorNode("*", "multiply", [a, b]);
+function sacarFactorSimbolo(n, nombre) {
+  if (n.type === "SymbolNode" && n.name === nombre)
+    return new ConstantNode(1);
+  if (n.type === "ParenthesisNode")
+    return sacarFactorSimbolo(n.content, nombre);
+  if (n.type === "OperatorNode" && n.op === "-" && n.args.length === 1) {
+    const a = sacarFactorSimbolo(n.args[0], nombre);
+    return a && new OperatorNode("-", "unaryMinus", [a]);
+  }
+  if (n.type === "OperatorNode" && n.args.length === 2) {
+    if (n.op === "*") {
+      const izq = sacarFactorSimbolo(n.args[0], nombre);
+      if (izq)
+        return producto(izq, n.args[1]);
+      const der = sacarFactorSimbolo(n.args[1], nombre);
+      return der && producto(n.args[0], der);
+    }
+    if (n.op === "/") {
+      const num = sacarFactorSimbolo(n.args[0], nombre);
+      return num && new OperatorNode("/", "divide", [num, n.args[1]]);
+    }
+  }
+  return null;
+}
+function restaurarSignos(n) {
+  if (n.type === "OperatorNode" && (n.op === "+" || n.op === "-") && n.args.length === 2)
+    return new OperatorNode(n.op, n.fn, [restaurarSignos(n.args[0]), restaurarSignos(n.args[1])]);
+  if (n.type === "ParenthesisNode")
+    return restaurarSignos(n.content);
+  for (const [simbolo, centinela] of CENTINELA_DE_SIMBOLO) {
+    const veces = contarSimbolo(n, simbolo);
+    if (veces === 0)
+      continue;
+    const sin3 = veces === 1 ? sacarFactorSimbolo(n, simbolo) : null;
+    if (!sin3)
+      throw new Error("signo no factorizable");
+    return new FunctionNode(new SymbolNode(centinela), [sin3]);
+  }
+  return n;
+}
+function sustituirSignos(norm3) {
+  const raiz = parse2(norm3);
+  let hay = false;
+  const sustituir = (n) => {
+    var _a, _b;
+    const m = n.map(sustituir);
+    const s = m.type === "FunctionNode" && ((_a = m.args) == null ? void 0 : _a.length) === 1 ? SIMBOLO_SIGNO[(_b = m.fn) == null ? void 0 : _b.name] : void 0;
+    if (!s)
+      return m;
+    hay = true;
+    return new OperatorNode("*", "multiply", [new SymbolNode(s), m.args[0]]);
+  };
+  const expr = sustituir(raiz).toString();
+  return { expr, hay };
+}
+function derivarExpr(expr) {
+  let norm3 = insertarProductoImplicito(normalizarEntrada(expr.trim()));
+  if (norm3 === "")
+    return null;
+  try {
+    if (clasificarDegenerada(compilarFuncion(norm3, VAR)))
+      return null;
+  } catch (e3) {
+  }
+  let conSigno = false;
+  try {
+    const s = sustituirSignos(norm3);
+    norm3 = s.expr;
+    conSigno = s.hay;
+  } catch (e3) {
+    return null;
+  }
+  try {
+    if (conSigno) {
+      return resimbolizarConstantes(
+        racionalizarFracciones(restaurarSignos(simplificarDerivada(derivarConEscalones(norm3), norm3)))
+      ).toString();
+    }
+    return resimbolizarConstantes(
+      racionalizarFracciones(simplificarDerivada(derivarConEscalones(norm3), norm3))
+    ).toString();
+  } catch (e3) {
+    return null;
+  }
+}
+function derivarEcuacion(ec) {
+  const f = extraerFuncion(ec);
+  return f ? derivarExpr(f) : null;
+}
+function derivadaOperadorSimplificadoLatex(ecuaciones) {
+  const f = ecuaciones.length ? extraerFuncion(ecuaciones[0]) : null;
+  if (f === null)
+    return null;
+  const simp = simplificarEcuaciones([f])[0];
+  return `\\frac{d}{d${VAR}}\\left(${exprALatex(simp)}\\right)`;
+}
+function derivadaOperadorLatex(ecuaciones) {
+  const f = ecuaciones.length ? extraerFuncion(ecuaciones[0]) : null;
+  const cuerpo = f ? exprALatex(f) : "\\text{[...]}";
+  return `\\frac{d}{d${VAR}}\\left(${cuerpo}\\right)`;
+}
+function derivadaLatex(ecuaciones) {
+  const d = ecuaciones.length ? derivarEcuacion(ecuaciones[0]) : null;
+  const cuerpo = d ? exprALatex(d) : "\\text{[...]}";
+  return `f'\\left(${VAR}\\right) = ${cuerpo}`;
+}
+
+// src/integrar.ts
+var VAR2 = "x";
+var MUESTRAS = [-7.3, -2.6, -1.2, -0.7, -0.3, 0.4, 1.1, 2.7, 5.8, 11.4];
+function dependeDeX(n) {
+  return n.filter((nodo) => nodo.isSymbolNode && nodo.name === VAR2).length > 0;
+}
+function valorConstante(n) {
+  try {
+    const v = n.evaluate();
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  } catch (e3) {
+    return null;
+  }
+}
+function coefLineal(u) {
+  try {
+    const a = valorConstante(simplify(derivative(u, VAR2)));
+    return a !== null && a !== 0 ? a : null;
+  } catch (e3) {
+    return null;
+  }
+}
+function factoresProducto2(n) {
+  if (n.type === "ParenthesisNode")
+    return factoresProducto2(n.content);
+  if (n.type === "OperatorNode" && n.op === "*" && n.args.length === 2)
+    return [...factoresProducto2(n.args[0]), ...factoresProducto2(n.args[1])];
+  return [n];
+}
+function integrarPotencia(base, n) {
+  const a = coefLineal(base);
+  if (a === null)
+    return null;
+  const u = base.toString();
+  if (Math.abs(n + 1) < 1e-12)
+    return `log(abs(${u}))/(${a})`;
+  const np1 = n + 1;
+  return `((${u})^(${np1}))/(${np1 * a})`;
+}
+function integrarReciproco(q) {
+  if (q.type === "OperatorNode" && q.op === "^" && q.args.length === 2 && !dependeDeX(q.args[1])) {
+    const k = valorConstante(q.args[1]);
+    if (k === null)
+      return null;
+    return integrarPotencia(q.args[0], -k);
+  }
+  const a = coefLineal(q);
+  if (a !== null)
+    return `log(abs(${q.toString()}))/(${a})`;
+  return integrarArcotangente(q);
+}
+function integrarArcotangente(q) {
+  let d1;
+  try {
+    d1 = simplify(derivative(q, VAR2));
+  } catch (e3) {
+    return null;
+  }
+  const dosK = coefLineal(d1);
+  if (dosK === null)
+    return null;
+  const k = dosK / 2;
+  try {
+    const fd = compilarFuncion(d1.toString(), VAR2);
+    const en0 = fd(0);
+    if (typeof en0 !== "number" || Math.abs(en0) > 1e-9)
+      return null;
+    const m = compilarFuncion(q.toString(), VAR2)(0);
+    if (typeof m !== "number" || !Number.isFinite(m) || k <= 0 || m <= 0)
+      return null;
+    return `atan(x*sqrt((${k})/(${m})))/sqrt((${k})*(${m}))`;
+  } catch (e3) {
+    return null;
+  }
+}
+function integrarExponencial(base, exp3) {
+  const a = coefLineal(exp3);
+  if (a === null)
+    return null;
+  const b = base.toString();
+  return `((${b})^(${exp3.toString()}))/((${a})*log(${b}))`;
+}
+function integrarFuncion(nombre, arg2) {
+  const a = coefLineal(arg2);
+  if (a === null)
+    return null;
+  const u = arg2.toString();
+  switch (nombre) {
+    case "sin":
+      return `-cos(${u})/(${a})`;
+    case "cos":
+      return `sin(${u})/(${a})`;
+    case "exp":
+      return `exp(${u})/(${a})`;
+    case "tan":
+      return `-log(abs(cos(${u})))/(${a})`;
+    case "sinh":
+      return `cosh(${u})/(${a})`;
+    case "cosh":
+      return `sinh(${u})/(${a})`;
+    case "sqrt":
+      return `(2*(${u})^(3/2))/(3*(${a}))`;
+    default:
+      return null;
+  }
+}
+function integrar2(n) {
+  if (n.type === "ParenthesisNode")
+    return integrar2(n.content);
+  if (!dependeDeX(n))
+    return `(${n.toString()})*x`;
+  if (n.type === "OperatorNode") {
+    const { op, args } = n;
+    if ((op === "+" || op === "-") && args.length === 2) {
+      const A = integrar2(args[0]);
+      const B = integrar2(args[1]);
+      return A !== null && B !== null ? `(${A})${op}(${B})` : null;
+    }
+    if (op === "-" && args.length === 1) {
+      const A = integrar2(args[0]);
+      return A !== null ? `-(${A})` : null;
+    }
+    if (op === "*") {
+      const factores2 = factoresProducto2(n);
+      const xdep = factores2.filter(dependeDeX);
+      if (xdep.length !== 1)
+        return null;
+      const I = integrar2(xdep[0]);
+      if (I === null)
+        return null;
+      const consts = factores2.filter((f) => !dependeDeX(f));
+      if (consts.length === 0)
+        return I;
+      return `(${consts.map((f) => `(${f.toString()})`).join("*")})*(${I})`;
+    }
+    if (op === "/" && args.length === 2) {
+      const [p, q] = args;
+      if (!dependeDeX(q)) {
+        const I = integrar2(p);
+        return I !== null ? `(${I})/(${q.toString()})` : null;
+      }
+      if (!dependeDeX(p)) {
+        const I = integrarReciproco(q);
+        return I !== null ? `(${p.toString()})*(${I})` : null;
+      }
+      return null;
+    }
+    if (op === "^" && args.length === 2) {
+      const [base, exp3] = args;
+      if (dependeDeX(exp3)) {
+        return dependeDeX(base) ? null : integrarExponencial(base, exp3);
+      }
+      const n25 = valorConstante(exp3);
+      return n25 !== null ? integrarPotencia(base, n25) : null;
+    }
+  }
+  if (n.type === "FunctionNode" && n.args.length === 1)
+    return integrarFuncion(n.fn.name, n.args[0]);
+  if (n.type === "SymbolNode" && n.name === VAR2)
+    return "x^2/2";
+  return null;
+}
+function verificaNumerica(integrando, primitiva) {
+  let f, F;
+  try {
+    f = compilarFuncion(integrando, VAR2);
+    F = compilarFuncion(primitiva, VAR2);
+  } catch (e3) {
+    return false;
+  }
+  const h = 1e-6;
+  let comparables = 0;
+  for (const x of MUESTRAS) {
+    const vf = f(x);
+    if (typeof vf !== "number" || !Number.isFinite(vf))
+      continue;
+    const F1 = F(x + h), F0 = F(x - h);
+    if (typeof F1 !== "number" || typeof F0 !== "number" || !Number.isFinite(F1) || !Number.isFinite(F0))
+      continue;
+    const aprox = (F1 - F0) / (2 * h);
+    if (Math.abs(aprox - vf) > 1e-4 * (1 + Math.abs(vf)))
+      return false;
+    comparables++;
+  }
+  return comparables >= 3;
+}
+function integrarExpr(expr) {
+  const norm3 = insertarProductoImplicito(normalizarEntrada(expr.trim()));
+  if (norm3 === "")
+    return null;
+  let raiz;
+  try {
+    raiz = parse2(norm3);
+  } catch (e3) {
+    return null;
+  }
+  const cruda = integrar2(raiz);
+  if (cruda === null)
+    return null;
+  let limpio = cruda;
+  try {
+    limpio = resimbolizarConstantes(racionalizarFracciones(simplify(cruda))).toString();
+  } catch (e3) {
+    try {
+      limpio = simplify(cruda).toString();
+    } catch (e4) {
+    }
+  }
+  return verificaNumerica(norm3, limpio) ? limpio : null;
+}
+
+// src/integral.ts
+function leerGrupo(s, i2) {
+  while (i2 < s.length && /\s/.test(s[i2]))
+    i2++;
+  if (i2 >= s.length)
+    return null;
+  if (s[i2] === "{") {
+    let prof = 0;
+    for (let j = i2; j < s.length; j++) {
+      if (s[j] === "{")
+        prof++;
+      else if (s[j] === "}" && --prof === 0)
+        return { texto: s.slice(i2 + 1, j), fin: j + 1 };
+    }
+    return null;
+  }
+  if (s[i2] === "\\") {
+    const m = /^\\[a-zA-Z]+/.exec(s.slice(i2));
+    if (m)
+      return { texto: m[0], fin: i2 + m[0].length };
+    return { texto: s.slice(i2, i2 + 2), fin: i2 + 2 };
+  }
+  const num = /^-?\d+(?:\.\d+)?/.exec(s.slice(i2));
+  if (num)
+    return { texto: num[0], fin: i2 + num[0].length };
+  return { texto: s[i2], fin: i2 + 1 };
+}
+function parsearLatex(entrada) {
+  let s = entrada.replace(/\\in(?=\s*[_^])/g, "\\int").replace(/\\displaystyle/g, " ");
+  const idx = s.search(/\\int/);
+  if (idx < 0)
+    return null;
+  let i2 = idx + "\\int".length;
+  const lim = /^\\limits/.exec(s.slice(i2));
+  if (lim)
+    i2 += lim[0].length;
+  let a = null, b = null;
+  for (let k = 0; k < 2; k++) {
+    while (i2 < s.length && /\s/.test(s[i2]))
+      i2++;
+    const marca = s[i2];
+    if (marca !== "_" && marca !== "^")
+      break;
+    const g = leerGrupo(s, i2 + 1);
+    if (!g)
+      return null;
+    if (marca === "_")
+      a = g.texto;
+    else
+      b = g.texto;
+    i2 = g.fin;
+  }
+  if (a === null || b === null)
+    return null;
+  let resto = s.slice(i2).trim();
+  const dif = /(?:\\[,;! ]|\\quad|\\qquad|\s)*(?:\\mathrm\s*\{\s*d\s*\}|\\mathrm\s+d|d)\s*([a-zA-Z])\s*$/.exec(resto);
+  let variable = "x";
+  if (dif) {
+    variable = dif[1];
+    resto = resto.slice(0, dif.index).trim();
+  }
+  if (resto === "")
+    return null;
+  return { integrando: resto, a, b, variable };
+}
+function integrandoDeLinea(l) {
+  const partes = l.split("=");
+  if (partes.length === 1)
+    return partes[0].trim() || null;
+  if (partes.length === 2) {
+    const izq = partes[0].trim(), der = partes[1].trim();
+    if (normalizarEntrada(izq) === "y")
+      return der || null;
+    if (normalizarEntrada(der) === "y")
+      return izq || null;
+    if (/^f\s*\(/i.test(izq))
+      return der || null;
+  }
+  return null;
+}
+function parsearLineas(entrada) {
+  const lineas = entrada.split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "");
+  let a = null, b = null;
+  const otras = [];
+  for (const l of lineas) {
+    const ma = /^a\s*=\s*(.+)$/i.exec(l);
+    const mb = /^b\s*=\s*(.+)$/i.exec(l);
+    if (ma)
+      a = ma[1].trim();
+    else if (mb)
+      b = mb[1].trim();
+    else
+      otras.push(l);
+  }
+  if (a === null || b === null || otras.length === 0)
+    return null;
+  const f = integrandoDeLinea(otras[0]);
+  return f ? { integrando: f, a, b, variable: "x" } : null;
+}
+function normalizarInvisibles(texto) {
+  return texto.replace(/[\u200B\u200C\u200D\uFEFF]/g, "").replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ");
+}
+function extraerIntegral(source) {
+  const s = normalizarInvisibles(source).trim();
+  if (s === "")
+    return null;
+  const it = /\\in/.test(s) ? parsearLatex(s) : parsearLineas(s);
+  return it && esIntegrandoValido(it.integrando) ? it : null;
+}
+function esIntegrandoValido(integrando) {
+  if (integrando.includes("="))
+    return false;
+  const norm3 = insertarProductoImplicito(normalizarEntrada(integrando));
+  return norm3 !== "" && !contieneYLibre(norm3);
+}
+function evaluarLimite(raw) {
+  const norm3 = insertarProductoImplicito(normalizarEntrada(raw.trim()));
+  if (norm3 === "")
+    return null;
+  try {
+    const v = compilarExpresion(norm3)({});
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  } catch (e3) {
+    return null;
+  }
+}
+function latexSeguro(expr) {
+  try {
+    return exprALatex(expr) || "\\text{[...]}";
+  } catch (e3) {
+    return "\\text{[...]}";
+  }
+}
+function integralOperadorLatex(source) {
+  const it = extraerIntegral(source);
+  if (!it)
+    return `\\int_{\\text{[...]}}^{\\text{[...]}}\\text{[...]}\\,dx`;
+  let integrando = it.integrando;
+  try {
+    integrando = simplificarEcuaciones([integrando])[0];
+  } catch (e3) {
+  }
+  return `\\int_{${latexSeguro(it.a)}}^{${latexSeguro(it.b)}} ${latexSeguro(integrando)}\\,d${it.variable}`;
+}
+function integralPrimitivaLatex(source) {
+  const it = extraerIntegral(source);
+  if (!it)
+    return null;
+  const primitiva = integrarExpr(it.integrando);
+  if (!primitiva)
+    return null;
+  return `\\left[${latexSeguro(primitiva)}\\right]_{${latexSeguro(it.a)}}^{${latexSeguro(it.b)}}`;
+}
+function integralValorLatex(source, cuerpoLatex, conector = "=") {
+  return `${integralOperadorLatex(source)} ${conector} ${cuerpoLatex}`;
+}
+function evaluarArea(source) {
+  const it = extraerIntegral(source);
+  if (!it)
+    return null;
+  const a = evaluarLimite(it.a), b = evaluarLimite(it.b);
+  const f = crearFuncionReal(insertarProductoImplicito(normalizarEntrada(it.integrando)));
+  return areaDefinida(f, a != null ? a : NaN, b != null ? b : NaN);
+}
+function formatearArea(v) {
+  const r = Math.round(v);
+  if (Math.abs(v - r) < 1e-9)
+    return String(r);
+  return parseFloat(v.toFixed(4)).toString();
+}
+function cuerpoAreaLatex(r) {
+  if (r.tipo === "etiqueta")
+    return { cuerpo: `\\text{${r.etiqueta}}`, conector: "=" };
+  return { cuerpo: formatearArea(r.valor), conector: r.impropia ? "\\approx" : "=" };
+}
+function racionalDe(v, tol = 1e-9, qmax = 1e3) {
+  if (!Number.isFinite(v))
+    return null;
+  const signo2 = v < 0 ? -1 : 1;
+  let x = Math.abs(v);
+  let hm1 = 1, hm2 = 0, km1 = 0, km2 = 1;
+  for (let i2 = 0; i2 < 40; i2++) {
+    const a = Math.floor(x);
+    const h = a * hm1 + hm2, k = a * km1 + km2;
+    if (k > qmax)
+      break;
+    if (Math.abs(signo2 * h / k - v) <= tol * (1 + Math.abs(v)))
+      return { p: signo2 * h, q: k };
+    hm2 = hm1;
+    hm1 = h;
+    km2 = km1;
+    km1 = k;
+    const frac = x - a;
+    if (frac < 1e-15)
+      break;
+    x = 1 / frac;
+  }
+  return null;
+}
+var racionalStr = (r) => r.q === 1 ? String(r.p) : `${r.p}/${r.q}`;
+function multSimbolo(r, sym) {
+  const signo2 = r.p < 0 ? "-" : "";
+  const ap = Math.abs(r.p);
+  const num = ap === 1 ? sym : `${ap}*${sym}`;
+  return r.q === 1 ? `${signo2}${num}` : `${signo2}(${num})/${r.q}`;
+}
+function valorExactoExpr(v) {
+  if (!Number.isFinite(v))
+    return null;
+  const r = racionalDe(v);
+  if (r)
+    return racionalStr(r);
+  const consts = [[Math.PI, "pi"], [Math.E, "e"]];
+  for (let k = 2; k <= 50; k++) {
+    const s = Math.sqrt(k);
+    if (!Number.isInteger(s))
+      consts.push([s, `sqrt(${k})`]);
+  }
+  for (let k = 2; k <= 50; k++)
+    consts.push([Math.log(k), `log(${k})`]);
+  for (const [c, sym] of consts) {
+    const rr = racionalDe(v / c);
+    if (rr)
+      return multSimbolo(rr, sym);
+  }
+  return null;
+}
+function valorExactoLatex(v) {
+  const e3 = valorExactoExpr(v);
+  if (!e3)
+    return null;
+  try {
+    return exprALatex(e3);
+  } catch (e4) {
+    return null;
+  }
+}
+var formatearAprox = (v) => parseFloat(v.toFixed(4)).toString();
+function cuerpoAreaLatexExacto(source) {
+  if (etiquetaIntegral(source))
+    return { cuerpo: null, conector: "=" };
+  const r = cuerpoAreaExactoBase(source);
+  const it = extraerIntegral(source);
+  const doble = it && tieneDobleSigno(insertarProductoImplicito(normalizarEntrada(it.integrando)));
+  if (!doble || r.cuerpo.startsWith("\\text{"))
+    return r;
+  return { cuerpo: `\\pm ${r.cuerpo.replace(/^-/, "")}`, conector: r.conector };
+}
+function etiquetaIntegral(source) {
+  const it = extraerIntegral(source);
+  if (!it)
+    return null;
+  const norm3 = insertarProductoImplicito(normalizarEntrada(it.integrando));
+  try {
+    const deg = clasificarDegenerada(compilarFuncion(norm3, "x"));
+    if (deg)
+      return deg;
+  } catch (e3) {
+  }
+  const area = evaluarArea(source);
+  return area && area.tipo === "etiqueta" ? { etiqueta: area.etiqueta, detalle: area.detalle } : null;
+}
+function cuerpoAreaExactoBase(source) {
+  const area = evaluarArea(source);
+  if (!area)
+    return { cuerpo: "\\text{[...]}", conector: "=" };
+  if (area.tipo === "etiqueta")
+    return cuerpoAreaLatex(area);
+  const it = extraerIntegral(source);
+  const primitiva = it ? integrarExpr(it.integrando) : null;
+  const a = it ? evaluarLimite(it.a) : null, b = it ? evaluarLimite(it.b) : null;
+  if (primitiva && a !== null && b !== null) {
+    try {
+      const F = crearFuncionReal(primitiva);
+      const v = F.eval(b) - F.eval(a);
+      if (Number.isFinite(v) && Math.abs(v - area.valor) <= 1e-5 * (1 + Math.abs(area.valor))) {
+        const exacto = valorExactoLatex(v);
+        if (exacto)
+          return { cuerpo: exacto, conector: "=" };
+        return { cuerpo: formatearAprox(v), conector: "\\approx" };
+      }
+    } catch (e3) {
+    }
+  }
+  const ent = Math.round(area.valor);
+  if (Math.abs(area.valor - ent) < 1e-9)
+    return { cuerpo: String(ent), conector: "=" };
+  return { cuerpo: formatearAprox(area.valor), conector: "\\approx" };
+}
+
+// src/host-obsidian/ajustes.ts
+var import_obsidian2 = require("obsidian");
+var AJUSTES_POR_DEFECTO = {
+  despejarAuto: false,
+  puntosNotables: true,
+  encuadreAuto: true
+};
+var PestanaAjustesObsiMath = class extends import_obsidian2.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
     this.plugin = plugin;
-    this.habilitado = habilitado;
-    this.obsSistemaUpdateCount = 0;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    new import_obsidian2.Setting(containerEl).setName("Transformaciones").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Despejar autom\xE1ticamente").setDesc(
+      "Al renderizar una ecuaci\xF3n, muestra directamente el resultado despejado (y = f(x)) sin pulsar \xABDespejar\xBB. El bot\xF3n \xABDespejar\xBB se oculta del panel."
+    ).addToggle(
+      (t) => t.setValue(this.plugin.ajustes.despejarAuto).onChange(async (v) => {
+        this.plugin.ajustes.despejarAuto = v;
+        await this.plugin.guardarAjustes();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("Plano").setHeading();
+    new import_obsidian2.Setting(containerEl).setName("Mostrar puntos notables").setDesc(
+      "Pinta en el plano los marcadores de ra\xEDces, v\xE9rtices, cortes con Y y las soluciones (cruces) de los sistemas. Al desactivarlo el plano queda limpio: el resumen \u24D8 los sigue listando, y el crosshair y el modo carril no cambian. Se aplica al volver a renderizar el bloque."
+    ).addToggle(
+      (t) => t.setValue(this.plugin.ajustes.puntosNotables).onChange(async (v) => {
+        this.plugin.ajustes.puntosNotables = v;
+        await this.plugin.guardarAjustes();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName("Encuadre autom\xE1tico").setDesc(
+      "Acerca la vista inicial cuando la curva es acotada y deja mucho plano vac\xEDo (coraz\xF3n, lemniscata, astroide\u2026). Solo acerca, nunca aleja: si la curva llega al borde de la vista se deja el encuadre de siempre. La vista queda centrada en el origen y es a la que vuelve la tecla de restaurar. Se aplica al volver a renderizar el bloque."
+    ).addToggle(
+      (t) => t.setValue(this.plugin.ajustes.encuadreAuto).onChange(async (v) => {
+        this.plugin.ajustes.encuadreAuto = v;
+        await this.plugin.guardarAjustes();
+      })
+    );
+  }
+};
+
+// src/host-obsidian/MotorExperimental.ts
+var MotorExperimental = class {
+  // `sistema=false` → bloque obs-graph (una función). `sistema=true` → bloque
+  // obs-system (varias ecuaciones, cada una con su color). `derivada=true` → bloque
+  // obs-derivate: como obs-graph (una función, sistema=false) pero el plano grafica la
+  // DERIVADA f'(x) de lo escrito y el panel alterna operador/derivada (ver `process`).
+  // `obtenerAjustes`: getter de las preferencias VIVAS del plugin (no una foto), para que
+  // un cambio en la pestaña de configuración afecte a los bloques que se re-rendericen.
+  // Por defecto, sin transformaciones automáticas (comportamiento clásico).
+  // `integral=true` → bloque obs-integral: como obs-graph (una función, sistema=false) pero
+  // el plano grafica el INTEGRANDO f(x) y SOMBREA ∫ₐᵇ f dx; el panel alterna operador/valor.
+  // Se añade como ÚLTIMO parámetro (opcional) para no desplazar las llamadas existentes.
+  constructor(plugin, sistema = false, derivada = false, obtenerAjustes = () => AJUSTES_POR_DEFECTO, integral = false) {
+    this.plugin = plugin;
+    this.sistema = sistema;
+    this.derivada = derivada;
+    this.obtenerAjustes = obtenerAjustes;
+    this.integral = integral;
   }
   async process(source, el, ctx) {
-    var _a, _b, _c, _d;
+    var _a;
     const contenedor = el.createDiv({ cls: "obsi-math-container" });
-    const limpieza = new import_obsidian2.MarkdownRenderChild(contenedor);
+    const limpieza = new import_obsidian3.MarkdownRenderChild(contenedor);
     ctx.addChild(limpieza);
-    if (!this.habilitado) {
-      contenedor.createEl("p", {
-        text: "\u26A0\uFE0F obs-system est\xE1 deshabilitado temporalmente.",
-        cls: "obsi-math-aviso"
-      });
+    const ecuaciones = dividirEcuaciones(source);
+    const visibles = this.sistema ? ecuaciones : ecuaciones.slice(0, 1);
+    const funcionEscrita = this.derivada && visibles.length ? extraerFuncion(visibles[0]) : null;
+    const degeneradaOrigen = funcionEscrita ? this.degeneradaDeEcuacion(funcionEscrita) : null;
+    const derivadaExpr = this.derivada && visibles.length && !degeneradaOrigen ? derivarEcuacion(visibles[0]) : null;
+    const integralDatos = this.integral ? extraerIntegral(source) : null;
+    const graficadas = this.integral ? integralDatos ? [integralDatos.integrando] : [] : this.derivada ? derivadaExpr ? [derivadaExpr] : [] : visibles;
+    const fuenteGrafico = this.integral ? (_a = integralDatos == null ? void 0 : integralDatos.integrando) != null ? _a : "" : this.derivada ? derivadaExpr != null ? derivadaExpr : "" : source;
+    if (this.integral)
+      await this.montarPanelIntegral(contenedor, source, ctx, limpieza);
+    else if (this.derivada)
+      await this.montarPanelDerivada(contenedor, visibles, ctx, limpieza);
+    else
+      await this.montarPanelLatex(contenedor, visibles, ctx, limpieza);
+    const H = 261;
+    const wrap = contenedor.createDiv({ cls: "obsi-math-grafica" });
+    wrap.style.cssText = `position:relative; width:100%; height:${H}px;`;
+    const badge = wrap.createDiv({ text: "\u2699" });
+    badge.setAttribute(
+      "title",
+      this.sistema ? "Motor experimental \u2014 sistema de ecuaciones" : this.integral ? "Motor experimental \u2014 integral definida (\xE1rea bajo la curva)" : "Motor experimental \u2014 expl\xEDcitas \xB7 impl\xEDcitas \xB7 param\xE9tricas \xB7 polares"
+    );
+    badge.style.cssText = "position:absolute; top:6px; right:8px; font-size:12px; z-index:5; color:rgba(120,180,255,0.55); cursor:default; user-select:none;";
+    const canvas = wrap.createEl("canvas");
+    canvas.style.cssText = "position:absolute; top:0; left:0; width:100%; height:100%; cursor:none;";
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) {
+      wrap.createEl("p", { text: "Error: Canvas 2D no disponible" });
       return;
     }
-    try {
-      const { ecuaciones, espacios } = parsearSistemaCases(source);
-      if (ecuaciones.length < 2) {
-        contenedor.createEl("p", {
-          text: "Error: se necesitan al menos 2 ecuaciones",
-          cls: "obsi-math-aviso"
-        });
+    const escena = this.sistema ? crearMotorSistema(ctx2d, source) : crearMotor(ctx2d, fuenteGrafico);
+    if (this.integral && integralDatos) {
+      const a = evaluarLimite(integralDatos.a), b = evaluarLimite(integralDatos.b);
+      if (a !== null && b !== null)
+        escena.fijarIntegral(a, b);
+    }
+    const degenerada = degeneradaOrigen != null ? degeneradaOrigen : this.clasificarBloque(graficadas, source);
+    if (degenerada) {
+      const velo = wrap.createDiv();
+      velo.style.cssText = "position:absolute; inset:0; background:rgba(18,18,18,0.55); pointer-events:none;";
+      const msg = wrap.createDiv();
+      msg.style.cssText = "position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; padding:24px; box-sizing:border-box; pointer-events:none;";
+      const titulo = msg.createDiv({ text: degenerada.etiqueta });
+      titulo.style.cssText = "font-size:20px; font-weight:600; color:rgba(200,210,255,0.95);";
+      const detalle = msg.createDiv({ text: degenerada.detalle });
+      detalle.style.cssText = "font-size:12px; line-height:1.4; max-width:320px; color:rgba(190,195,210,0.85);";
+    }
+    const exprGraph = this.exprExplicita(graficadas);
+    if (exprGraph && !degenerada)
+      this.montarBotonInfo(wrap, exprGraph, ctx);
+    let camara;
+    let navegacion;
+    const pintar = () => {
+      const vp = camara.viewport();
+      escena.mostrarNotables(this.obtenerAjustes().puntosNotables);
+      const mx = camara.cursorPx();
+      const my = camara.cursorPy();
+      if (navegacion.railOn) {
+        escena.pintar(vp, aPantallaX(vp, navegacion.railX), true, navegacion.railY, mx, my);
+      } else {
+        escena.pintar(vp, mx, false, void 0, mx, my);
+      }
+    };
+    const DIAG = false;
+    let accCalc = 0, accPaint = 0, maxCalc = 0, maxPaint = 0, nFrames = 0;
+    const diag2 = (etiqueta, dCalc, dPaint) => {
+      if (!DIAG)
         return;
-      }
-      const ecuacionesGen = ecuaciones.map(parsearEcuacion);
-      const todasVarsGen = Array.from(
-        new Set(ecuacionesGen.flatMap((e3) => e3 ? e3.variables : []))
-      ).sort();
-      const xVarG = (_a = todasVarsGen.find((v) => v === "x")) != null ? _a : todasVarsGen[0];
-      const yVarG = (_b = todasVarsGen.find((v) => v === "y")) != null ? _b : todasVarsGen.find((v) => v !== xVarG);
-      const parseadas = ecuaciones.map(parsearEcuacionLineal);
-      const todoLineal = parseadas.every((p) => p !== null) && ecuacionesGen.every((e3) => e3 !== null && e3.esLineal);
-      const todasVars = Array.from(
-        new Set(
-          parseadas.flatMap((p) => p ? Object.keys(p.vars) : [])
-        )
-      ).sort();
-      const xVar = (_c = todasVars.find((v) => v === "x")) != null ? _c : todasVars[0];
-      const yVar = (_d = todasVars.find((v) => v === "y")) != null ? _d : todasVars.find((v) => v !== xVar);
-      const resultado = todoLineal ? resolverSistema(ecuaciones) : null;
-      const esLineal = todoLineal && todasVars.length === 2 && xVar !== void 0 && yVar !== void 0;
-      const general = !esLineal && todasVarsGen.length === 2 && ecuacionesGen.every((e3) => e3 !== null) && xVarG !== void 0 && yVarG !== void 0;
-      const graficable = esLineal || general;
-      const rectas = [];
-      if (esLineal) {
-        parseadas.forEach((p, i2) => {
-          var _a2, _b2;
-          const a = (_a2 = p.vars[xVar]) != null ? _a2 : 0;
-          const b = (_b2 = p.vars[yVar]) != null ? _b2 : 0;
-          const c = p.rhs;
-          if (Math.abs(a) < 1e-12 && Math.abs(b) < 1e-12)
-            return;
-          rectas.push({ a, b, c, color: COLORES[i2 % COLORES.length] });
-        });
-      }
-      const curvas = [];
-      let intersecciones = [];
-      if (general) {
-        ecuacionesGen.forEach((e3, i2) => {
-          const ec = e3;
-          const F = (x, y) => ec.evaluar({ [xVarG]: x, [yVarG]: y });
-          curvas.push({ F, ramas: despejarRamas(F), color: COLORES[i2 % COLORES.length] });
-        });
-        intersecciones = interseccionesNumericas(
-          curvas.map((c) => c.F),
-          -12,
-          12,
-          -12,
-          12
+      accCalc += dCalc;
+      accPaint += dPaint;
+      if (dCalc > maxCalc)
+        maxCalc = dCalc;
+      if (dPaint > maxPaint)
+        maxPaint = dPaint;
+      if (++nFrames >= 30) {
+        console.log(
+          `[motor ${etiqueta}] ${nFrames}f \xB7 calc avg ${(accCalc / nFrames).toFixed(2)}ms max ${maxCalc.toFixed(2)} \xB7 paint avg ${(accPaint / nFrames).toFixed(2)}ms max ${maxPaint.toFixed(2)}`
         );
+        accCalc = accPaint = maxCalc = maxPaint = nFrames = 0;
       }
-      const panelLatex = contenedor.createDiv({ cls: "obsi-math-latex" });
-      panelLatex.style.cssText = "position:relative; width:50%; height:261px; padding:0; overflow:hidden;";
-      const contenedorLatex = panelLatex.createDiv({ cls: "obsi-math-latex" });
-      contenedorLatex.style.cssText = "width:100%; height:100%; padding:24px; box-sizing:border-box; display:flex; align-items:center; justify-content:safe center; overflow-x:hidden; overflow-y:hidden;";
-      contenedorLatex.style.scrollbarWidth = "thin";
-      contenedorLatex.style.scrollbarColor = "#3a3a3a #1e1e1e";
-      await import_obsidian2.MarkdownRenderer.render(
-        this.plugin.app,
-        "$$" + sistemaCasesALatex(ecuaciones, espacios) + "$$",
-        contenedorLatex,
-        ctx.sourcePath,
-        this.plugin
-      );
-      const fadeOverlay = panelLatex.createDiv();
-      fadeOverlay.style.cssText = "position:absolute; inset:0; pointer-events:none;";
+    };
+    let rafId = null;
+    let pendienteRecomputar = false;
+    const ejecutarFrame = () => {
+      rafId = null;
+      const t0 = performance.now();
+      if (pendienteRecomputar) {
+        escena.actualizar(camara.viewport(), "interactiva");
+        pendienteRecomputar = false;
+      }
+      const t1 = performance.now();
+      pintar();
+      const t2 = performance.now();
+      diag2("interactiva", t1 - t0, t2 - t1);
+    };
+    const programarRedibujo = () => {
+      pendienteRecomputar = true;
+      if (rafId === null)
+        rafId = requestAnimationFrame(ejecutarFrame);
+    };
+    const programarPintado = () => {
+      if (rafId === null)
+        rafId = requestAnimationFrame(ejecutarFrame);
+    };
+    let timerFinal = null;
+    let alRecalcularFinal = null;
+    const programarFinal = () => {
+      if (timerFinal !== null)
+        clearTimeout(timerFinal);
+      timerFinal = window.setTimeout(() => {
+        timerFinal = null;
+        escena.actualizar(camara.viewport(), "final");
+        pintar();
+        alRecalcularFinal == null ? void 0 : alRecalcularFinal();
+      }, 150);
+    };
+    limpieza.register(() => {
+      if (rafId !== null)
+        cancelAnimationFrame(rafId);
+      if (timerFinal !== null)
+        clearTimeout(timerFinal);
+    });
+    camara = new Camara(canvas, H, {
+      // pan/zoom: pasada interactiva mientras dura el gesto + programa la final
+      // (cada evento reinicia el debounce → la final se dispara al parar).
+      onViewport: () => {
+        programarRedibujo();
+        programarFinal();
+      },
+      onCursor: () => programarPintado()
+    });
+    navegacion = new Navegacion(canvas, camara, {
+      y: (x) => escena.yEnCurva(x),
+      avanzarArco: (x, y, deltaPx, vp, recortar) => escena.avanzarArcoEnCurva(x, y, deltaPx, vp, recortar),
+      hayVecina: (x, y, dir, vp) => escena.hayRamaVecinaCarril(x, y, dir, vp),
+      tieneAsintotasVerticales: () => escena.tieneAsintotasVerticales()
+    }, () => {
+      escena.actualizar(camara.viewport(), "interactiva");
+      pintar();
+      programarFinal();
+    });
+    limpieza.register(() => navegacion.destruir());
+    let W = 0, Hcss = 0, dprPrev = 0;
+    const redimensionar = () => {
+      const caja = canvas.getBoundingClientRect();
+      const ancho = Math.max(1, Math.round(caja.width || wrap.clientWidth || 768));
+      const alto = Math.max(1, Math.round(caja.height || H));
+      const dpr = Math.ceil(window.devicePixelRatio || 1);
+      if (ancho === W && alto === Hcss && dpr === dprPrev)
+        return;
+      W = ancho;
+      Hcss = alto;
+      dprPrev = dpr;
+      camara.redimensionar(ancho, alto, dpr);
+      canvas.width = ancho * dpr;
+      canvas.height = alto * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+      escena.actualizar(camara.viewport());
+      pintar();
+    };
+    redimensionar();
+    if (this.obtenerAjustes().encuadreAuto) {
+      const semiY = escena.encuadreAutomatico(camara.viewport());
+      if (semiY !== null) {
+        camara.fijarEncuadreBase(semiY);
+        escena.actualizar(camara.viewport());
+        pintar();
+      }
+    }
+    const observador = new ResizeObserver(() => redimensionar());
+    observador.observe(wrap);
+    limpieza.register(() => observador.disconnect());
+    window.addEventListener("resize", redimensionar);
+    limpieza.register(() => window.removeEventListener("resize", redimensionar));
+    limpieza.register(() => camara.destruir());
+    const estiloZoom = (arriba) => "position:absolute; right:8px; top:" + arriba + "px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:15px; line-height:1; border-radius:50%; cursor:pointer; user-select:none; z-index:5; color:rgba(220,220,220,0.85); background:rgba(30,30,30,0.85); border:1px solid rgba(255,255,255,0.18);";
+    const btnInicio = wrap.createDiv({ text: "\u{1F3E0}\uFE0E" });
+    btnInicio.setAttribute("title", "Vista inicial (deshace zoom y desplazamiento)");
+    btnInicio.style.cssText = estiloZoom(26) + "font-size:12px;";
+    const btnMas = wrap.createDiv({ text: "+" });
+    btnMas.setAttribute("title", "Acercar (zoom +)");
+    btnMas.style.cssText = estiloZoom(52);
+    const btnMenos = wrap.createDiv({ text: "\u2212" });
+    btnMenos.setAttribute("title", "Alejar (zoom \u2212)");
+    btnMenos.style.cssText = estiloZoom(78);
+    btnInicio.addEventListener("click", () => camara.volverAVistaBase());
+    btnMas.addEventListener("click", () => camara.zoomCentrado(true));
+    btnMenos.addEventListener("click", () => camara.zoomCentrado(false));
+    const btnCarril = wrap.createDiv();
+    btnCarril.setAttribute("title", "Carril: recorrer la curva con A/D, zoom con W/S (Shift = precisi\xF3n)");
+    const estiloBtn = (activo) => {
+      btnCarril.style.cssText = "position:absolute; bottom:8px; left:8px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; border-radius:50%; cursor:pointer; user-select:none; z-index:5; " + (activo ? "color:rgba(20,20,20,0.95); background:rgba(255,170,60,0.95); border:1px solid rgba(255,170,60,0.95);" : "color:rgba(255,200,130,0.95); background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5);");
+    };
+    estiloBtn(false);
+    btnCarril.createSpan({ text: "\u2316" }).style.cssText = "line-height:1; transform:translateY(-1px);";
+    btnCarril.addEventListener("click", () => {
+      navegacion.alternarCarril();
+      estiloBtn(navegacion.railOn);
+    });
+    const colores = escena.colores();
+    const estilosSel = [];
+    if (colores.length >= 2) {
+      colores.forEach((c, i2) => {
+        const b = wrap.createDiv();
+        b.setAttribute("title", `Seleccionar ecuaci\xF3n ${i2 + 1}`);
+        const rgb = `rgb(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)})`;
+        const estilo = (sel) => {
+          b.style.cssText = `position:absolute; bottom:10px; left:${38 + i2 * 24}px; width:18px; height:18px; border-radius:50%; cursor:pointer; user-select:none; z-index:5; box-sizing:border-box; background:${rgb}; ` + (sel ? "border:2px solid rgba(255,255,255,0.95);" : "border:2px solid rgba(0,0,0,0.35);");
+        };
+        estilo(i2 === escena.seleccionActual());
+        b.addEventListener("click", () => {
+          escena.seleccionar(i2);
+          sincronizarControles();
+          pintar();
+        });
+        estilosSel.push(estilo);
+      });
+    }
+    const sincronizarControles = () => {
+      const sel = escena.seleccionActual();
+      estilosSel.forEach((estilo, i2) => estilo(i2 === sel));
+      const recorrible = escena.curvaRecorrible();
+      if (!recorrible && navegacion.railOn) {
+        navegacion.alternarCarril();
+        estiloBtn(false);
+      }
+      btnCarril.style.display = recorrible ? "flex" : "none";
+    };
+    sincronizarControles();
+    if (this.sistema) {
+      const btnSolucion = wrap.createDiv({ text: "\u24D8" });
+      btnSolucion.setAttribute("title", "Soluciones del sistema");
+      btnSolucion.style.cssText = "position:absolute; bottom:8px; right:8px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; color:rgba(255,200,130,0.95); background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5); border-radius:50%; cursor:pointer; user-select:none; z-index:5;";
+      const popSolucion = wrap.createDiv();
+      popSolucion.style.cssText = "position:absolute; bottom:36px; right:8px; display:none; max-width:260px; max-height:200px; overflow-y:auto; padding:8px 10px; box-sizing:border-box; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.12); border-radius:6px; font-size:11px; line-height:1.5; color:rgba(230,230,235,0.92); z-index:5; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+      const sistemaPeriodico = visibles.some((ec) => ec.split("=").some((lado) => tieneTrigonometria(insertarProductoImplicito(normalizarEntrada(lado.trim())))));
+      const MIN_PERIODICO = 3;
+      const MAX_LISTA = 20;
+      const refrescarSolucion = () => {
+        popSolucion.empty();
+        if (visibles.length === 0) {
+          popSolucion.createEl("div", {
+            text: "No hay ning\xFAn sistema. Escribe al menos dos ecuaciones (una por l\xEDnea)."
+          });
+          return;
+        }
+        if (visibles.length === 1) {
+          popSolucion.createEl("div", {
+            text: "Sistema incompleto: falta al menos una ecuaci\xF3n. Un sistema necesita como m\xEDnimo dos ecuaciones y dos inc\xF3gnitas."
+          });
+          return;
+        }
+        if (escena.solucionesInfinitas()) {
+          popSolucion.createEl("div", {
+            text: "Infinitas soluciones: las curvas coinciden en un tramo (son la misma)."
+          });
+          return;
+        }
+        const pts = escena.intersecciones();
+        if (sistemaPeriodico && (escena.interseccionesSaturadas() || pts.length >= MIN_PERIODICO)) {
+          popSolucion.createEl("div", {
+            text: "Infinitas soluciones: el sistema es peri\xF3dico (las soluciones se repiten sin fin)."
+          });
+          return;
+        }
+        if (escena.interseccionesSaturadas()) {
+          popSolucion.createEl("div", {
+            text: "Demasiadas soluciones en esta vista para enumerarlas; acerca el zoom."
+          });
+          return;
+        }
+        if (pts.length === 0) {
+          popSolucion.createEl("div", { text: "Sin soluci\xF3n en la vista actual." });
+          return;
+        }
+        popSolucion.createEl("div", {
+          text: pts.length === 1 ? "Soluci\xF3n:" : `Soluciones (${pts.length}):`,
+          attr: { style: "font-weight:600; margin-bottom:4px;" }
+        });
+        for (const p of pts.slice(0, MAX_LISTA)) {
+          popSolucion.createEl("div", {
+            text: `(${formatearNumero(p.x)}, ${formatearNumero(p.y)})`
+          });
+        }
+        if (pts.length > MAX_LISTA) {
+          popSolucion.createEl("div", {
+            text: `\u2026 y ${pts.length - MAX_LISTA} m\xE1s`,
+            attr: { style: "opacity:0.6;" }
+          });
+        }
+        popSolucion.createEl("div", {
+          text: "En la vista actual.",
+          attr: { style: "margin-top:4px; opacity:0.6;" }
+        });
+      };
+      alRecalcularFinal = () => {
+        if (popSolucion.style.display !== "none")
+          refrescarSolucion();
+      };
+      btnSolucion.addEventListener("click", (e3) => {
+        e3.stopPropagation();
+        const abierto = popSolucion.style.display !== "none";
+        if (!abierto)
+          refrescarSolucion();
+        popSolucion.style.display = abierto ? "none" : "block";
+      });
+    }
+    if (!this.sistema && !degenerada && graficadas.length > 0 && !exprGraph) {
+      let tipo;
+      try {
+        tipo = construirObjeto(graficadas[0], "info").tipo;
+      } catch (e3) {
+        tipo = "";
+      }
+      const acotadaPorPeriodo = tipo === "parametrica" || tipo === "polar";
+      const esTrig = !acotadaPorPeriodo && graficadas[0].split("=").some((lado) => tieneTrigonometria(insertarProductoImplicito(normalizarEntrada(lado.trim()))));
+      const btnInfo = wrap.createDiv();
+      btnInfo.setAttribute("title", "Resumen de puntos notables");
+      btnInfo.style.cssText = "position:absolute; bottom:8px; right:8px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; color:rgba(255,200,130,0.95); background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5); border-radius:50%; cursor:pointer; user-select:none; z-index:5;";
+      btnInfo.createSpan({ text: "\u24D8" }).style.cssText = "line-height:1; transform:translateY(-1px);";
+      const pop = wrap.createDiv();
+      pop.style.cssText = "position:absolute; bottom:36px; right:8px; display:none; max-width:260px; max-height:200px; overflow-y:auto; padding:8px 10px; box-sizing:border-box; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.12); border-radius:6px; font-size:11px; line-height:1.5; color:rgba(230,230,235,0.92); z-index:5; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+      const refrescarInfo = () => {
+        pop.empty();
+        const r = escena.resumenNotables(camara.viewport());
+        const lineas = [];
+        const estIY = estadoGrupo(r.interseccionesY.length, esTrig);
+        if (estIY === "infinitas")
+          lineas.push("Intersecciones con el eje Y: infinitas");
+        else if (estIY === "demasiadas")
+          lineas.push("Intersecciones con el eje Y: demasiadas para mostrar");
+        else if (r.interseccionesY.length > 0)
+          for (const p of r.interseccionesY)
+            lineas.push(`Intersecci\xF3n Y: (0, ${p.punto.y.toFixed(4)})`);
+        else
+          lineas.push("No corta el eje Y");
+        const estR = estadoGrupo(r.raices.length, esTrig);
+        if (estR === "infinitas")
+          lineas.push("Ra\xEDces: infinitas");
+        else if (estR === "demasiadas")
+          lineas.push("Ra\xEDces: demasiadas para mostrar");
+        else if (r.raices.length > 0)
+          lineas.push("Ra\xEDces: " + r.raices.map((p) => p.punto.x.toFixed(4)).join(", "));
+        else
+          lineas.push("No hay ra\xEDces reales");
+        const estV = estadoGrupo(r.vertices.length, esTrig);
+        if (estV === "infinitas")
+          lineas.push("V\xE9rtices: infinitos");
+        else if (estV === "demasiadas")
+          lineas.push("V\xE9rtices: demasiados para mostrar");
+        else if (r.vertices.length > 0)
+          for (const v of r.vertices)
+            lineas.push(`V\xE9rtice: (${v.punto.x.toFixed(4)}, ${v.punto.y.toFixed(4)})`);
+        else
+          lineas.push("No hay v\xE9rtices");
+        for (const t of lineas)
+          pop.createEl("div", { text: t });
+        pop.createEl("div", {
+          text: "En la vista actual.",
+          attr: { style: "margin-top:4px; opacity:0.6;" }
+        });
+      };
+      alRecalcularFinal = () => {
+        if (pop.style.display !== "none")
+          refrescarInfo();
+      };
+      btnInfo.addEventListener("click", (e3) => {
+        e3.stopPropagation();
+        const abierto = pop.style.display !== "none";
+        if (!abierto)
+          refrescarInfo();
+        pop.style.display = abierto ? "none" : "block";
+      });
+    }
+  }
+  /**
+   * Crea el "scroller" del panel izquierdo (portado del GraphEngine): contenedor
+   * posicionado que aloja una o varias ÁREAS de scroll horizontal, cada una con su
+   * overlay de fade en los bordes. El overlay tiene que ser HERMANO del área
+   * scrolleable (no hijo): un elemento absolute dentro de un scroller se desplaza
+   * junto al contenido y el fade "viajaría". Devuelve `panelLatex` (para colgar la
+   * barra de toggle encima) y `renderLatex` (pinta uno o varios LaTeX).
+   *
+   * Regla de presentación UNIFICADA (todos los bloques): **una expresión = una
+   * tarjeta**. `renderLatex` crea un área INDEPENDIENTE por fórmula —cada una con su
+   * PROPIA scrollbar, fades, centrado, rueda y observador de tamaño—, enmarcada en una
+   * caja redondeada un punto más oscura que el panel. Con una fórmula, esa única
+   * tarjeta ocupa el panel (obs-graph, obs-system, y los operadores/valores simples de
+   * obs-derivate/obs-integral); con varias (vistas "ambas"), se apilan en columna y se
+   * desplaza una sin mover la otra. No depende del NÚMERO de fórmulas: el estilo de
+   * tarjeta es fijo ("enmarcado"). Común a `montarPanelLatex` (toggle
+   * Original/Opciones), `montarPanelDerivada` y `montarPanelIntegral`.
+   */
+  crearScrollerLatex(contenedor, ctx, limpieza) {
+    const ALTO_PANEL = 261;
+    const PAD_SUP = 32;
+    const PAD_LADO = 8;
+    const HUECO = 10;
+    const ALTO_TARJETA = (ALTO_PANEL - PAD_SUP - PAD_LADO - HUECO) / 2;
+    const panelLatex = contenedor.createDiv({ cls: "obsi-math-latex" });
+    panelLatex.style.cssText = `position:relative; width:50%; height:${ALTO_PANEL}px; padding:0; overflow:hidden;`;
+    const zona = panelLatex.createDiv();
+    zona.style.cssText = "position:absolute; inset:0; display:flex; flex-direction:column; box-sizing:border-box;";
+    const TOLERANCIA_SCROLL = 3;
+    const crearArea = (padre, estilo, compartirAlto) => {
+      const enmarcado = estilo === "enmarcado";
+      const flexMarco = compartirAlto ? enmarcado ? "flex:1 1 0;" : "flex:1 1 auto;" : `flex:0 0 auto; height:${ALTO_TARJETA}px;`;
+      const marco = padre.createDiv();
+      marco.style.cssText = "position:relative; overflow:hidden; min-height:0; " + flexMarco + (enmarcado ? " border:1px solid rgba(255,255,255,0.11); border-radius:12px; background:rgba(0,0,0,0.22);" : "");
+      const area = marco.createDiv({ cls: "obsi-math-latex" });
+      area.style.cssText = `width:100%; height:100%; box-sizing:border-box; padding:${enmarcado ? "14px 24px" : "24px"}; display:flex; align-items:center; justify-content:safe center; overflow-x:hidden; overflow-y:hidden;`;
+      area.style.scrollbarWidth = "thin";
+      area.style.scrollbarColor = "#3a3a3a #1e1e1e";
+      const fadeOverlay = marco.createDiv();
+      fadeOverlay.style.cssText = "position:absolute; inset:0; pointer-events:none; overflow:hidden; " + (enmarcado ? "border-radius:12px;" : "");
       const fadeColor = "rgba(30, 30, 30, 0.85)";
       const fadeIzq = fadeOverlay.createDiv();
       fadeIzq.style.cssText = `position:absolute; top:0; bottom:0; left:0; width:32px; opacity:0; transition:opacity 0.15s ease; background:linear-gradient(to right, ${fadeColor}, transparent);`;
       const fadeDer = fadeOverlay.createDiv();
       fadeDer.style.cssText = `position:absolute; top:0; bottom:0; right:0; width:32px; opacity:0; transition:opacity 0.15s ease; background:linear-gradient(to left, ${fadeColor}, transparent);`;
-      const TOLERANCIA_SCROLL = 3;
       const actualizarFade = () => {
-        const max3 = contenedorLatex.scrollWidth - contenedorLatex.clientWidth;
+        const max3 = area.scrollWidth - area.clientWidth;
         const desborda = max3 > TOLERANCIA_SCROLL;
-        contenedorLatex.style.overflowX = desborda ? "auto" : "hidden";
-        const sl = contenedorLatex.scrollLeft;
+        area.style.overflowX = desborda ? "auto" : "hidden";
+        const sl = area.scrollLeft;
         fadeIzq.style.opacity = desborda && sl > 0 ? "1" : "0";
         fadeDer.style.opacity = desborda && sl < max3 - 1 ? "1" : "0";
       };
-      contenedorLatex.addEventListener("scroll", actualizarFade);
-      contenedorLatex.addEventListener(
-        "wheel",
-        (e3) => {
-          if (contenedorLatex.scrollWidth - contenedorLatex.clientWidth <= TOLERANCIA_SCROLL)
-            return;
-          e3.preventDefault();
-          const desplazamiento = e3.deltaY + e3.deltaX;
-          contenedorLatex.scrollLeft += Math.max(-40, Math.min(40, desplazamiento));
-        },
-        { passive: false }
-      );
-      requestAnimationFrame(actualizarFade);
-      window.addEventListener("resize", actualizarFade);
-      limpieza.register(() => window.removeEventListener("resize", actualizarFade));
-      const observadorLatex = new ResizeObserver(() => actualizarFade());
-      observadorLatex.observe(contenedorLatex);
-      limpieza.register(() => observadorLatex.disconnect());
-      let W = 768;
-      const H = 261;
-      const dpr = Math.ceil(window.devicePixelRatio || 1);
-      const wrapGrafica = contenedor.createDiv({ cls: "obsi-math-grafica" });
-      wrapGrafica.style.cssText = `position:relative; width:100%; height:${H}px;`;
-      const canvasGL = wrapGrafica.createEl("canvas");
-      const canvas2D = wrapGrafica.createEl("canvas");
-      const canvasCross = wrapGrafica.createEl("canvas");
-      canvasGL.width = W * dpr;
-      canvasGL.height = H * dpr;
-      canvasGL.style.cssText = "position:absolute; top:0; left:0; width:100%; height:100%; cursor:none;";
-      canvas2D.width = W * dpr;
-      canvas2D.height = H * dpr;
-      canvas2D.style.cssText = "position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;";
-      canvasCross.width = W * dpr;
-      canvasCross.height = H * dpr;
-      canvasCross.style.cssText = "position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;";
-      const gl = canvasGL.getContext("webgl", { antialias: true });
-      const ctx2d = canvas2D.getContext("2d");
-      const ctxCross = canvasCross.getContext("2d");
-      if (gl) {
-        limpieza.register(
-          () => {
-            var _a2;
-            return (_a2 = gl.getExtension("WEBGL_lose_context")) == null ? void 0 : _a2.loseContext();
-          }
-        );
-      }
-      if (!gl || !ctx2d || !ctxCross) {
-        wrapGrafica.createEl("p", { text: "Error: WebGL no disponible" });
-        return;
-      }
-      let domX = [-8.3453, 8.3453];
-      let domY = [-7, 7];
-      let cursorPx = null;
-      let cursorPy = null;
-      const curvasRail = [];
-      if (esLineal) {
-        for (const r of rectas)
-          curvasRail.push({ F: (x, y) => r.a * x + r.b * y - r.c, color: r.color });
-      } else if (general) {
-        for (const c of curvas)
-          curvasRail.push({ F: c.F, color: c.color });
-      }
-      let lineaSeleccionada = 0;
-      let railOn = false;
-      let railX = 0;
-      let railY = NaN;
-      const LIMITE_CARRIL_Y = 1e9;
-      const RANGO_SEMI_MIN = 1e-4;
-      const RANGO_SEMI_MAX = 1e9;
-      const VEL_ZOOM_POR_SEG = 2.5;
-      const sx = (x) => (x - domX[0]) / (domX[1] - domX[0]) * W;
-      const sy = (y) => H - (y - domY[0]) / (domY[1] - domY[0]) * H;
-      const resolverYCerca = (F, x, ySeed) => {
-        let y = ySeed;
-        if (!Number.isFinite(y))
-          return NaN;
-        const h = 1e-6;
-        for (let it = 0; it < 40; it++) {
-          const f = F(x, y);
-          if (!Number.isFinite(f))
-            return NaN;
-          if (Math.abs(f) < 1e-10)
-            return y;
-          const dfdy = (F(x, y + h) - F(x, y - h)) / (2 * h);
-          if (!Number.isFinite(dfdy) || Math.abs(dfdy) < 1e-12)
-            return NaN;
-          const paso = f / dfdy;
-          y -= paso;
-          if (!Number.isFinite(y))
-            return NaN;
-          if (Math.abs(paso) < 1e-12)
-            break;
-        }
-        return Math.abs(F(x, y)) < 1e-6 ? y : NaN;
-      };
-      const buscarYInicial = (F, x) => {
-        const N = 200;
-        const y0 = domY[0], y1 = domY[1];
-        let prevY = y0, prevF = F(x, y0);
-        for (let i2 = 1; i2 <= N; i2++) {
-          const yy = y0 + (y1 - y0) * i2 / N;
-          const ff = F(x, yy);
-          if (Number.isFinite(prevF) && Number.isFinite(ff) && prevF * ff <= 0 && (prevF !== 0 || ff !== 0)) {
-            let a = prevY, fa = prevF, b = yy;
-            for (let k = 0; k < 60; k++) {
-              const m = (a + b) / 2;
-              const fm = F(x, m);
-              if (!Number.isFinite(fm))
-                break;
-              if (fa * fm <= 0)
-                b = m;
-              else {
-                a = m;
-                fa = fm;
-              }
-            }
-            const ym = (a + b) / 2;
-            const refinada = resolverYCerca(F, x, ym);
-            return Number.isFinite(refinada) ? refinada : ym;
-          }
-          prevY = yy;
-          prevF = ff;
-        }
-        return NaN;
-      };
-      const seguirRail = (factor = 1) => {
-        if (!railOn)
-          return;
-        const semiYAnt = (domY[1] - domY[0]) / 2;
-        const semiYNueva = Math.max(RANGO_SEMI_MIN, Math.min(RANGO_SEMI_MAX, semiYAnt * factor));
-        const f = semiYNueva / semiYAnt;
-        const semiX = (domX[1] - domX[0]) / 2 * f;
-        domX = [railX - semiX, railX + semiX];
-        if (Number.isFinite(railY)) {
-          domY = [railY - semiYNueva, railY + semiYNueva];
-        } else if (f !== 1) {
-          const cyV = (domY[0] + domY[1]) / 2;
-          domY = [cyV - semiYNueva, cyV + semiYNueva];
-        }
-      };
-      const restaurarVistaInicial = () => {
-        domY = [-7, 7];
-        const semiX = (domY[1] - domY[0]) / 2 * (W / H);
-        domX = [-semiX, semiX];
-      };
-      const avanzarRail = (delta) => {
-        if (!railOn)
-          return false;
-        const F = curvasRail[lineaSeleccionada].F;
-        const nx = railX + delta;
-        let ny = resolverYCerca(F, nx, railY);
-        if (!Number.isFinite(ny))
-          ny = buscarYInicial(F, nx);
-        if (Number.isFinite(ny) && Math.abs(ny) > LIMITE_CARRIL_Y)
-          return false;
-        railX = nx;
-        railY = ny;
-        return true;
-      };
-      const generarTicks = (min3, max3, maxTicks = 10) => {
-        var _a2;
-        const rango = max3 - min3;
-        const paso = Math.pow(10, Math.floor(Math.log10(rango / maxTicks)));
-        const pasos = [1, 2, 5, 10].map((m) => m * paso);
-        const pasoFinal = (_a2 = pasos.find((p) => rango / p <= maxTicks)) != null ? _a2 : pasos[pasos.length - 1];
-        const ticks = [];
-        const inicio = Math.ceil(min3 / pasoFinal) * pasoFinal;
-        for (let t = inicio; t <= max3 + 1e-9; t += pasoFinal)
-          ticks.push(parseFloat(t.toPrecision(10)));
-        return ticks;
-      };
-      const formatearNumero = (n) => {
-        if (Math.abs(n) < 1e-9)
-          return "0";
-        if (Math.abs(n) >= 1e3 || Math.abs(n) < 0.01 && n !== 0)
-          return n.toExponential(1);
-        return parseFloat(n.toPrecision(4)).toString();
-      };
-      const puntoSolucion = resultado !== null && typeof resultado !== "string" && xVar !== void 0 && yVar !== void 0 && Number.isFinite(resultado[xVar]) && Number.isFinite(resultado[yVar]) ? { x: resultado[xVar], y: resultado[yVar] } : null;
-      const dibujarPuntoMarcador = (ctx2, px, py, color) => {
-        ctx2.save();
-        ctx2.beginPath();
-        ctx2.arc(px, py, 4.5, 0, Math.PI * 2);
-        ctx2.fillStyle = "rgba(255, 255, 255, 0.3)";
-        ctx2.fill();
-        ctx2.beginPath();
-        ctx2.arc(px, py, 3, 0, Math.PI * 2);
-        ctx2.fillStyle = color;
-        ctx2.fill();
-        ctx2.restore();
-      };
-      const COLOR_PUNTO_SOLUCION = "rgba(168, 85, 247, 1.0)";
-      const recortarRecta = (a, b, c) => {
-        const EPS = 1e-12;
-        const dentroX = (x) => x >= domX[0] - 1e-9 && x <= domX[1] + 1e-9;
-        const dentroY = (y) => y >= domY[0] - 1e-9 && y <= domY[1] + 1e-9;
-        const candidatos = [];
-        const agregar = (x, y) => {
-          if (!dentroX(x) || !dentroY(y))
-            return;
-          if (candidatos.some((p) => Math.abs(p[0] - x) < 1e-9 && Math.abs(p[1] - y) < 1e-9))
-            return;
-          candidatos.push([x, y]);
-        };
-        if (Math.abs(b) > EPS) {
-          agregar(domX[0], (c - a * domX[0]) / b);
-          agregar(domX[1], (c - a * domX[1]) / b);
-        }
-        if (Math.abs(a) > EPS) {
-          agregar((c - b * domY[0]) / a, domY[0]);
-          agregar((c - b * domY[1]) / a, domY[1]);
-        }
-        if (candidatos.length < 2)
-          return null;
-        return [candidatos[0], candidatos[1]];
-      };
-      const dibujarOverlay = () => {
-        ctx2d.clearRect(0, 0, W, H);
-        const ticksX = generarTicks(domX[0], domX[1]);
-        const ticksY = generarTicks(domY[0], domY[1]);
-        ctx2d.strokeStyle = "rgba(130,130,150,0.12)";
-        ctx2d.lineWidth = 0.5;
-        for (const x of ticksX) {
-          ctx2d.beginPath();
-          ctx2d.moveTo(sx(x), 0);
-          ctx2d.lineTo(sx(x), H);
-          ctx2d.stroke();
-        }
-        for (const y of ticksY) {
-          ctx2d.beginPath();
-          ctx2d.moveTo(0, sy(y));
-          ctx2d.lineTo(W, sy(y));
-          ctx2d.stroke();
-        }
-        ctx2d.strokeStyle = "rgba(160,160,170,0.7)";
-        ctx2d.lineWidth = 1;
-        if (domY[0] <= 0 && domY[1] >= 0) {
-          ctx2d.beginPath();
-          ctx2d.moveTo(0, sy(0));
-          ctx2d.lineTo(W, sy(0));
-          ctx2d.stroke();
-        }
-        if (domX[0] <= 0 && domX[1] >= 0) {
-          ctx2d.beginPath();
-          ctx2d.moveTo(sx(0), 0);
-          ctx2d.lineTo(sx(0), H);
-          ctx2d.stroke();
-        }
-        const ceroY = Math.max(4, Math.min(H - 4, sy(0)));
-        const ceroX = Math.max(4, Math.min(W - 4, sx(0)));
-        ctx2d.font = "11px monospace";
-        ctx2d.textAlign = "center";
-        ctx2d.textBaseline = "top";
-        for (const x of ticksX) {
-          if (Math.abs(x) < 1e-9)
-            continue;
-          const px = sx(x);
-          if (px < 10 || px > W - 10)
-            continue;
-          ctx2d.strokeStyle = "rgba(160,160,170,0.5)";
-          ctx2d.lineWidth = 0.75;
-          ctx2d.beginPath();
-          ctx2d.moveTo(px, ceroY - 3);
-          ctx2d.lineTo(px, ceroY + 3);
-          ctx2d.stroke();
-          ctx2d.fillStyle = "rgba(160,160,170,0.85)";
-          ctx2d.fillText(formatearNumero(x), px, ceroY + 5);
-        }
-        ctx2d.textAlign = "right";
-        ctx2d.textBaseline = "middle";
-        for (const y of ticksY) {
-          if (Math.abs(y) < 1e-9)
-            continue;
-          const py = sy(y);
-          if (py < 10 || py > H - 10)
-            continue;
-          ctx2d.strokeStyle = "rgba(160,160,170,0.5)";
-          ctx2d.lineWidth = 0.75;
-          ctx2d.beginPath();
-          ctx2d.moveTo(ceroX - 3, py);
-          ctx2d.lineTo(ceroX + 3, py);
-          ctx2d.stroke();
-          ctx2d.fillStyle = "rgba(160,160,170,0.85)";
-          ctx2d.fillText(formatearNumero(y), ceroX - 6, py);
-        }
-        if (puntoSolucion) {
-          const px = sx(puntoSolucion.x);
-          const py = sy(puntoSolucion.y);
-          if (px >= 0 && px <= W && py >= 0 && py <= H)
-            dibujarPuntoMarcador(ctx2d, px, py, COLOR_PUNTO_SOLUCION);
-        }
-        for (const p of intersecciones) {
-          const px = sx(p.x);
-          const py = sy(p.y);
-          if (px >= 0 && px <= W && py >= 0 && py <= H)
-            dibujarPuntoMarcador(ctx2d, px, py, COLOR_PUNTO_SOLUCION);
-        }
-        dibujarCrosshair(cursorPx, cursorPy);
-      };
-      const colorTuplaCss = (col) => `rgba(${Math.round(col[0] * 255)}, ${Math.round(col[1] * 255)}, ${Math.round(col[2] * 255)}, 1)`;
-      const dibujarCursorCruz = (px, py) => {
-        const R = 7;
-        ctxCross.save();
-        ctxCross.setLineDash([]);
-        ctxCross.strokeStyle = "rgba(235, 238, 245, 0.95)";
-        ctxCross.lineWidth = 1.25;
-        ctxCross.beginPath();
-        ctxCross.moveTo(px - R, py);
-        ctxCross.lineTo(px + R, py);
-        ctxCross.moveTo(px, py - R);
-        ctxCross.lineTo(px, py + R);
-        ctxCross.stroke();
-        ctxCross.restore();
-      };
-      const dibujarCrosshair = (px, py) => {
-        ctxCross.clearRect(0, 0, W, H);
-        if (railOn) {
-          const xPix = sx(railX);
-          const yFin = Number.isFinite(railY);
-          const yPix = yFin ? sy(railY) : null;
-          const yVisible = yPix !== null && yPix >= 0 && yPix <= H;
-          ctxCross.save();
-          ctxCross.setLineDash([4, 6]);
-          ctxCross.strokeStyle = "rgba(100, 150, 255, 0.4)";
-          ctxCross.lineWidth = 1;
-          ctxCross.beginPath();
-          ctxCross.moveTo(xPix, 0);
-          ctxCross.lineTo(xPix, H);
-          ctxCross.stroke();
-          if (yVisible) {
-            ctxCross.beginPath();
-            ctxCross.moveTo(0, yPix);
-            ctxCross.lineTo(W, yPix);
-            ctxCross.stroke();
-          }
-          ctxCross.setLineDash([]);
-          if (yVisible) {
-            dibujarPuntoMarcador(ctxCross, xPix, yPix, colorTuplaCss(curvasRail[lineaSeleccionada].color));
-            ctxCross.save();
-            ctxCross.strokeStyle = "rgba(255, 160, 40, 0.9)";
-            ctxCross.lineWidth = 1.5;
-            ctxCross.beginPath();
-            ctxCross.arc(xPix, yPix, 7, 0, Math.PI * 2);
-            ctxCross.stroke();
-            ctxCross.restore();
-          }
-          const aLaDerecha = xPix < W * 0.75;
-          ctxCross.textAlign = aLaDerecha ? "left" : "right";
-          ctxCross.textBaseline = "top";
-          ctxCross.font = "11px monospace";
-          const tx = xPix + (aLaDerecha ? 5 : -5);
-          ctxCross.fillStyle = "rgba(200, 210, 255, 0.9)";
-          ctxCross.fillText(`x = ${formatearNumero(railX)}`, tx, 4);
-          ctxCross.fillText(yFin ? `y = ${formatearNumero(railY)}` : "y = indef.", tx, 18);
-          ctxCross.restore();
-          if (px !== null && py !== null)
-            dibujarCursorCruz(px, py);
-          return;
-        }
-        if (px === null || py === null)
-          return;
-        if (!graficable) {
-          dibujarCursorCruz(px, py);
-          return;
-        }
-        const cursorX = domX[0] + px / W * (domX[1] - domX[0]);
-        const cursorY = domY[1] - py / H * (domY[1] - domY[0]);
-        if (esLineal) {
-          const r = rectas[lineaSeleccionada];
-          let wx = cursorX, wy = cursorY;
-          let colorPunto = "rgba(80, 160, 255, 1.0)";
-          if (r) {
-            colorPunto = colorTuplaCss(r.color);
-            if (Math.abs(r.b) >= 1e-12) {
-              wx = cursorX;
-              wy = (r.c - r.a * wx) / r.b;
-            } else {
-              wx = r.c / r.a;
-              wy = cursorY;
-            }
-          }
-          const ppx = sx(wx);
-          const ppy = sy(wy);
-          const yVisible = ppy >= 0 && ppy <= H;
-          ctxCross.save();
-          ctxCross.setLineDash([4, 6]);
-          ctxCross.strokeStyle = "rgba(100, 150, 255, 0.4)";
-          ctxCross.lineWidth = 1;
-          ctxCross.beginPath();
-          ctxCross.moveTo(ppx, 0);
-          ctxCross.lineTo(ppx, H);
-          ctxCross.stroke();
-          if (yVisible) {
-            ctxCross.beginPath();
-            ctxCross.moveTo(0, ppy);
-            ctxCross.lineTo(W, ppy);
-            ctxCross.stroke();
-          }
-          ctxCross.setLineDash([]);
-          if (yVisible)
-            dibujarPuntoMarcador(ctxCross, ppx, ppy, colorPunto);
-          if (puntoSolucion) {
-            const spx = sx(puntoSolucion.x);
-            const spy = sy(puntoSolucion.y);
-            if (Math.hypot(spx - ppx, spy - ppy) <= 16 && spx >= 0 && spx <= W && spy >= 0 && spy <= H) {
-              ctxCross.save();
-              ctxCross.strokeStyle = "rgba(168, 85, 247, 0.9)";
-              ctxCross.lineWidth = 1.5;
-              ctxCross.beginPath();
-              ctxCross.arc(spx, spy, 7, 0, Math.PI * 2);
-              ctxCross.stroke();
-              ctxCross.restore();
-            }
-          }
-          const aLaDerecha = ppx < W * 0.75;
-          ctxCross.textAlign = aLaDerecha ? "left" : "right";
-          ctxCross.textBaseline = "top";
-          ctxCross.font = "11px monospace";
-          const tx = ppx + (aLaDerecha ? 5 : -5);
-          ctxCross.fillStyle = "rgba(200, 210, 255, 0.9)";
-          ctxCross.fillText(`x = ${formatearNumero(wx)}`, tx, 4);
-          ctxCross.fillText(`y = ${formatearNumero(wy)}`, tx, 18);
-          ctxCross.restore();
-        } else {
-          ctxCross.save();
-          ctxCross.setLineDash([4, 6]);
-          ctxCross.strokeStyle = "rgba(100, 150, 255, 0.4)";
-          ctxCross.lineWidth = 1;
-          ctxCross.beginPath();
-          ctxCross.moveTo(px, 0);
-          ctxCross.lineTo(px, H);
-          ctxCross.stroke();
-          ctxCross.beginPath();
-          ctxCross.moveTo(0, py);
-          ctxCross.lineTo(W, py);
-          ctxCross.stroke();
-          ctxCross.setLineDash([]);
-          const aLaDerecha = px < W * 0.75;
-          ctxCross.textAlign = aLaDerecha ? "left" : "right";
-          ctxCross.textBaseline = "top";
-          ctxCross.font = "11px monospace";
-          const tx = px + (aLaDerecha ? 5 : -5);
-          ctxCross.fillStyle = "rgba(200, 210, 255, 0.9)";
-          ctxCross.fillText(`x = ${formatearNumero(cursorX)}`, tx, 4);
-          ctxCross.fillText(`y = ${formatearNumero(cursorY)}`, tx, 18);
-          ctxCross.restore();
-        }
-        dibujarCursorCruz(px, py);
-      };
-      const programa = crearPrograma(gl);
-      const aPos = gl.getAttribLocation(programa, "a_pos");
-      const uColor = gl.getUniformLocation(programa, "u_color");
-      const buffer = gl.createBuffer();
-      const dibujarContenidoGL = (interactivo = false) => {
-        this.obsSistemaUpdateCount++;
-        console.log("Actualizaciones motor gr\xE1fico (obs-system): " + this.obsSistemaUpdateCount);
-        gl.viewport(0, 0, W * dpr, H * dpr);
-        gl.clearColor(0.118, 0.118, 0.118, 1);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        if (rectas.length === 0 && curvas.length === 0)
-          return;
-        gl.useProgram(programa);
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.enableVertexAttribArray(aPos);
-        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-        const cx = (x) => (x - domX[0]) / (domX[1] - domX[0]) * 2 - 1;
-        const cy = (y) => (y - domY[0]) / (domY[1] - domY[0]) * 2 - 1;
-        const GROSOR_CLIP = 4e-3;
-        for (const recta of rectas) {
-          const segmento = recortarRecta(recta.a, recta.b, recta.c);
-          if (!segmento)
-            continue;
-          const [p0, p1] = segmento;
-          const puntos = [cx(p0[0]), cy(p0[1]), cx(p1[0]), cy(p1[1])];
-          const quads = construirQuadStrip(puntos, GROSOR_CLIP);
-          if (quads.length === 0)
-            continue;
-          gl.uniform4f(uColor, recta.color[0], recta.color[1], recta.color[2], recta.color[3]);
-          gl.bufferData(gl.ARRAY_BUFFER, quads, gl.DYNAMIC_DRAW);
-          gl.drawArrays(gl.TRIANGLES, 0, quads.length / 2);
-        }
-        if (curvas.length > 0) {
-          const cols = Math.min(220, Math.max(60, Math.round(W / 6)));
-          const rows = Math.min(140, Math.max(40, Math.round(H / 6)));
-          const mundoPorPixel = (domX[1] - domX[0]) / W;
-          const tolMundo = mundoPorPixel * (interactivo ? 0.6 : 0.34);
-          const profMax = interactivo ? 4 : 7;
-          const maxNivelCelda = interactivo ? 2 : 4;
-          for (const curva of curvas) {
-            const verts = [];
-            if (curva.ramas) {
-              for (const rama of curva.ramas) {
-                const { polilineas } = muestrearFuncion({
-                  evalX: rama,
-                  domX: [domX[0], domX[1]],
-                  domY: [domY[0], domY[1]],
-                  H,
-                  interactivo
-                });
-                for (const poli of polilineas) {
-                  const clip = [];
-                  for (let k = 0; k < poli.length; k += 2)
-                    clip.push(cx(poli[k]), cy(poli[k + 1]));
-                  const quads = construirQuadStrip(clip, GROSOR_CLIP);
-                  for (let k = 0; k < quads.length; k++)
-                    verts.push(quads[k]);
-                }
-              }
-            } else {
-              const segmentos = contorno(
-                curva.F,
-                domX[0],
-                domX[1],
-                domY[0],
-                domY[1],
-                cols,
-                rows,
-                tolMundo,
-                profMax,
-                maxNivelCelda
-              );
-              for (const s of segmentos) {
-                const quad = construirQuadStrip(
-                  [cx(s[0]), cy(s[1]), cx(s[2]), cy(s[3])],
-                  GROSOR_CLIP
-                );
-                for (let k = 0; k < quad.length; k++)
-                  verts.push(quad[k]);
-              }
-            }
-            if (verts.length === 0)
-              continue;
-            const arr = new Float32Array(verts);
-            gl.uniform4f(uColor, curva.color[0], curva.color[1], curva.color[2], curva.color[3]);
-            gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW);
-            gl.drawArrays(gl.TRIANGLES, 0, arr.length / 2);
-          }
-        }
-      };
-      let dibujado = false;
-      const redimensionar = () => {
-        const ancho = Math.max(1, Math.round(wrapGrafica.clientWidth || W));
-        if (dibujado && ancho === W)
-          return;
-        W = ancho;
-        dibujado = true;
-        const centroX = (domX[0] + domX[1]) / 2;
-        const semirangoX = (domY[1] - domY[0]) / 2 * (W / H);
-        domX = [centroX - semirangoX, centroX + semirangoX];
-        canvasGL.width = W * dpr;
-        canvasGL.height = H * dpr;
-        canvas2D.width = W * dpr;
-        canvas2D.height = H * dpr;
-        canvasCross.width = W * dpr;
-        canvasCross.height = H * dpr;
-        ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctxCross.setTransform(dpr, 0, 0, dpr, 0, 0);
-        dibujarOverlay();
-        dibujarContenidoGL();
-      };
-      redimensionar();
-      const observadorTamano = new ResizeObserver(() => redimensionar());
-      observadorTamano.observe(wrapGrafica);
-      limpieza.register(() => observadorTamano.disconnect());
-      if (!graficable) {
-        const velo = wrapGrafica.createDiv();
-        velo.style.cssText = "position:absolute; inset:0; background:rgba(18,18,18,0.55); pointer-events:none;";
-        const msg = wrapGrafica.createDiv();
-        msg.style.cssText = "position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; padding:24px; box-sizing:border-box; pointer-events:none;";
-        const titulo = msg.createDiv({ text: "Sin representaci\xF3n en el plano" });
-        titulo.style.cssText = "font-size:18px; font-weight:600; color:rgba(200,210,255,0.95);";
-        const numVarsMostrar = todasVarsGen.length || todasVars.length;
-        const detalle = msg.createDiv({
-          text: numVarsMostrar === 2 ? "Alguna ecuaci\xF3n no se pudo interpretar." : `El plano solo representa sistemas de 2 variables (este tiene ${numVarsMostrar}). Consulta la soluci\xF3n en \u24D8.`
-        });
-        detalle.style.cssText = "font-size:12px; line-height:1.4; max-width:320px; color:rgba(190,195,210,0.85);";
-      }
-      let isDragging = false;
-      let lastPointer = { x: 0, y: 0 };
-      let rafPendiente = false;
-      const programarRedibujo = () => {
-        if (rafPendiente)
-          return;
-        rafPendiente = true;
-        requestAnimationFrame(() => {
-          rafPendiente = false;
-          dibujarOverlay();
-          dibujarContenidoGL(true);
-        });
-      };
-      let timerFinal = null;
-      limpieza.register(() => {
-        if (timerFinal !== null)
-          clearTimeout(timerFinal);
-      });
-      const programarFinal = () => {
-        if (timerFinal !== null)
-          clearTimeout(timerFinal);
-        timerFinal = window.setTimeout(() => {
-          timerFinal = null;
-          dibujarOverlay();
-          dibujarContenidoGL();
-        }, 150);
-      };
-      canvasGL.addEventListener("pointerdown", (e3) => {
-        isDragging = true;
-        lastPointer = { x: e3.offsetX, y: e3.offsetY };
-        cursorPx = null;
-        cursorPy = null;
-        dibujarCrosshair(null, null);
-        canvasGL.setPointerCapture(e3.pointerId);
-      });
-      canvasGL.addEventListener("pointermove", (e3) => {
-        if (isDragging)
-          return;
-        cursorPx = e3.offsetX;
-        cursorPy = e3.offsetY;
-        dibujarCrosshair(e3.offsetX, e3.offsetY);
-      });
-      canvasGL.addEventListener("pointerleave", () => {
-        cursorPx = null;
-        cursorPy = null;
-        dibujarCrosshair(null, null);
-      });
-      canvasGL.addEventListener("pointermove", (e3) => {
-        if (!isDragging)
-          return;
-        const dx = e3.offsetX - lastPointer.x;
-        const dy = e3.offsetY - lastPointer.y;
-        lastPointer = { x: e3.offsetX, y: e3.offsetY };
-        const rx = (domX[1] - domX[0]) / W;
-        const ry = (domY[1] - domY[0]) / H;
-        if (railOn) {
-          avanzarRail(-dx * rx);
-          seguirRail();
-        } else {
-          domX = [domX[0] - dx * rx, domX[1] - dx * rx];
-          domY = [domY[0] + dy * ry, domY[1] + dy * ry];
-        }
-        programarRedibujo();
-      });
-      canvasGL.addEventListener("pointerup", (e3) => {
-        isDragging = false;
-        canvasGL.releasePointerCapture(e3.pointerId);
-        programarFinal();
-      });
-      canvasGL.addEventListener(
-        "wheel",
-        (e3) => {
-          e3.preventDefault();
-          const factor = e3.deltaY > 0 ? 1.05 : 0.95;
-          if (railOn) {
-            seguirRail(factor);
-          } else {
-            const mx = domX[0] + e3.offsetX / W * (domX[1] - domX[0]);
-            const my = domY[1] - e3.offsetY / H * (domY[1] - domY[0]);
-            domX = [mx + (domX[0] - mx) * factor, mx + (domX[1] - mx) * factor];
-            domY = [my + (domY[0] - my) * factor, my + (domY[1] - my) * factor];
-          }
-          programarRedibujo();
-          programarFinal();
-        },
-        { passive: false }
-      );
-      canvasGL.tabIndex = 0;
-      canvasGL.style.outline = "none";
-      const VEL_PAN_PX = 175;
-      const MAPA_TECLAS = {
-        w: "w",
-        a: "a",
-        s: "s",
-        d: "d",
-        arrowup: "w",
-        arrowleft: "a",
-        arrowdown: "s",
-        arrowright: "d"
-      };
-      const teclasPan = /* @__PURE__ */ new Set();
-      let rafTeclado = null;
-      let ultimoTeclado = 0;
-      const pasoTeclado = (t) => {
-        if (teclasPan.size === 0) {
-          rafTeclado = null;
-          ultimoTeclado = 0;
-          programarFinal();
-          return;
-        }
-        const dt = ultimoTeclado ? Math.min(0.05, (t - ultimoTeclado) / 1e3) : 0;
-        ultimoTeclado = t;
-        if (railOn) {
-          let dirX = 0;
-          if (teclasPan.has("a"))
-            dirX -= 1;
-          if (teclasPan.has("d"))
-            dirX += 1;
-          let dirZoom = 0;
-          if (teclasPan.has("w"))
-            dirZoom -= 1;
-          if (teclasPan.has("s"))
-            dirZoom += 1;
-          if (dt > 0 && (dirX !== 0 || dirZoom !== 0)) {
-            let cambiado = false;
-            if (dirX !== 0) {
-              const delta = dirX * VEL_PAN_PX * dt * ((domX[1] - domX[0]) / W);
-              if (avanzarRail(delta))
-                cambiado = true;
-            }
-            const factor = dirZoom !== 0 ? Math.pow(VEL_ZOOM_POR_SEG, dirZoom * dt) : 1;
-            if (dirZoom !== 0)
-              cambiado = true;
-            if (cambiado) {
-              seguirRail(factor);
-              dibujarOverlay();
-              dibujarContenidoGL(true);
-            }
-          }
-        } else {
-          let mx = 0, my = 0;
-          if (teclasPan.has("a"))
-            mx -= 1;
-          if (teclasPan.has("d"))
-            mx += 1;
-          if (teclasPan.has("w"))
-            my += 1;
-          if (teclasPan.has("s"))
-            my -= 1;
-          if ((mx !== 0 || my !== 0) && dt > 0) {
-            const norm2 = Math.hypot(mx, my);
-            const desX = mx / norm2 * VEL_PAN_PX * dt * ((domX[1] - domX[0]) / W);
-            const desY = my / norm2 * VEL_PAN_PX * dt * ((domY[1] - domY[0]) / H);
-            domX = [domX[0] + desX, domX[1] + desX];
-            domY = [domY[0] + desY, domY[1] + desY];
-            dibujarOverlay();
-            dibujarContenidoGL(true);
-          }
-        }
-        rafTeclado = requestAnimationFrame(pasoTeclado);
-      };
-      canvasGL.addEventListener("keydown", (e3) => {
-        const dir = MAPA_TECLAS[e3.key.toLowerCase()];
-        if (!dir)
+      area.addEventListener("scroll", actualizarFade);
+      const onWheel = (e3) => {
+        if (area.scrollWidth - area.clientWidth <= TOLERANCIA_SCROLL)
           return;
         e3.preventDefault();
-        e3.stopPropagation();
-        teclasPan.add(dir);
-        if (rafTeclado === null)
-          rafTeclado = requestAnimationFrame(pasoTeclado);
-      });
-      canvasGL.addEventListener("keyup", (e3) => {
-        const dir = MAPA_TECLAS[e3.key.toLowerCase()];
-        if (dir) {
-          e3.preventDefault();
-          teclasPan.delete(dir);
-        }
-      });
-      canvasGL.addEventListener("focus", () => {
-        canvasGL.style.outline = "1px solid rgba(100,150,255,0.35)";
-      });
-      canvasGL.addEventListener("blur", () => {
-        canvasGL.style.outline = "none";
-        teclasPan.clear();
-      });
-      limpieza.register(() => {
-        if (rafTeclado !== null)
-          cancelAnimationFrame(rafTeclado);
-      });
-      const btnSolucion = wrapGrafica.createDiv({ text: "\u24D8" });
-      btnSolucion.setAttribute("title", "Soluci\xF3n del sistema");
-      btnSolucion.style.cssText = "position:absolute; bottom:8px; right:8px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; color:rgba(255,200,130,0.95); background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5); border-radius:50%; cursor:pointer; user-select:none; z-index:5;";
-      const popSolucion = wrapGrafica.createDiv();
-      popSolucion.style.cssText = "position:absolute; bottom:36px; right:8px; display:none; max-width:260px; padding:8px 10px; box-sizing:border-box; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.12); border-radius:6px; font-size:11px; line-height:1.5; color:rgba(230,230,235,0.92); z-index:5; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
-      if (resultado === null) {
-        if (intersecciones.length > 0) {
-          popSolucion.createEl("div", {
-            text: intersecciones.length === 1 ? "Intersecci\xF3n:" : "Intersecciones:",
-            attr: { style: "font-weight:600; margin-bottom:4px;" }
-          });
-          for (const p of intersecciones) {
-            popSolucion.createEl("div", {
-              text: `(${formatearNumero(p.x)}, ${formatearNumero(p.y)})`
-            });
-          }
-        } else {
-          popSolucion.createEl("div", {
-            text: general ? "Sin intersecci\xF3n detectada en el rango analizado." : "No se pudo interpretar el sistema."
-          });
-        }
-      } else if (typeof resultado === "string") {
-        popSolucion.createEl("div", { text: resultado });
-      } else {
-        popSolucion.createEl("div", {
-          text: "Soluci\xF3n \xFAnica:",
-          attr: { style: "font-weight:600; margin-bottom:4px;" }
-        });
-        for (const v of Object.keys(resultado).sort()) {
-          popSolucion.createEl("div", { text: `${v} = ${formatearNumero(resultado[v])}` });
-        }
-      }
-      btnSolucion.addEventListener("click", (e3) => {
-        e3.stopPropagation();
-        popSolucion.style.display = popSolucion.style.display === "none" ? "block" : "none";
-      });
-      if (curvasRail.length >= 1) {
-        const controles = wrapGrafica.createDiv();
-        controles.style.cssText = "position:absolute; bottom:8px; left:8px; display:flex; align-items:center; gap:6px; z-index:5;";
-        const btnRail = controles.createDiv({ text: "\u2316" });
-        btnRail.setAttribute(
-          "title",
-          "Activar/desactivar el carril sobre la ecuaci\xF3n seleccionada"
+        const desplazamiento = e3.deltaY + e3.deltaX;
+        area.scrollLeft += Math.max(-40, Math.min(40, desplazamiento));
+      };
+      area.addEventListener("wheel", onWheel, { passive: false });
+      window.addEventListener("resize", actualizarFade);
+      const observador = new ResizeObserver(() => actualizarFade());
+      observador.observe(area);
+      const soltar = () => {
+        window.removeEventListener("resize", actualizarFade);
+        observador.disconnect();
+      };
+      return { area, actualizarFade, soltar };
+    };
+    let soltarAreas = () => {
+    };
+    limpieza.register(() => soltarAreas());
+    const renderLatex = async (latex) => {
+      soltarAreas();
+      zona.empty();
+      const formulas = typeof latex === "string" ? [latex] : latex;
+      const compartirAlto = formulas.length > 1;
+      zona.style.padding = compartirAlto ? `${PAD_SUP}px ${PAD_LADO}px ${PAD_LADO}px ${PAD_LADO}px` : `${PAD_LADO}px`;
+      zona.style.gap = `${HUECO}px`;
+      zona.style.justifyContent = compartirAlto ? "flex-start" : "center";
+      const areas = [];
+      const disposers = [];
+      for (const formula of formulas) {
+        const a = crearArea(zona, "enmarcado", compartirAlto);
+        areas.push(a);
+        disposers.push(a.soltar);
+        await import_obsidian3.MarkdownRenderer.render(
+          this.plugin.app,
+          "$$" + formula + "$$",
+          a.area,
+          ctx.sourcePath,
+          this.plugin
         );
-        const estiloBtnRail = (activo) => {
-          btnRail.style.cssText = "width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; border-radius:50%; cursor:pointer; user-select:none; box-sizing:border-box; " + (activo ? "color:rgba(20,20,20,0.95); background:rgba(255,170,60,0.95); border:1px solid rgba(255,170,60,0.95);" : "color:rgba(255,200,130,0.95); background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5);");
-        };
-        estiloBtnRail(false);
-        btnRail.addEventListener("click", (e3) => {
-          e3.stopPropagation();
-          if (railOn) {
-            railOn = false;
-            restaurarVistaInicial();
-          } else {
-            railOn = true;
-            railX = 0;
-            railY = buscarYInicial(curvasRail[lineaSeleccionada].F, railX);
-            if (!Number.isFinite(railY)) {
-              restaurarVistaInicial();
-              railY = buscarYInicial(curvasRail[lineaSeleccionada].F, railX);
-            }
-            if (Number.isFinite(railY))
-              seguirRail();
-            else
-              restaurarVistaInicial();
-            canvasGL.focus();
-          }
-          estiloBtnRail(railOn);
-          dibujarOverlay();
-          dibujarContenidoGL();
-          dibujarCrosshair(cursorPx, cursorPy);
-        });
-        if (curvasRail.length >= 2) {
-          const botones = [];
-          const refrescarBotones = () => botones.forEach((f, j) => f(j === lineaSeleccionada));
-          curvasRail.forEach((curva, i2) => {
-            const btn = controles.createDiv();
-            btn.setAttribute("title", `Seleccionar la ecuaci\xF3n ${i2 + 1}`);
-            const colorCss = colorTuplaCss(curva.color);
-            const estilo = (sel) => {
-              btn.style.cssText = "width:22px; height:22px; border-radius:50%; cursor:pointer; user-select:none; box-sizing:border-box; " + (sel ? `background:${colorCss}; border:2px solid rgba(255,255,255,0.9);` : `background:rgba(30,30,30,0.85); border:2px solid ${colorCss};`);
-            };
-            botones.push(estilo);
-            btn.addEventListener("click", (e3) => {
-              e3.stopPropagation();
-              lineaSeleccionada = i2;
-              refrescarBotones();
-              if (railOn) {
-                railY = buscarYInicial(curvasRail[lineaSeleccionada].F, railX);
-                if (Number.isFinite(railY))
-                  seguirRail();
-                dibujarOverlay();
-                dibujarContenidoGL();
-                canvasGL.focus();
-              }
-              dibujarCrosshair(cursorPx, cursorPy);
-            });
-          });
-          refrescarBotones();
-        }
+        a.area.scrollLeft = 0;
       }
-      const infoBox = contenedor.createDiv({ cls: "obsi-math-info" });
-      if (resultado === null) {
-        for (const p of intersecciones)
-          infoBox.createEl("p", { text: `(${p.x.toFixed(4)}, ${p.y.toFixed(4)})` });
-      } else if (typeof resultado === "string") {
-        infoBox.createEl("p", { text: resultado });
-      } else {
-        for (const v of Object.keys(resultado).sort())
-          infoBox.createEl("p", { text: `${v} = ${resultado[v].toFixed(4)}` });
-      }
-    } catch (error) {
-      contenedor.createEl("p", { text: "Error: " + error.message });
+      soltarAreas = () => disposers.forEach((d) => d());
+      requestAnimationFrame(() => areas.forEach((a) => a.actualizarFade()));
+    };
+    return { panelLatex, renderLatex };
+  }
+  /** Resaltado compartido (color, fondo, borde, sombra) de los botones de la barra del
+   *  panel según estén ACTIVOS (resaltado) o no (atenuado). Lo comparten el botón de
+   *  texto (`estiloBotonPanel`) y el botón-icono de opciones (`estiloBotonOpciones`). */
+  chromeBotonPanel(activo) {
+    return activo ? "color:rgba(240,240,245,0.96); background:rgba(58,58,64,0.96); border:1px solid rgba(255,255,255,0.18); box-shadow:0 2px 6px rgba(0,0,0,0.45);" : "color:rgba(205,205,215,0.7); background:rgba(40,40,44,0.92); border:1px solid rgba(255,255,255,0.08); box-shadow:0 2px 5px rgba(0,0,0,0.35);";
+  }
+  /** Estilo compartido de los botones de TEXTO de la barra (Original, Derivada): activo =
+   *  resaltado; inactivo = atenuado. Texto en Lora. */
+  estiloBotonPanel(b, activo) {
+    b.style.cssText = 'pointer-events:auto; padding:3px 10px; font-size:11px; line-height:1.15; cursor:pointer; user-select:none; border-radius:8px; white-space:nowrap; font-family:"Lora", var(--font-interface); transition:background 0.12s ease, color 0.12s ease; ' + this.chromeBotonPanel(activo);
+  }
+  /** Estilo del botón-icono "hamburguesa" (3 líneas) que abre el menú de opciones:
+   *  CUADRADO de esquinas suaves, mismo resaltado activo/inactivo que los de texto. Las
+   *  líneas usan `currentColor`, así que siguen el color del botón (se avivan al activarse). */
+  estiloBotonOpciones(b, activo) {
+    b.style.cssText = "pointer-events:auto; box-sizing:border-box; width:26px; height:22px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer; user-select:none; border-radius:7px; transition:background 0.12s ease, color 0.12s ease; " + this.chromeBotonPanel(activo);
+  }
+  /** Crea el botón-icono de opciones (hamburguesa de 3 líneas) dentro de la barra dada y lo
+   *  devuelve. Reemplaza al antiguo "Opciones ▾"; común a los tres bloques. El resaltado se
+   *  aplica luego con `estiloBotonOpciones` (en cada `sincronizar`). */
+  crearBotonOpciones(barra, titulo) {
+    const b = barra.createDiv();
+    b.setAttribute("title", titulo);
+    b.setAttribute("aria-label", titulo);
+    for (let i2 = 0; i2 < 3; i2++) {
+      const linea = b.createDiv();
+      linea.style.cssText = "width:14px; height:2px; border-radius:2px; background:currentColor; transition:background 0.12s ease;";
     }
+    return b;
+  }
+  /** Renderiza LaTeX INLINE como ETIQUETA de un botón/opción del toggle (glifo matemático
+   *  en vez de texto): limpia `el`, pinta `$tex$` con KaTeX (mismo pipeline que el panel) y
+   *  desenvuelve el `<p>` para que quede en línea. El color lo hereda del botón (KaTeX no
+   *  fuerza color), así sigue el resaltado activo/inactivo. Async (no bloquea el montaje). */
+  montarEtiquetaMath(el, tex, ctx) {
+    el.empty();
+    void import_obsidian3.MarkdownRenderer.render(this.plugin.app, `$${tex}$`, el, ctx.sourcePath, this.plugin).then(() => {
+      const p = el.querySelector("p");
+      if (p) {
+        while (p.firstChild)
+          el.appendChild(p.firstChild);
+        p.remove();
+      }
+    });
+  }
+  /**
+   * Aplica las transformaciones AUTOMÁTICAS activas (ajustes del plugin) al bloque, en el
+   * orden formal despejar → simplificar, y devuelve el resultado que el panel muestra por
+   * defecto. Reutiliza el MISMO pipeline que los botones (despejarEcuaciones/
+   * simplificarEcuaciones): sin lógica duplicada. Si una transformación FALLA (lanza), se
+   * conserva el resultado anterior —nunca rompe el render—.
+   */
+  baseAutomatica(ecuaciones, ajustes) {
+    let base = ecuaciones;
+    if (ajustes.despejarAuto) {
+      try {
+        base = despejarEcuaciones(base);
+      } catch (e3) {
+      }
+    }
+    try {
+      base = simplificarEcuaciones(base);
+    } catch (e3) {
+    }
+    return base;
+  }
+  /**
+   * Panel izquierdo de obs-graph / obs-system: el scroller de fórmula + la barra de
+   * toggle de transformaciones ([Original] [Opciones ▾] con Simplificar / Despejar y).
+   */
+  async montarPanelLatex(contenedor, ecuaciones, ctx, limpieza) {
+    const { panelLatex, renderLatex } = this.crearScrollerLatex(contenedor, ctx, limpieza);
+    const ajustes = this.obtenerAjustes();
+    const base = this.baseAutomatica(ecuaciones, ajustes);
+    const original = bloqueALatex(base, this.sistema);
+    const todas = [
+      // `etiqueta` = título accesible; `tex` = glifo matemático RENDERIZADO en el botón.
+      { etiqueta: "Despejar y", tex: "y=f(x)", auto: ajustes.despejarAuto, fn: despejarEcuaciones }
+    ];
+    const transformaciones = todas.filter((t) => !t.auto);
+    if (ecuaciones.length > 0 && transformaciones.length > 0) {
+      let estado = base;
+      const barra = panelLatex.createDiv();
+      barra.style.cssText = "position:absolute; top:8px; left:0; right:0; z-index:6; display:flex; gap:6px; justify-content:center; pointer-events:none;";
+      const estiloBoton = (b, activo) => this.estiloBotonPanel(b, activo);
+      const btnOriginal = barra.createDiv();
+      btnOriginal.setAttribute("title", "Original");
+      this.montarEtiquetaMath(
+        btnOriginal,
+        this.sistema ? "\\scriptscriptstyle\\begin{cases}~\\\\[1.1ex]~\\end{cases}" : "f(x)",
+        ctx
+      );
+      const btnOpciones = this.crearBotonOpciones(barra, "Transformaciones");
+      const menu = panelLatex.createDiv();
+      menu.style.cssText = "position:absolute; top:36px; left:0; right:0; z-index:7; display:none; flex-direction:column; align-items:center; pointer-events:none;";
+      const caja = menu.createDiv();
+      caja.style.cssText = 'pointer-events:auto; display:flex; flex-direction:column; gap:2px; padding:4px; border-radius:10px; background:rgba(38,38,42,0.98); border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 12px rgba(0,0,0,0.5); font-family:"Lora", var(--font-interface);';
+      const itemEstilo = (el, habilitado) => {
+        el.style.cssText = "padding:5px 14px; font-size:11px; line-height:1.15; user-select:none; border-radius:6px; white-space:nowrap; text-align:center; transition:background 0.12s ease, color 0.12s ease; " + (habilitado ? "color:rgba(225,225,232,0.92); cursor:pointer; pointer-events:auto;" : "color:rgba(150,150,160,0.32); cursor:default; pointer-events:none;");
+      };
+      const items = transformaciones.map((t) => {
+        const el = caja.createDiv();
+        el.setAttribute("title", t.etiqueta);
+        this.montarEtiquetaMath(el, t.tex, ctx);
+        return el;
+      });
+      let abierto = false;
+      const esOriginal = () => bloqueALatex(estado) === original;
+      const sincronizar = () => {
+        estiloBoton(btnOriginal, esOriginal());
+        this.estiloBotonOpciones(btnOpciones, !esOriginal() || abierto);
+        const actual = bloqueALatex(estado);
+        items.forEach((el, i2) => itemEstilo(el, bloqueALatex(transformaciones[i2].fn(estado)) !== actual));
+        menu.style.display = abierto ? "flex" : "none";
+      };
+      const aplicar = async (i2) => {
+        abierto = false;
+        const nuevo = transformaciones[i2].fn(estado);
+        if (bloqueALatex(nuevo) !== bloqueALatex(estado)) {
+          estado = nuevo;
+          await renderLatex(bloqueALatex(estado));
+        }
+        sincronizar();
+      };
+      btnOriginal.addEventListener("click", async () => {
+        abierto = false;
+        if (!esOriginal()) {
+          estado = base;
+          await renderLatex(original);
+        }
+        sincronizar();
+      });
+      btnOpciones.addEventListener("click", (e3) => {
+        e3.stopPropagation();
+        abierto = !abierto;
+        sincronizar();
+      });
+      items.forEach((el, i2) => el.addEventListener("click", () => void aplicar(i2)));
+      const onDocDown = (e3) => {
+        if (abierto && !barra.contains(e3.target) && !caja.contains(e3.target)) {
+          abierto = false;
+          sincronizar();
+        }
+      };
+      document.addEventListener("mousedown", onDocDown);
+      limpieza.register(() => document.removeEventListener("mousedown", onDocDown));
+      sincronizar();
+    }
+    await renderLatex(original);
+  }
+  /**
+   * Panel izquierdo de obs-derivate: el scroller de fórmula + una barra de toggle de
+   * DOS vistas —[Original] muestra el operador sin evaluar `\frac{d}{dx}\left(f\right)`;
+   * [Derivada] muestra la derivada evaluada `f'\left(x\right) = …`—. No transforma lo
+   * graficado (el plano SIEMPRE grafica la derivada, ver `process`): solo alterna la
+   * fórmula MOSTRADA, como el toggle de obs-graph. Arranca en la vista "Derivada" (es el
+   * resultado, el foco del bloque).
+   */
+  async montarPanelDerivada(contenedor, ecuaciones, ctx, limpieza) {
+    const { panelLatex, renderLatex } = this.crearScrollerLatex(contenedor, ctx, limpieza);
+    const operadorSimp = derivadaOperadorSimplificadoLatex(ecuaciones);
+    const operador = operadorSimp != null ? operadorSimp : derivadaOperadorLatex(ecuaciones);
+    const derivada = derivadaLatex(ecuaciones);
+    const latexDe = (v) => v === "operador" ? operador : v === "derivada" ? derivada : [operador, derivada];
+    const firmaDe = (v) => {
+      const l = latexDe(v);
+      return typeof l === "string" ? l : l.join("\0");
+    };
+    const barra = panelLatex.createDiv();
+    barra.style.cssText = "position:absolute; top:8px; left:0; right:0; z-index:6; display:flex; gap:6px; justify-content:center; pointer-events:none;";
+    const btnOriginal = barra.createDiv();
+    btnOriginal.setAttribute("title", "Operador");
+    this.montarEtiquetaMath(btnOriginal, "\\frac{d}{dx}\\left(f(x)\\right)", ctx);
+    const btnOpciones = this.crearBotonOpciones(barra, "Derivada evaluada");
+    const menu = panelLatex.createDiv();
+    menu.style.cssText = "position:absolute; top:36px; left:0; right:0; z-index:7; display:none; flex-direction:column; align-items:center; pointer-events:none;";
+    const caja = menu.createDiv();
+    caja.style.cssText = 'pointer-events:auto; display:flex; flex-direction:column; gap:2px; padding:4px; border-radius:10px; background:rgba(38,38,42,0.98); border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 12px rgba(0,0,0,0.5); font-family:"Lora", var(--font-interface);';
+    const itemEstilo = (el, habilitado) => {
+      el.style.cssText = "padding:5px 14px; font-size:11px; line-height:1.15; user-select:none; border-radius:6px; white-space:nowrap; text-align:center; transition:background 0.12s ease, color 0.12s ease; " + (habilitado ? "color:rgba(225,225,232,0.92); cursor:pointer; pointer-events:auto;" : "color:rgba(150,150,160,0.32); cursor:default; pointer-events:none;");
+    };
+    const opciones = [
+      { etiqueta: "Derivada", tex: "f'(x)", vista: "derivada" },
+      // Vista combinada: su glifo APILA el operador sobre la derivada (representa que
+      // muestra ambas expresiones a la vez, una debajo de la otra).
+      {
+        etiqueta: "Operador y derivada",
+        tex: "\\begin{matrix}\\frac{d}{dx}\\left(f(x)\\right)\\\\ f'\\left(x\\right)\\end{matrix}",
+        vista: "ambas"
+      }
+    ];
+    const items = opciones.map((o) => {
+      const el = caja.createDiv();
+      el.setAttribute("title", o.etiqueta);
+      this.montarEtiquetaMath(el, o.tex, ctx);
+      return el;
+    });
+    let vista = "operador";
+    let abierto = false;
+    const sincronizar = () => {
+      this.estiloBotonPanel(btnOriginal, vista === "operador");
+      this.estiloBotonOpciones(btnOpciones, vista !== "operador" || abierto);
+      const actual = firmaDe(vista);
+      items.forEach((el, i2) => itemEstilo(el, firmaDe(opciones[i2].vista) !== actual));
+      menu.style.display = abierto ? "flex" : "none";
+    };
+    const aplicar = async (i2) => {
+      abierto = false;
+      const v = opciones[i2].vista;
+      if (firmaDe(v) !== firmaDe(vista)) {
+        vista = v;
+        await renderLatex(latexDe(vista));
+      }
+      sincronizar();
+    };
+    btnOriginal.addEventListener("click", async () => {
+      abierto = false;
+      if (vista !== "operador") {
+        vista = "operador";
+        await renderLatex(operador);
+      }
+      sincronizar();
+    });
+    btnOpciones.addEventListener("click", (e3) => {
+      e3.stopPropagation();
+      abierto = !abierto;
+      sincronizar();
+    });
+    items.forEach((el, i2) => el.addEventListener("click", () => void aplicar(i2)));
+    const onDocDown = (e3) => {
+      if (abierto && !barra.contains(e3.target) && !caja.contains(e3.target)) {
+        abierto = false;
+        sincronizar();
+      }
+    };
+    document.addEventListener("mousedown", onDocDown);
+    limpieza.register(() => document.removeEventListener("mousedown", onDocDown));
+    sincronizar();
+    await renderLatex(operador);
+  }
+  /**
+   * Panel izquierdo de obs-integral: el scroller de fórmula + una barra de toggle de TRES
+   * vistas, espejo EXACTO del panel de obs-derivate (§6.4):
+   *   • [Operador] (por defecto): la integral sin evaluar `\int_a^b f\,dx` (forma de partida).
+   *   • Primitiva: la regla de BARROW `\left[F(x)\right]_a^b = <valor>`, con F la antiderivada
+   *     simbólica (`integralPrimitivaLatex` → `integrarExpr`) y el valor numérico ya presente.
+   *     Es el análogo de la "derivada evaluada" (`f'(x)=…`). Si el integrador NO cubre este
+   *     integrando, cae al VALOR sin corchete (`\int_a^b f\,dx = <área>`, la vista de siempre).
+   *   • Operador y primitiva: ambas apiladas (operador arriba, primitiva debajo) — la forma
+   *     del mockup del usuario.
+   * No cambia lo graficado (el plano SIEMPRE grafica el integrando y sombrea la región): solo
+   * alterna la fórmula MOSTRADA. El área se calcula UNA vez; si es un caso límite del Nivel 2,
+   * el cuerpo es la etiqueta (`\text{Integral divergente}`).
+   */
+  async montarPanelIntegral(contenedor, source, ctx, limpieza) {
+    const { panelLatex, renderLatex } = this.crearScrollerLatex(contenedor, ctx, limpieza);
+    const operador = integralOperadorLatex(source);
+    const { cuerpo, conector } = cuerpoAreaLatexExacto(source);
+    const barrow = integralPrimitivaLatex(source);
+    const resultado = cuerpo === null ? barrow != null ? barrow : operador : barrow ? `${barrow} ${conector} ${cuerpo}` : integralValorLatex(source, cuerpo, conector);
+    const latexDe = (v) => v === "operador" ? operador : v === "resultado" ? resultado : [operador, resultado];
+    const firmaDe = (v) => {
+      const l = latexDe(v);
+      return typeof l === "string" ? l : l.join(" ");
+    };
+    const barra = panelLatex.createDiv();
+    barra.style.cssText = "position:absolute; top:8px; left:0; right:0; z-index:6; display:flex; gap:6px; justify-content:center; pointer-events:none;";
+    const btnOriginal = barra.createDiv();
+    btnOriginal.setAttribute("title", "Operador");
+    this.montarEtiquetaMath(btnOriginal, "\\int_a^b f(x)\\,dx", ctx);
+    const btnOpciones = this.crearBotonOpciones(barra, "Primitiva evaluada");
+    const menu = panelLatex.createDiv();
+    menu.style.cssText = "position:absolute; top:36px; left:0; right:0; z-index:7; display:none; flex-direction:column; align-items:center; pointer-events:none;";
+    const caja = menu.createDiv();
+    caja.style.cssText = 'pointer-events:auto; display:flex; flex-direction:column; gap:2px; padding:4px; border-radius:10px; background:rgba(38,38,42,0.98); border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 12px rgba(0,0,0,0.5); font-family:"Lora", var(--font-interface);';
+    const itemEstilo = (el, habilitado) => {
+      el.style.cssText = "padding:5px 14px; font-size:11px; line-height:1.15; user-select:none; border-radius:6px; white-space:nowrap; text-align:center; transition:background 0.12s ease, color 0.12s ease; " + (habilitado ? "color:rgba(225,225,232,0.92); cursor:pointer; pointer-events:auto;" : "color:rgba(150,150,160,0.32); cursor:default; pointer-events:none;");
+    };
+    const opciones = [
+      { etiqueta: "Primitiva", tex: "\\left[F(x)\\right]_a^b", vista: "resultado" },
+      {
+        etiqueta: "Operador y primitiva",
+        tex: "\\begin{matrix}\\int_a^b f\\,dx\\\\ \\left[F(x)\\right]_a^b\\end{matrix}",
+        vista: "ambas"
+      }
+    ];
+    const items = opciones.map((o) => {
+      const el = caja.createDiv();
+      el.setAttribute("title", o.etiqueta);
+      this.montarEtiquetaMath(el, o.tex, ctx);
+      return el;
+    });
+    let vista = "operador";
+    let abierto = false;
+    const sincronizar = () => {
+      this.estiloBotonPanel(btnOriginal, vista === "operador");
+      this.estiloBotonOpciones(btnOpciones, vista !== "operador" || abierto);
+      const actual = firmaDe(vista);
+      items.forEach((el, i2) => itemEstilo(el, firmaDe(opciones[i2].vista) !== actual));
+      menu.style.display = abierto ? "flex" : "none";
+    };
+    const aplicar = async (i2) => {
+      abierto = false;
+      const v = opciones[i2].vista;
+      if (firmaDe(v) !== firmaDe(vista)) {
+        vista = v;
+        await renderLatex(latexDe(vista));
+      }
+      sincronizar();
+    };
+    btnOriginal.addEventListener("click", async () => {
+      abierto = false;
+      if (vista !== "operador") {
+        vista = "operador";
+        await renderLatex(operador);
+      }
+      sincronizar();
+    });
+    btnOpciones.addEventListener("click", (e3) => {
+      e3.stopPropagation();
+      abierto = !abierto;
+      sincronizar();
+    });
+    items.forEach((el, i2) => el.addEventListener("click", () => void aplicar(i2)));
+    const onDocDown = (e3) => {
+      if (abierto && !barra.contains(e3.target) && !caja.contains(e3.target)) {
+        abierto = false;
+        sincronizar();
+      }
+    };
+    document.addEventListener("mousedown", onDocDown);
+    limpieza.register(() => document.removeEventListener("mousedown", onDocDown));
+    sincronizar();
+    await renderLatex(operador);
+  }
+  /**
+   * Etiqueta formal del bloque, o null si es graficable: bloque VACÍO → "Sin
+   * función"; forma explícita clásica (expr suelta o y=expr) sin ningún valor real
+   * → clasificación del GraphEngine (Indeterminada / Indefinida / No definida en ℝ,
+   * con el MISMO evaluador compartido, que preserva los valores complejos). Las
+   * demás formas (implícitas, paramétricas, polares, sistemas) no se clasifican:
+   * el motor grafica lo que pueda.
+   */
+  clasificarBloque(ecuaciones, source = "") {
+    const noSoportados = comandosNoSoportados(source);
+    if (noSoportados.length > 0) {
+      return {
+        etiqueta: noSoportados.length === 1 ? "S\xEDmbolo no soportado" : "S\xEDmbolos no soportados",
+        detalle: `El motor no reconoce ${noSoportados.join(", ")}. Reescribe la expresi\xF3n sin ese s\xEDmbolo (o usa su equivalente: \\cdot, \\times, \\div, \\pm, \\sqrt, \\frac\u2026).`
+      };
+    }
+    if (this.integral && ecuaciones.length === 0) {
+      if (/\\int/.test(source)) {
+        return {
+          etiqueta: "Integrando no v\xE1lido",
+          detalle: "El integrando debe ser una funci\xF3n de x. Una ecuaci\xF3n (curva impl\xEDcita, con `=` o con `y`) no se integra: graf\xEDcala en un bloque obs-graph."
+        };
+      }
+      return {
+        etiqueta: "Sin integral",
+        detalle: "Escribe una integral definida en LaTeX, p. ej. \\int_{a}^{b} f(x)\\,dx."
+      };
+    }
+    if (this.integral) {
+      const etiqueta = etiquetaIntegral(source);
+      if (etiqueta)
+        return etiqueta;
+    }
+    if (this.sistema) {
+      if (ecuaciones.length === 0) {
+        return {
+          etiqueta: "Sin sistema",
+          detalle: "Escribe un sistema de ecuaciones, una por l\xEDnea (m\xEDnimo dos)."
+        };
+      }
+      if (ecuaciones.length === 1) {
+        return {
+          etiqueta: "Sistema incompleto",
+          detalle: "Falta al menos una ecuaci\xF3n: un sistema necesita como m\xEDnimo dos ecuaciones y dos inc\xF3gnitas."
+        };
+      }
+      return null;
+    }
+    if (ecuaciones.length === 0) {
+      return {
+        etiqueta: "Sin funci\xF3n",
+        detalle: "Escribe una expresi\xF3n matem\xE1tica para graficar."
+      };
+    }
+    return this.degeneradaDeEcuacion(ecuaciones[0]);
+  }
+  /**
+   * Clasificación formal de UNA ecuación explícita (`y=f(x)` o expresión suelta): la etiqueta
+   * del velo (Indeterminada / Indefinida / No definida en ℝ), o null si es graficable o no es
+   * una f(x). Extraída de `clasificarBloque` porque obs-derivate necesita clasificar la función
+   * ESCRITA (no la derivada): `\frac{0}{0}` deriva a `0` y el bloque graficaba la recta y=0 con
+   * su derivada "f'(x) = 0" — un resultado inventado sobre una función que no existe.
+   */
+  degeneradaDeEcuacion(ec) {
+    const comp = funcionDelParametro(ec);
+    if (comp) {
+      const enX = renombrarParametroAX(insertarProductoImplicito(normalizarEntrada(comp.expr.trim())));
+      try {
+        return clasificarDegenerada(compilarFuncion(enX, "x"));
+      } catch (e3) {
+        return null;
+      }
+    }
+    const partes = ec.split("=");
+    let expr = null;
+    if (partes.length === 1)
+      expr = partes[0];
+    else if (partes.length === 2) {
+      if (normalizarEntrada(partes[0].trim()) === "y")
+        expr = partes[1];
+      else if (normalizarEntrada(partes[1].trim()) === "y")
+        expr = partes[0];
+    }
+    if (expr === null)
+      return null;
+    if (expr.trim() === "") {
+      return {
+        etiqueta: "Sin funci\xF3n",
+        detalle: "Escribe una expresi\xF3n matem\xE1tica para graficar."
+      };
+    }
+    try {
+      const norm3 = insertarProductoImplicito(normalizarEntrada(expr.trim()));
+      if (contieneYLibre(norm3))
+        return null;
+      const evalX = compilarFuncion(norm3, "x");
+      return clasificarDegenerada(evalX);
+    } catch (e3) {
+      return null;
+    }
+  }
+  /**
+   * Expresión f(x) de un bloque obs-graph (la 1ª ecuación, si es explícita y=f(x)),
+   * NORMALIZADA a sintaxis mathjs, o null si no aplica (sistema, vacío, implícita,
+   * paramétrica…). Es la MISMA que grafica el motor, así que el resumen ⓘ coincide
+   * con lo dibujado.
+   */
+  exprExplicita(ecuaciones) {
+    if (this.sistema || ecuaciones.length === 0)
+      return null;
+    let tipo;
+    try {
+      tipo = construirObjeto(ecuaciones[0], "info").tipo;
+    } catch (e3) {
+      return null;
+    }
+    if (tipo !== "explicita")
+      return null;
+    const comp = funcionDelParametro(ecuaciones[0]);
+    if (comp) {
+      if (comp.eje === "x")
+        return null;
+      const enX = renombrarParametroAX(insertarProductoImplicito(normalizarEntrada(comp.expr.trim())));
+      return enX === "" ? null : enX;
+    }
+    const partes = ecuaciones[0].split("=");
+    let expr = null;
+    if (partes.length === 1)
+      expr = partes[0];
+    else if (partes.length === 2) {
+      if (normalizarEntrada(partes[0].trim()) === "y")
+        expr = partes[1];
+      else if (normalizarEntrada(partes[1].trim()) === "y")
+        expr = partes[0];
+    }
+    if (expr === null)
+      return null;
+    const norm3 = insertarProductoImplicito(normalizarEntrada(expr.trim()));
+    return norm3 === "" ? null : norm3;
+  }
+  /**
+   * Botón ⓘ + popover con el resumen de puntos notables de la función (portado del
+   * GraphEngine): intersección con Y, raíces y vértices. Los grupos periódicos
+   * (trig que oscila → "infinitas") o excesivos ("demasiadas") se resumen en vez de
+   * enumerarse. El análisis es sobre el rango fijo de `analizarFuncion` (agnóstico
+   * de la vista actual), igual que en el motor original.
+   */
+  montarBotonInfo(wrap, expr, ctx) {
+    let evalX;
+    try {
+      evalX = compilarFuncion(expr, "x");
+    } catch (e3) {
+      return;
+    }
+    const analisis = analizarFuncion(evalX);
+    const interseccionY = evalX(0);
+    const esTrig = tieneTrigonometria(expr);
+    const estadoRaices = estadoGrupo(
+      analisis.raices.length + analisis.intervalosRaiz.length,
+      esTrig
+    );
+    const estadoVertices = estadoGrupo(analisis.vertices.length, esTrig);
+    let id\u00E9nticamenteCero = false;
+    try {
+      id\u00E9nticamenteCero = simplify(expr).toString() === "0";
+    } catch (e3) {
+    }
+    const lineas = [];
+    if (id\u00E9nticamenteCero) {
+      lineas.push({ texto: "Intersecci\xF3n Y: (0, 0)" });
+      lineas.push({ texto: "Todos los valores de x son ra\xEDces (funci\xF3n id\xE9nticamente cero)." });
+    } else {
+      lineas.push({
+        texto: Number.isFinite(interseccionY) ? `Intersecci\xF3n Y: (0, ${interseccionY.toFixed(4)})` : "Intersecci\xF3n Y: no definida (discontinuidad en x=0)"
+      });
+      if (estadoRaices === "infinitas")
+        lineas.push({ texto: "Ra\xEDces: infinitas" });
+      else if (estadoRaices === "demasiadas")
+        lineas.push({ texto: "Ra\xEDces: demasiadas para mostrar" });
+      else if (analisis.intervalosRaiz.length > 0)
+        lineas.push({ texto: "Ra\xEDces: ", tex: raicesALatex(analisis.intervalosRaiz, analisis.raices) });
+      else if (analisis.raices.length > 0)
+        lineas.push({ texto: "Ra\xEDces: " + analisis.raices.map((r) => r.toFixed(4)).join(", ") });
+      else
+        lineas.push({ texto: "No hay ra\xEDces reales" });
+      if (estadoVertices === "infinitas")
+        lineas.push({ texto: "V\xE9rtices: infinitos" });
+      else if (estadoVertices === "demasiadas")
+        lineas.push({ texto: "V\xE9rtices: demasiados para mostrar" });
+      else if (analisis.vertices.length > 0)
+        for (const v of analisis.vertices)
+          lineas.push({
+            texto: `V\xE9rtice ${v.tipo === "min" ? "m\xEDnimo" : "m\xE1ximo"}: (${v.x.toFixed(4)}, ${v.y.toFixed(4)})`
+          });
+      else
+        lineas.push({ texto: "No hay v\xE9rtices" });
+    }
+    const btnInfo = wrap.createDiv();
+    btnInfo.setAttribute("title", "Resumen de puntos notables");
+    btnInfo.style.cssText = "position:absolute; bottom:8px; right:8px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1; color:rgba(255,200,130,0.95); background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5); border-radius:50%; cursor:pointer; user-select:none; z-index:5;";
+    btnInfo.createSpan({ text: "\u24D8" }).style.cssText = "line-height:1; transform:translateY(-1px);";
+    const pop = wrap.createDiv();
+    pop.style.cssText = "position:absolute; bottom:36px; right:8px; display:none; max-width:260px; max-height:200px; overflow-y:auto; padding:8px 10px; box-sizing:border-box; background:rgba(20,20,20,0.95); border:1px solid rgba(255,255,255,0.12); border-radius:6px; font-size:11px; line-height:1.5; color:rgba(230,230,235,0.92); z-index:5; box-shadow:0 4px 12px rgba(0,0,0,0.4);";
+    for (const l of lineas) {
+      const div2 = pop.createEl("div", { text: l.texto });
+      if (l.tex)
+        this.montarEtiquetaMath(div2.createSpan(), l.tex, ctx);
+    }
+    btnInfo.addEventListener("click", (e3) => {
+      e3.stopPropagation();
+      pop.style.display = pop.style.display === "none" ? "block" : "none";
+    });
   }
 };
 
+// src/host-obsidian/fuentes.ts
+var ARCHIVOS = [
+  { archivo: "Lora-VariableFont_wght.ttf", estilo: "normal" },
+  { archivo: "Lora-Italic-VariableFont_wght.ttf", estilo: "italic" }
+];
+async function registrarFuenteLora(plugin) {
+  let yaEsta = false;
+  document.fonts.forEach((f) => {
+    if (f.family === "Lora")
+      yaEsta = true;
+  });
+  if (yaEsta)
+    return;
+  const dir = plugin.manifest.dir;
+  if (!dir)
+    return;
+  for (const { archivo, estilo } of ARCHIVOS) {
+    try {
+      const ruta = `${dir}/assets/fonts/Lora/${archivo}`;
+      const url = plugin.app.vault.adapter.getResourcePath(ruta);
+      const cara = new FontFace("Lora", `url("${url}")`, { weight: "400 700", style: estilo });
+      await cara.load();
+      document.fonts.add(cara);
+    } catch (e3) {
+      console.warn("Obsi Math: no se pudo cargar la fuente Lora", archivo, e3);
+    }
+  }
+}
+
+// src/herramientas/trazador.ts
+function normalizarTipo(bruto) {
+  const t = bruto.trim().toLowerCase().replace(/^obs-/, "");
+  if (t === "system" || t === "sistema")
+    return "system";
+  if (t === "derivate" || t === "derivada" || t === "derivar")
+    return "derivate";
+  if (t === "integral" || t === "integrate" || t === "integrar")
+    return "integral";
+  return "graph";
+}
+function parsearEntrada(bruto) {
+  const t = bruto.trim();
+  const m = /^\[([\s\S]*)\]$/.exec(t);
+  if (m)
+    return m[1].split("/").map((s) => s.trim()).filter((s) => s.length > 0);
+  return dividirEcuaciones(t);
+}
+function normalizada(ec) {
+  return insertarProductoImplicito(normalizarEntrada(ec.trim()));
+}
+function tipoDe(ec) {
+  if (normalizarEntrada(ec.trim()) === "")
+    return "vac\xEDa";
+  try {
+    return construirObjeto(ec, "trazador").tipo;
+  } catch (e3) {
+    return `no clasificable (${e3.message})`;
+  }
+}
+function diagnosticoGraph(ec) {
+  const d = despejarY(ec);
+  const extra = d ? d.completo ? "despeje completo" : "despeje PARCIAL (y no aislable del todo)" : "sin y que despejar";
+  return { entrada: ec, normalizada: normalizada(ec), tipo: tipoDe(ec), extra };
+}
+function igualLista(a, b) {
+  return a.length === b.length && a.every((x, i2) => x === b[i2]);
+}
+function trazarGraphSystem(ecs, sistema) {
+  const escrito = {
+    etiqueta: "Original (escrito)",
+    mathjs: ecs.map(normalizada),
+    latex: bloqueALatex(ecs, sistema)
+  };
+  let simp = ecs.slice();
+  try {
+    simp = simplificarEcuaciones(ecs);
+  } catch (e3) {
+  }
+  const simplificado = {
+    etiqueta: "Simplificado",
+    mathjs: simp,
+    latex: bloqueALatex(simp, sistema),
+    nota: igualLista(simp, ecs.map((e3) => normalizarEntrada(e3.trim()))) ? "sin cambio" : void 0
+  };
+  let desp = simp.slice();
+  try {
+    desp = despejarEcuaciones(simp);
+  } catch (e3) {
+  }
+  const despejado = {
+    etiqueta: "Despejar y",
+    mathjs: desp,
+    latex: bloqueALatex(desp, sistema),
+    nota: igualLista(desp, simp) ? "sin cambio (ya despejada o sin y)" : void 0
+  };
+  return {
+    entrada: ecs,
+    pasos: [escrito, simplificado, despejado],
+    diagnostico: ecs.map(diagnosticoGraph)
+  };
+}
+function trazarDerivate(ec) {
+  var _a;
+  const f = extraerFuncion(ec);
+  const derivada = derivarEcuacion(ec);
+  const operadorLatex = (_a = derivadaOperadorSimplificadoLatex([ec])) != null ? _a : derivadaOperadorLatex([ec]);
+  const operador = {
+    etiqueta: "Operador (funci\xF3n simplificada)",
+    mathjs: [f != null ? f : "(no expl\xEDcito: no se deriva)"],
+    latex: operadorLatex
+  };
+  const evaluada = {
+    etiqueta: "Derivada evaluada",
+    mathjs: [derivada != null ? derivada : "(no derivable)"],
+    latex: derivadaLatex([ec]),
+    nota: "\u2190 el string mathjs es lo que grafica el plano"
+  };
+  const extra = f === null ? "no expl\xEDcito: obs-derivate no lo deriva" : derivada === null ? `f(x)=${f} \u2014 mathjs no supo derivarla` : `f(x)=${f}`;
+  return {
+    entrada: [ec],
+    pasos: [operador, evaluada],
+    diagnostico: [{ entrada: ec, normalizada: normalizada(ec), tipo: tipoDe(ec), extra }]
+  };
+}
+function trazarIntegral(ec) {
+  const it = extraerIntegral(ec);
+  if (!it) {
+    return {
+      entrada: [ec],
+      pasos: [],
+      diagnostico: [{
+        entrada: ec,
+        normalizada: "(no aplica: no es una integral)",
+        tipo: "no es una integral definida (falta \\int o alg\xFAn l\xEDmite)"
+      }]
+    };
+  }
+  const integrandoNorm = normalizada(it.integrando);
+  const operador = integralOperadorLatex(ec);
+  const primitiva = integralPrimitivaLatex(ec);
+  const { cuerpo, conector } = cuerpoAreaLatexExacto(ec);
+  const etiqueta = cuerpo === null ? etiquetaIntegral(ec) : null;
+  const valorLatex = cuerpo === null ? primitiva != null ? primitiva : operador : primitiva ? `${primitiva} ${conector} ${cuerpo}` : integralValorLatex(ec, cuerpo, conector);
+  const pasoOperador = {
+    etiqueta: "Operador (integral sin evaluar)",
+    mathjs: [integrandoNorm],
+    latex: operador,
+    nota: "el plano grafica el integrando f(x)"
+  };
+  const pasoValor = {
+    etiqueta: primitiva ? "Primitiva evaluada (Barrow)" : "Valor",
+    mathjs: [integrandoNorm],
+    latex: valorLatex,
+    nota: etiqueta ? `sin valor \u2192 el PLANO muestra la etiqueta "${etiqueta.etiqueta}" (el panel, solo la f\xF3rmula)` : primitiva ? void 0 : "sin primitiva elemental \u2192 valor num\xE9rico"
+  };
+  const extra = `\u222B  inferior=${it.a}  superior=${it.b}  integrando=${it.integrando}  variable=${it.variable}`;
+  return {
+    entrada: [ec],
+    pasos: [pasoOperador, pasoValor],
+    diagnostico: [{ entrada: ec, normalizada: integrandoNorm, tipo: tipoDe(it.integrando), extra }]
+  };
+}
+function trazar(entrada, tipo) {
+  if (tipo === "integral") {
+    return { tipo, bloques: [trazarIntegral(entrada.trim())] };
+  }
+  const ecs = parsearEntrada(entrada);
+  if (tipo === "system") {
+    return { tipo, bloques: [trazarGraphSystem(ecs, true)] };
+  }
+  if (tipo === "derivate") {
+    return { tipo, bloques: (ecs.length ? ecs : [""]).map(trazarDerivate) };
+  }
+  return { tipo, bloques: (ecs.length ? ecs : [""]).map((ec) => trazarGraphSystem([ec], false)) };
+}
+
+// src/herramientas/formato.ts
+var TODO = { grafica: true, latex: true, diagnostico: true };
+var NOMBRE = {
+  graph: "obs-graph",
+  system: "obs-system",
+  derivate: "obs-derivate",
+  integral: "obs-integral"
+};
+function formatearPaso(p, q) {
+  const lineas = [`  \u2022 ${p.etiqueta}${p.nota ? `  (${p.nota})` : ""}`];
+  const uno = (campo, valores) => {
+    var _a;
+    if (valores.length <= 1)
+      return [`      ${campo}: ${(_a = valores[0]) != null ? _a : ""}`];
+    return [`      ${campo}:`, ...valores.map((v, i2) => `        [${i2 + 1}] ${v}`)];
+  };
+  if (q.grafica)
+    lineas.push(...uno("grafica", p.mathjs));
+  if (q.latex)
+    lineas.push(...uno("latex  ", [p.latex]));
+  return lineas;
+}
+function formatearBloque(b, q, indice) {
+  const lineas = [];
+  if (indice !== null)
+    lineas.push(`\u2500\u2500 Curva ${indice} \u2500\u2500  ${b.entrada.join("  /  ")}`);
+  if (q.diagnostico) {
+    for (const d of b.diagnostico) {
+      lineas.push(`  Diagn\xF3stico [${d.entrada}]:`);
+      lineas.push(`      tipo: ${d.tipo}`);
+      lineas.push(`      normaliza a: ${d.normalizada}`);
+      if (d.extra)
+        lineas.push(`      ${d.extra}`);
+    }
+  }
+  for (const p of b.pasos)
+    lineas.push(...formatearPaso(p, q));
+  return lineas;
+}
+function formatear2(t, q = TODO) {
+  const cab = `\u2501\u2501\u2501 ${NOMBRE[t.tipo]} \u2501\u2501\u2501`;
+  const varias = t.bloques.length > 1;
+  const cuerpo = t.bloques.flatMap((b, i2) => formatearBloque(b, q, varias ? i2 + 1 : null));
+  return [cab, ...cuerpo].join("\n");
+}
+
+// src/host-obsidian/consolaDev.ts
+var NOMBRE_GLOBAL = "obsiMath";
+function correr(entrada, tipoBruto, q) {
+  const t = trazar(entrada, normalizarTipo(tipoBruto));
+  console.log(formatear2(t, q));
+  return t;
+}
+var AYUDA = [
+  `obsiMath \u2014 trazador de transformaciones de Obsi Math`,
+  ``,
+  `  obsiMath.trazar(entrada, tipo)      todo (grafica + latex + diagn\xF3stico)`,
+  `  obsiMath.grafica(entrada, tipo)     solo el string mathjs que grafica`,
+  `  obsiMath.latex(entrada, tipo)       solo el LaTeX que renderiza KaTeX`,
+  `  obsiMath.diagnostico(entrada, tipo) solo la clasificaci\xF3n`,
+  ``,
+  `  tipo: "obs-graph" (por defecto) | "obs-system" | "obs-derivate" | "obs-integral"`,
+  `        (valen tambi\xE9n "graph"/"sistema"/"derivada"/"integrar"\u2026)`,
+  `  entrada: una ecuaci\xF3n, o varias con [ec1/ec2] (el / separa DENTRO de los corchetes).`,
+  ``,
+  `  Ej:  obsiMath.trazar("x^3+y^3=9")`,
+  `       obsiMath.trazar("[x^2/x^3]")            // dos curvas independientes`,
+  `       obsiMath.trazar("x-y=1\\nx+y=3", "obs-system")`,
+  `       obsiMath.derivada("\\\\frac{d}{dx}(x^2)") // obs-derivate`,
+  `       obsiMath.integral("\\\\int_{0}^{2}x^2\\\\,dx") // obs-integral`
+].join("\n");
+function crearConsolaDev() {
+  const api = {
+    trazar: (entrada, tipo = "graph") => correr(entrada, tipo, TODO),
+    grafica: (entrada, tipo = "graph") => correr(entrada, tipo, { grafica: true, latex: false, diagnostico: false }),
+    latex: (entrada, tipo = "graph") => correr(entrada, tipo, { grafica: false, latex: true, diagnostico: false }),
+    diagnostico: (entrada, tipo = "graph") => correr(entrada, tipo, { grafica: false, latex: false, diagnostico: true }),
+    // Atajos por tipo (evitan pasar el segundo argumento).
+    grafo: (entrada) => correr(entrada, "graph", TODO),
+    sistema: (entrada) => correr(entrada, "system", TODO),
+    derivada: (entrada) => correr(entrada, "derivate", TODO),
+    integral: (entrada) => correr(entrada, "integral", TODO),
+    ayuda: () => {
+      console.log(AYUDA);
+    }
+  };
+  return api;
+}
+
 // main.ts
-var ObsiMathPlugin = class extends import_obsidian3.Plugin {
+var ObsiMathPlugin = class extends import_obsidian4.Plugin {
   constructor() {
     super(...arguments);
-    // Flag temporal: pon en `true` para reactivar el bloque obs-system.
-    this.OBS_SISTEMA_HABILITADO = true;
+    // Selector del motor para el bloque obs-graph. `true` → motor nuevo (src/motor/);
+    // `false` → GraphEngine antiguo (intacto, reactivable con esta sola bandera).
+    // El bloque obs-system usa SIEMPRE el motor nuevo: el SystemEngine antiguo, que
+    // resolvía las implícitas por marching squares, quedó retirado y no tiene vuelta atrás.
+    this.MOTOR_EXPERIMENTAL = true;
+    // Preferencias persistentes (loadData/saveData). Se cargan en onload; los motores las
+    // leen VIVAS por un getter (`() => this.ajustes`), así un cambio en la pestaña de
+    // configuración afecta a los bloques que se re-rendericen sin recargar el plugin.
+    this.ajustes = { ...AJUSTES_POR_DEFECTO };
   }
   async onload() {
     console.log("Obsi Math: plugin cargado");
-    new import_obsidian3.Notice("\xA1Obsi Math se ha cargado correctamente!");
+    new import_obsidian4.Notice("\xA1Obsi Math se ha cargado correctamente!");
+    await this.cargarAjustes();
+    this.addSettingTab(new PestanaAjustesObsiMath(this.app, this));
+    void registrarFuenteLora(this);
+    const ajustes = () => this.ajustes;
     const graphEngine = new GraphEngine(this);
+    const motorGraph = new MotorExperimental(this, false, false, ajustes);
     this.registerMarkdownCodeBlockProcessor(
       "obs-graph",
-      (source, el, ctx) => graphEngine.process(source, el, ctx)
+      (source, el, ctx) => this.MOTOR_EXPERIMENTAL ? motorGraph.process(source, el, ctx) : graphEngine.process(source, el, ctx)
     );
-    const systemEngine = new SystemEngine(this, this.OBS_SISTEMA_HABILITADO);
+    const motorSistema = new MotorExperimental(this, true, false, ajustes);
     this.registerMarkdownCodeBlockProcessor(
       "obs-system",
-      (source, el, ctx) => systemEngine.process(source, el, ctx)
+      (source, el, ctx) => motorSistema.process(source, el, ctx)
     );
+    const motorDerivada = new MotorExperimental(this, false, true, ajustes);
+    this.registerMarkdownCodeBlockProcessor(
+      "obs-derivate",
+      (source, el, ctx) => motorDerivada.process(source, el, ctx)
+    );
+    const motorIntegral = new MotorExperimental(this, false, false, ajustes, true);
+    this.registerMarkdownCodeBlockProcessor(
+      "obs-integral",
+      (source, el, ctx) => motorIntegral.process(source, el, ctx)
+    );
+    window[NOMBRE_GLOBAL] = crearConsolaDev();
+    console.log(`Obsi Math: consola de desarrollo lista \u2192 ${NOMBRE_GLOBAL}.ayuda()`);
   }
   onunload() {
     console.log("Obsi Math: plugin descargado:");
+    delete window[NOMBRE_GLOBAL];
+  }
+  /** Carga las preferencias (loadData) copiando SOLO las claves vigentes (las de
+   *  AJUSTES_POR_DEFECTO) y de tipo correcto; las ausentes toman su default. NO se fusiona
+   *  el objeto del disco entero: un ajuste RETIRADO del código (`simplificarAuto`, de cuando
+   *  Simplificar era opcional) quedaba en el data.json del vault, el merge ciego lo
+   *  re-adoptaba y guardarAjustes() lo re-persistía para siempre. */
+  async cargarAjustes() {
+    var _a;
+    const disco = (_a = await this.loadData()) != null ? _a : {};
+    const ajustes = { ...AJUSTES_POR_DEFECTO };
+    for (const k of Object.keys(ajustes)) {
+      if (typeof disco[k] === typeof ajustes[k])
+        ajustes[k] = disco[k];
+    }
+    this.ajustes = ajustes;
+    if (Object.keys(disco).some((k) => !(k in ajustes)))
+      await this.guardarAjustes();
+  }
+  /** Persiste las preferencias actuales (saveData). La llama la pestaña de ajustes. */
+  async guardarAjustes() {
+    await this.saveData(this.ajustes);
   }
 };
 /*! Bundled license information:

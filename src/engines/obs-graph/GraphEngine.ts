@@ -973,7 +973,7 @@ limpieza.register(() => { if (rafTeclado !== null) cancelAnimationFrame(rafTecla
 // un CARRIL (ver railX/seguirRail) y centra la vista en él; luego con A/D se viaja
 // por la curva y la cámara sigue al punto (siempre sobre la línea). Mismo estilo que
 // el botón ⓘ. Toggle: pulsar de nuevo lo libera. Va abajo-izquierda (ⓘ va dcha).
-const btnFijar = wrapGrafica.createDiv({ text: "⌖" });
+const btnFijar = wrapGrafica.createDiv();
 btnFijar.setAttribute("title", "Fijar la vista al punto del crosshair");
 const estiloBtnFijar = (activo: boolean) => {
   btnFijar.style.cssText =
@@ -987,6 +987,10 @@ const estiloBtnFijar = (activo: boolean) => {
         "border:1px solid rgba(255,160,40,0.5);");
 };
 estiloBtnFijar(false);
+// El glifo ⌖ se renderiza un pelín bajo; lo subimos SOLO en vertical. El span persiste
+// aunque estiloBtnFijar reescriba el cssText del div (solo afecta al div).
+btnFijar.createSpan({ text: "⌖" }).style.cssText =
+  "line-height:1; transform:translateY(-1px);";
 if (degenerada) btnFijar.style.display = "none";
 
 btnFijar.addEventListener("click", () => {
@@ -1026,7 +1030,7 @@ btnFijar.addEventListener("click", () => {
             : estadoVertices === "demasiadas" ? "Vértices: demasiados para mostrar"
             : null;
           if (msgRaices || msgVertices) {
-            const btnResumen = wrapGrafica.createDiv({ text: "ⓘ" });
+            const btnResumen = wrapGrafica.createDiv();
             btnResumen.setAttribute("title", "Resumen de puntos notables");
             btnResumen.style.cssText =
               "position:absolute; bottom:8px; right:8px; width:22px; height:22px; " +
@@ -1034,6 +1038,9 @@ btnFijar.addEventListener("click", () => {
               "font-size:14px; line-height:1; color:rgba(255,200,130,0.95); " +
               "background:rgba(30,30,30,0.85); border:1px solid rgba(255,160,40,0.5); " +
               "border-radius:50%; cursor:pointer; user-select:none; z-index:5;";
+            // Glifo ⓘ subido SOLO en vertical (métrica de la fuente; no toca horizontal).
+            btnResumen.createSpan({ text: "ⓘ" }).style.cssText =
+              "line-height:1; transform:translateY(-1px);";
 
             const popResumen = wrapGrafica.createDiv();
             popResumen.style.cssText =

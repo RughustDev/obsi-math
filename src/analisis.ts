@@ -23,6 +23,43 @@ const TOLERANCIA_FUSION = 0.05;
 
 export interface Vertice { x: number; y: number; tipo: "min" | "max" }
 
+/** Tramo continuo de raíces (la curva DESCANSA sobre el eje X): f=0 en todo [a,b],
+ *  con cada extremo abierto o cerrado según f valga 0 en él (⌊x⌋ → raíces x∈[0,1):
+ *  0 incluido, 1 no). Lo producen las funciones escalón y los productos con ellas.
+ *  `a`/`b` pueden ser ±Infinity: el tramo se extiende sin fin más allá del rango de
+ *  análisis (⌊1/x⌋=0 para todo x>1 → x∈(1,∞)); ese extremo va siempre ABIERTO. */
+export interface IntervaloRaiz {
+  a: number;
+  b: number;
+  cerradoA: boolean;
+  cerradoB: boolean;
+}
+
+// Nº mínimo de muestras consecutivas en cero para considerar el conjunto un TRAMO
+// (intervalo) y no raíces puntuales: 3 muestras = ancho ≥ 2·delta (0.04 en el rango
+// fijo). Un cruce transversal normal produce a lo sumo 1 muestra exactamente en cero.
+const MIN_MUESTRAS_TRAMO = 3;
+
+/** Frontera del conjunto {f=0} entre una muestra FUERA del tramo (f≠0 o no finita)
+ *  y una DENTRO (f=0), por bisección sobre el predicado "f(m)=0". Devuelve la
+ *  abscisa límite y si el propio extremo PERTENECE al tramo (cerrado): se evalúa f
+ *  en el valor "limpio" más cercano (redondeo a 1e-9) porque la bisección converge
+ *  a un pelo del límite real (0.999…9 de 1) y evaluar ahí respondería por el lado
+ *  equivocado del salto. */
+function fronteraTramo(
+  evaluar: (x: number) => number,
+  xFuera: number,
+  xCero: number
+): { x: number; cerrado: boolean } {
+  let fuera = xFuera, dentro = xCero;
+  for (let i = 0; i < 60; i++) {
+    const m = (fuera + dentro) / 2;
+    if (evaluar(m) === 0) dentro = m; else fuera = m;
+  }
+  const limpio = Math.round(dentro * 1e9) / 1e9;
+  return { x: limpio, cerrado: evaluar(limpio) === 0 };
+}
+
 /**
  * Localiza con precisión la raíz dentro de [a, b] (donde f cambia de signo) por
  * bisección, y DISTINGUE una raíz real de un polo (asíntota vertical como en
@@ -54,11 +91,28 @@ function refinarRaiz(
   return Number.isFinite(fm) && Math.abs(fm) < 1e-3 ? m : null;
 }
 
-/** Raíces reales en [min, max]: todos los cruces del eje X, excluyendo polos. */
+/** ¿El tramo de ceros que TOCA el borde del rango muestreado continúa hasta el
+ *  infinito en el sentido `signo`? Sondea f en magnitudes crecientes (×10, de 100 a
+ *  ~1e16): si TODAS valen 0, el conjunto de raíces no termina (⌊1/x⌋=0 para todo x>1
+ *  → x∈(1,∞)) y el extremo es ±∞. Un solo valor ≠0 o no finito lo corta: el tramo
+ *  acaba en el borde. Es una heurística: no detecta un cero que reaparezca aún más
+ *  lejos tras un hueco, pero cubre las escalón monótonas (floor/ceil de 1/x, √x…). */
+function tramoHastaInfinito(evaluar: (x: number) => number, signo: 1 | -1): boolean {
+  let x = signo * 100;
+  for (let i = 0; i < 15; i++) {
+    if (evaluar(x) !== 0) return false;
+    x *= 10;
+  }
+  return true;
+}
+
+/** Raíces reales en [min, max]: cruces PUNTUALES del eje X (excluyendo polos) +
+ *  TRAMOS de ceros (la curva descansa sobre el eje: floor/ceil y sus productos),
+ *  devueltos como intervalos con extremos refinados y apertura/cierre evaluados. */
 function detectarRaices(
   evaluar: (x: number) => number,
   xs: number[], ys: number[]
-): number[] {
+): { puntos: number[]; intervalos: IntervaloRaiz[] } {
   const raices: number[] = [];
   const agregar = (x: number) => {
     if (!raices.some(r => Math.abs(r - x) < 1e-4)) raices.push(x);
@@ -73,21 +127,51 @@ function detectarRaices(
     finitos++;
     if (y === 0) ceros++;
   }
-  if (finitos > 0 && ceros === finitos) return [];
+  if (finitos > 0 && ceros === finitos) return { puntos: [], intervalos: [] };
+
+  // TRAMOS de ceros: rachas de ≥ MIN_MUESTRAS_TRAMO muestras consecutivas en cero.
+  // Sus índices se excluyen de las raíces puntuales (un tramo no es una lista de
+  // puntos) y sus fronteras se refinan por bisección contra la muestra vecina.
+  const intervalos: IntervaloRaiz[] = [];
+  const enTramo = new Set<number>();
+  for (let i = 0; i < ys.length; ) {
+    if (ys[i] !== 0) { i++; continue; }
+    let j = i;
+    while (j + 1 < ys.length && ys[j + 1] === 0) j++;
+    if (j - i + 1 >= MIN_MUESTRAS_TRAMO) {
+      // Un tramo que TOCA un borde del rango puede en realidad extenderse sin fin
+      // (⌊1/x⌋=0 para todo x>1). Se sondea más allá: si f sigue en 0, el extremo es
+      // ±∞ (abierto); si no, se cierra en el borde como antes. Así el conjunto es el
+      // MATEMÁTICO completo, no el recortado por el rango de análisis.
+      const izq = i > 0
+        ? fronteraTramo(evaluar, xs[i - 1], xs[i])
+        : tramoHastaInfinito(evaluar, -1)
+          ? { x: -Infinity, cerrado: false }
+          : { x: xs[0], cerrado: true };
+      const der = j < ys.length - 1
+        ? fronteraTramo(evaluar, xs[j + 1], xs[j])
+        : tramoHastaInfinito(evaluar, 1)
+          ? { x: Infinity, cerrado: false }
+          : { x: xs[ys.length - 1], cerrado: true };
+      intervalos.push({ a: izq.x, cerradoA: izq.cerrado, b: der.x, cerradoB: der.cerrado });
+      for (let k = i; k <= j; k++) enTramo.add(k);
+    }
+    i = j + 1;
+  }
 
   for (let i = 0; i < xs.length - 1; i++) {
     const ya = ys[i], yb = ys[i + 1];
     if (!Number.isFinite(ya) || !Number.isFinite(yb)) continue;
-    if (ya === 0) { agregar(xs[i]); continue; }
+    if (ya === 0) { if (!enTramo.has(i)) agregar(xs[i]); continue; }
     if (ya * yb < 0) {
       const r = refinarRaiz(evaluar, xs[i], ya, xs[i + 1]);
       if (r !== null) agregar(r);
     }
   }
   const n = xs.length - 1;
-  if (Number.isFinite(ys[n]) && ys[n] === 0) agregar(xs[n]);
+  if (Number.isFinite(ys[n]) && ys[n] === 0 && !enTramo.has(n)) agregar(xs[n]);
 
-  return raices.sort((p, q) => p - q);
+  return { puntos: raices.sort((p, q) => p - q), intervalos };
 }
 
 /**
@@ -168,7 +252,7 @@ function detectarVertices(
 
 export function analizarFuncion(
   evaluar: (x: number) => number
-): { raices: number[]; vertices: Vertice[] } {
+): { raices: number[]; vertices: Vertice[]; intervalosRaiz: IntervaloRaiz[] } {
   const { min, max, pasos } = RANGO_X;
   const delta = (max - min) / pasos;
 
@@ -181,10 +265,37 @@ export function analizarFuncion(
     ys[i] = evaluar(x);
   }
 
+  const { puntos, intervalos } = detectarRaices(evaluar, xs, ys);
   return {
-    raices: detectarRaices(evaluar, xs, ys),
+    raices: puntos,
     vertices: detectarVertices(xs, ys, delta, evaluar),
+    intervalosRaiz: intervalos,
   };
+}
+
+/**
+ * LaTeX del conjunto de raíces cuando hay TRAMOS: `x\in[0,1)` (⌊x⌋), varios tramos
+ * unidos con ∪, y las raíces puntuales sueltas como conjunto finito al final
+ * (`x\in[0,1)\cup\{-3\}`). Números compactos: enteros sin decimales, resto con
+ * hasta 4 decimales sin ceros de relleno. Un extremo ±∞ se pinta `\infty` (siempre
+ * con paréntesis, abierto). Solo la PARTE MATEMÁTICA (el prefijo "Raíces:" es texto
+ * plano del panel, en Lora, no LaTeX).
+ */
+export function raicesALatex(
+  intervalos: readonly IntervaloRaiz[],
+  sueltas: readonly number[]
+): string {
+  const num = (v: number): string => {
+    if (v === Infinity) return "\\infty";
+    if (v === -Infinity) return "-\\infty";
+    const r = parseFloat(v.toFixed(4));
+    return Object.is(r, -0) ? "0" : String(r);
+  };
+  const partes = intervalos.map(
+    (t) => `${t.cerradoA ? "[" : "("}${num(t.a)},${num(t.b)}${t.cerradoB ? "]" : ")"}`
+  );
+  if (sueltas.length > 0) partes.push(`\\{${sueltas.map(num).join(",\\ ")}\\}`);
+  return `x\\in ${partes.join("\\cup ")}`;
 }
 
 /**

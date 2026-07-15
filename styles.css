@@ -18,6 +18,12 @@
   padding: 24px;
   box-sizing: border-box;
   font-size: 24px !important;
+  /* La fórmula es de solo lectura: mostramos el cursor normal (flecha) en vez
+     del I-beam de texto que el navegador pone por defecto sobre el texto
+     seleccionable de KaTeX. `cursor` se hereda, así que fijarlo aquí cubre todo
+     el árbol de KaTeX y los TRES bloques (obs-graph, obs-system, obs-derivate),
+     que comparten esta clase de panel, más cualquier bloque futuro que la use. */
+  cursor: default;
 }
 
 .obsi-math-latex .katex {
@@ -53,6 +59,13 @@
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
   box-sizing: border-box;
+  /* Fuente Lora SOLO para el texto de la interfaz del plugin (popovers, etiquetas,
+     botones): el plano aloja todos esos overlays DOM. Se acota aquí a propósito para
+     NO tocar el panel LaTeX (.obsi-math-latex, hermano) ni el resto de Obsidian. El
+     LaTeX de KaTeX conserva su propia fuente aunque estuviera dentro (fija font-family
+     en sus spans). La familia "Lora" la carga host-obsidian/fuentes.ts en runtime;
+     var(--font-interface) es el fallback mientras carga o si falla. */
+  font-family: "Lora", var(--font-interface);
 }
 
 .obsi-math-info {

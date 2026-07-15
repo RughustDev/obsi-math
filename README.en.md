@@ -1,31 +1,104 @@
-# obsi-math
+# Obsi Math
 
-🇪🇸 [Español](./README.es.md) · 🇬🇧 [English](./README.en.md)
+🇪🇸 [Español](./README.es.md)
 
-An Obsidian plugin for graphing mathematical functions directly inside your notes using `obs-graph` code blocks. It renders the expression in LaTeX, draws the graph using a WebGL + Canvas 2D engine (Desmos-style), and automatically computes roots, vertices, and the Y-intercept.
+Obsi Math is an [Obsidian](https://obsidian.md) plugin for graphing functions, systems of equations, derivatives and integrals directly inside your notes: each block shows the formula rendered in LaTeX (KaTeX) on the left, and an interactive Cartesian plane (pan, zoom, crosshair, rail mode) on the right.
 
-![Plugin overview: LaTeX + graph of 1/(x-2) with a vertical asymptote](assets/images/demo-asymptote.png)
+> ℹ️ This version is only available in Spanish.
 
 ---
 
+## Contents
+
+- [Available blocks](#available-blocks)
+- [Features](#features)
+- [Cover](#cover)
+- [Gallery](#gallery)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Input syntax](#input-syntax)
+- [Settings](#settings)
+- [Known limitations](#known-limitations)
+- [Development](#development)
+- [License](#license)
+
+---
+
+## Available blocks
+
+| Block | What it graphs |
+|---|---|
+| ` ```obs-graph ` | A single function or curve: explicit `y=f(x)`, implicit `F(x,y)=0`, parametric `(x(t), y(t))` or polar `r(θ)`. |
+| ` ```obs-system ` | Several equations (one per line, or LaTeX `\begin{cases}…\end{cases}`), each with its own color, plus the **solutions of the system** (intersections between curves). |
+| ` ```obs-derivate ` | Differentiates `f(x)` symbolically and graphs **only the derivative** `f'(x)`. |
+| ` ```obs-integral ` | Definite integral `\int_a^b f\,dx`: graphs the integrand, **shades the region** between `a` and `b` and shows the signed area (and the antiderivative, when the built-in integrator covers it). |
+
 ## Features
 
-* 📈 Real-time graphing with a WebGL engine (curves) + Canvas 2D (axes, grid, labels).
-* ✏️ LaTeX rendering of the entered expression, including nested exponents and roots of any degree.
-* 🔍 Interactive zoom and pan with the mouse.
-* 🖱️ Interactive crosshair: follows the cursor and displays `x` and `f(x)` in real time, with a marker on the curve.
-* 📍 Automatic detection of roots, vertices (maxima/minima), and the Y-intercept (`f(0)`), displayed as orange markers on the graph. Hovering near a notable point shows its coordinate label.
-* ⚡ Vertical asymptotes automatically detected and drawn as dashed lines, including cases where both branches diverge in the same direction (`1/x²`, `x⁻⁴`, etc.).
-* ⚠️ Classification of non-graphable functions in ℝ (*Undefined in ℝ*, *Undefined*, *Indeterminate*), with an informational overlay and an interactive graph plane.
-* 🎨 Subtle grid, clean axes, proper margins and centering, with no distortion when resizing.
-* 🔤 Input support for LaTeX, Unicode (`π`, `√`, `×`, `÷`, `²`, `³`), and standard mathematical notation.
-* 📐 Support for absolute value (`|x|`, `\left|…\right|`, `abs(x)`) and all six inverse trigonometric functions (`arcsin`, `arccos`, `arctan`, `arccsc`, `arcsec`, `arccot`) in multiple input formats.
+- Custom graphing engine: it discovers and traces the curve by arc length (it does not sample over a pixel-bound grid), so bounded curves (heart, astroid, lemniscate) neither deform nor vanish when you zoom out.
+- LaTeX rendering of the entered expression, including nested exponents, roots of any index, and parametric/polar curves with their own notation.
+- Interactive zoom and pan with the mouse and the keyboard.
+- Interactive crosshair: it follows the cursor and shows `x` and `f(x)` in real time, with a marker on the curve.
+- Rail mode (⌖): walk along the curve with the keyboard by on-screen arc length; at vertical asymptotes it jumps to the neighboring branch instead of derailing.
+- Automatic detection of roots, vertices and the Y intercept, displayed as markers on the plane; functions with infinitely many notable points (periodic ones) show a summary through the ⓘ button.
+- Vertical asymptotes detected and drawn as dotted lines.
+- Classification of non-graphable blocks (*Not defined in ℝ*, *Undefined*, *Indeterminate*, *Unsupported symbol*, etc.) with an informative overlay on the plane; the LaTeX panel never shows a verdict, only the formula.
+- Input in LaTeX, Unicode (`π`, `√`, `×`, `÷`, `²`, `³`, `θ`, `∞`) and standard mathematical notation.
+- Support for absolute value (`|x|`, `\left|…\right|`, `abs(x)`), the six inverse trigonometric functions and step functions (`⌊x⌋`, `⌈x⌉`).
+- Automatic simplification of every displayed expression, and solving for `y` either manually or optionally automatically (see [Settings](#settings)).
 
-![Interactive crosshair showing cursor position, x value, and real-time function evaluation](assets/images/demo-crosshair.png)
+---
 
-![Automatically detected notable points, including roots, vertices, and Y-intercept](assets/images/demo-notable-points.png)
+## Cover
 
-![tan(x) with correctly detected and rendered vertical asymptotes](assets/images/demo-tan.png)
+<figure>
+	<img src="assets/images/demo-heart.png" alt="Obsi Math tracing a heart-shaped implicit curve on a Cartesian plane">
+	<figcaption><strong>Cover.</strong> Heart-shaped implicit curve traced on a Cartesian plane, with the formula rendered in the side panel.</figcaption>
+</figure>
+
+---
+
+## Gallery
+
+### Basic graphing
+
+<figure>
+	<img src="assets/images/demo-explicit.png" alt="Obsi Math graphing an explicit function with the rendered formula and the curve on the plane">
+	<figcaption><strong>Explicit function.</strong> Explicit function rendered in the panel and traced on the plane with axes and interactive markers.</figcaption>
+</figure>
+
+### Systems
+
+<figure>
+	<img src="assets/images/demo-system.png" alt="Obsi Math solving a system of equations and showing its curves and intersections on the plane">
+	<figcaption><strong>Systems of equations.</strong> System of equations traced with differently colored curves and highlighted intersections on the plane.</figcaption>
+</figure>
+
+### Derivatives
+
+<figure>
+	<img src="assets/images/demo-derivative.png" alt="Obsi Math showing the symbolic derivative and its linear graph in a split view">
+	<figcaption><strong>Derivatives.</strong> Symbolic derivative shown in a split view, with the operator and the result displayed separately.</figcaption>
+</figure>
+
+### Integrals
+
+<figure>
+	<img src="assets/images/demo-integral.png" alt="Obsi Math showing a definite integral with a shaded region and an evaluated antiderivative">
+	<figcaption><strong>Definite integrals.</strong> Definite integral with a shaded region, evaluated antiderivative and the area reading in the panel.</figcaption>
+</figure>
+
+### Special curves
+
+<figure>
+	<img src="assets/images/demo-parametric.png" alt="Obsi Math graphing a parametric curve with its component-wise equation">
+	<figcaption><strong>Parametric curves.</strong> Parametric curve traced from its components, with the corresponding notation in the panel.</figcaption>
+</figure>
+
+<figure>
+	<img src="assets/images/demo-polar.png" alt="Obsi Math graphing a polar curve with the r of theta notation in the panel">
+	<figcaption><strong>Polar curves.</strong> Polar curve traced with the <code>r(θ)</code> notation in the panel and its corresponding geometry on the plane.</figcaption>
+</figure>
 
 ---
 
@@ -33,10 +106,10 @@ An Obsidian plugin for graphing mathematical functions directly inside your note
 
 ### Manual
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the latest release.
+1. Download `main.js`, `manifest.json` and `styles.css` from the latest release.
 2. Create the `obsi-math` folder inside `<your-vault>/.obsidian/plugins/`.
 3. Copy the files there.
-4. In Obsidian: **Settings → Community Plugins** → enable **Obsi Math**.
+4. In Obsidian: **Settings → Community plugins** → enable **Obsi Math**.
 
 ### From source
 
@@ -47,21 +120,15 @@ npm install
 npm run build
 ```
 
-Copy the generated `main.js` (along with `manifest.json` and `styles.css`) into your vault's plugin folder.
+Copy the generated `main.js` (along with `manifest.json` and `styles.css`) to your vault's plugins folder.
 
 ---
 
 ## Usage
 
-Create a code block using the `obs-graph` language and enter your function:
+### obs-graph
 
-````markdown
-```obs-graph
-x^2 - 4
-```
-````
-
-You can also enter the full equation; the plugin automatically uses the right-hand side:
+Write a function; the plugin automatically takes the right-hand side if you write the full equality.
 
 ````markdown
 ```obs-graph
@@ -69,9 +136,59 @@ f(x) = sin(x) * 2
 ```
 ````
 
-The block renders the expression in LaTeX, the interactive graph, and the computed notable points: Y-intercept, real roots, and vertices.
+Implicit, parametric and polar:
 
-**More examples:**
+````markdown
+```obs-graph
+x^3 + y^3 = 9
+```
+````
+
+````markdown
+```obs-graph
+x(t) = 5*cos(t) - cos(5*t)
+y(t) = 5*sin(t) - sin(5*t)
+```
+````
+
+````markdown
+```obs-graph
+r = sin(3*theta)
+```
+````
+
+### obs-system
+
+One equation per line; each one takes its own color, and the solutions (intersections) between them are marked.
+
+````markdown
+```obs-system
+y = x + 1
+y = -x^2 + 3
+```
+````
+
+### obs-derivate
+
+You only write `f(x)`; the block differentiates and graphs `f'(x)`.
+
+````markdown
+```obs-derivate
+x^3 - 2*x
+```
+````
+
+### obs-integral
+
+LaTeX input with the limits of integration.
+
+````markdown
+```obs-integral
+\int_{0}^{2} x^2 \, dx
+```
+````
+
+### More input examples (obs-graph, obs-derivate, obs-integral)
 
 Vertical asymptote:
 
@@ -97,7 +214,7 @@ arctan(x)
 ```
 ````
 
-Arbitrary-degree root:
+Root of an arbitrary index:
 
 ````markdown
 ```obs-graph
@@ -113,85 +230,75 @@ x^{3^{2}}
 ```
 ````
 
-### Graph interaction
+### Interacting with the graph
 
-| Action                     | Effect                                           |
-| -------------------------- | ------------------------------------------------ |
-| Move cursor                | Displays crosshair with real-time `x` and `f(x)` |
-| Hover near a notable point | Displays coordinate label `(x, y)`               |
-| Drag                       | Pans the view                                    |
-| Mouse wheel                | Zooms in/out centered on the cursor              |
+| Action | Effect |
+|---|---|
+| Move the cursor | Shows a crosshair with `x` and `f(x)` in real time |
+| Bring the cursor near a notable point | Shows a coordinate label `(x, y)` |
+| Drag | Moves the view (pan) |
+| Mouse wheel | Zoom in/out centered on the cursor |
+| ⌖ button (rail mode, when the curve is walkable) | Walk along the curve with the keyboard, jumping between branches at asymptotes |
+| In `obs-system`, the color button per equation | Choose which curve the crosshair/rail follows |
 
 ### Functions with many notable points
 
-For periodic functions such as `sin(x)` or `tan(x)`, roots and vertices are infinite and are therefore not drawn individually. Instead, an **ⓘ** button appears in the graph corner and displays a summary when clicked.
-
-![Summary of notable points for functions with infinitely many roots or vertices](assets/images/demo-summary.png)
+In periodic functions such as `sin(x)` or `tan(x)`, the roots and vertices are infinite and are not drawn individually. Instead, an **ⓘ** button appears in the corner of the graph and shows a summary when clicked.
 
 ### Non-graphable functions
 
-If the function produces no real values (for example `sqrt(-1)` or `log(x)/log(1)`), the graph plane is dimmed and an overlay indicates the reason: *Undefined in ℝ*, *Undefined*, or *Indeterminate*. Zoom and pan remain available.
+If the function does not produce any real value (for example `sqrt(-1)` or `log(x)/log(1)`), the plane is dimmed with a label indicating the cause: *Not defined in ℝ*, *Undefined*, *Indeterminate*, among others. Zoom and pan remain active.
 
-An empty block displays *No function* instead of an error.
-
-![Informational overlay shown when the function produces no graphable real values](assets/images/demo-degenerate.png)
+An empty block shows the message *No function* instead of an error.
 
 ---
 
 ## Input syntax
 
-The plugin normalizes various formats before evaluating them with mathjs:
+The plugin normalizes different formats before evaluating them with [mathjs](https://mathjs.org/). This applies to all four blocks, which share the same parser.
 
-| Type     | Examples                                                                             |         |   |
-| -------- | ------------------------------------------------------------------------------------ | ------- | - |
-| Unicode  | `π`, `√`, `×`, `÷`, `²`, `³`, `∞`                                                    |         |   |
-| LaTeX    | `\frac{1}{2}`, `x^{2}`, `\sqrt{x}`, `\sqrt[3]{x}`, `\sin{x}`, `\log_{2}{x}`, `\left  | x\right | ` |
-| Standard | `sin(x)`, `cos(x)`, `log(x, 2)`, `sqrt(x)`, `abs(x)`                                 |         |   |
-| Inverse  | `arcsin(x)`, `sin⁻¹(x)`, `asin(x)` (and analogous forms for cos, tan, csc, sec, cot) |         |   |
+| Type | Examples |
+|---|---|
+| Unicode | `π`, `√`, `∛`, `∜`, `×`, `÷`, `²`, `³`, `θ`, `∞`, `⌊x⌋`, `⌈x⌉` |
+| LaTeX | `\frac{1}{2}`, `x^{2}`, `\sqrt{x}`, `\sqrt[3]{x}`, `\sin{x}`, `\log_{2}{x}`, `\left|x\right|`, `\int_a^b f\,dx` |
+| Standard | `sin(x)`, `cos(x)`, `log(x, 2)`, `sqrt(x)`, `abs(x)` |
+| Inverse | `arcsin(x)`, `sin⁻¹(x)`, `asin(x)` (and their analogues for cos, tan, csc, sec, cot) |
 
 > ⚠️ **Trigonometry (degrees vs. radians):** if the argument is a literal number (e.g. `sin(30)`), it is interpreted in **degrees**; if the argument contains a variable (e.g. `sin(x)`), it is evaluated in **radians**.
 
-**Roots of any degree:** the notation `\sqrt[n]{x}` is supported for cube roots, fourth roots, fifth roots, etc. Odd-degree roots of negative radicands return the real value (e.g. `\sqrt[3]{-8} = -2`).
+**Roots of any index:** the `\sqrt[n]{x}` notation is supported for cube, fourth, fifth roots, and so on. Odd-index roots with a negative radicand return the real value (e.g. `\sqrt[3]{-8} = -2`).
 
-![Cube root of x graphed, showing the negative branch](assets/images/demo-cbrt.png)
+**Absolute value:** `|x|`, `\left|x\right|` and `abs(x)` are all accepted.
 
-**Absolute value:** `|x|`, `\left|x\right|`, and `abs(x)` are supported. Vertical bars are parsed using a stack-based algorithm rather than regular expressions, allowing correct handling of complex nested expressions.
+**Inverse trigonometric functions:** `arccsc`, `arcsec` and `arccot` are not native to mathjs; the plugin implements them as real-domain wrappers.
 
-![Absolute value function entered using vertical bars](assets/images/demo-absolute-value.png)
+**Component-wise parametric curves:** `x(t)=…` and `y(t)=…` on separate lines are merged into a single curve; a lone component also graphs, respecting the axis it declares (`y(t)=…` gives the classic graph, `x(t)=…` comes out lying on its side).
 
-**Inverse trigonometric functions:** `arccsc`, `arcsec`, and `arccot` are not native to mathjs; the plugin implements them as real-domain wrappers (`acsc(x) = asin(1/x)`, `acot(x) = π/2 − atan(x)`, etc.).
+**Unrecognized symbol:** an unknown LaTeX command (`\alpha`, `\sum`, …) does not silently degrade into a free variable: the block shows **"Unsupported symbol"**.
 
-![Example of an inverse trigonometric function represented on the graph](assets/images/demo-inverse-trig.png)
-
-**Complex numbers:** not supported. If the function produces an imaginary result, the graph displays the non-graphable function overlay.
+**Complex numbers:** not supported. If the function produces an imaginary result, the plane will show the non-graphable function overlay.
 
 ---
 
-## Known Issues
+## Settings
 
-* The visual behavior of functions with dense asymptotes (such as `sec(10x)`) at extreme zoom-out levels is inherent to the periodic nature of those functions; it has been significantly improved but cannot be completely eliminated.
+The plugin adds a settings tab (**Settings → Obsi Math**):
 
-### Fixed
-
-* ~~**LaTeX rendering of `\sqrt`, `\log`, etc. without braces**~~
-* ~~**Extra parentheses in nested exponents**~~
-* ~~**Cursor offset while zooming**~~
-* ~~**False asymptote in functions such as `x^{2^{π}}`**~~
-* ~~**Spurious horizontal scrollbar in the LaTeX panel**~~
+- **Solve automatically** — when rendering, it directly shows the solved result (`y = f(x)`) without pressing the "Solve" button.
+- **Show notable points** — draws the markers for roots, vertices, Y intercepts and system solutions on the plane. Turning it off leaves the plane clean; the ⓘ summary still lists them, and the crosshair and rail mode are unaffected.
+- **Automatic framing** — adjusts the initial view so that a bounded curve fits entirely in the plane when the note starts out empty.
 
 ---
 
-## obs-system (temporarily disabled)
+## Known limitations
 
-The plugin includes an `obs-system` block for solving and graphing systems of linear equations, but **it is currently disabled**: using it only displays a notice.
+> This version is already at a mature stage, but it may still contain bugs. If you find one, report it in an issue with the exact block that reproduces it.
 
-Reason: it is still a very basic feature, with noticeable lag during zooming and panning. Development is currently focused on refining `obs-graph`, so `obs-system` will be revisited and improved later.
-
-To re-enable it during development, in `main.ts`:
-
-```typescript
-private readonly OBS_SISTEMA_HABILITADO = false; // → true
-```
+- `obs-system` requires two or more equations; for a standalone curve (including an implicit one), use `obs-graph`.
+- Regions and inequalities (`y ≥ x`) are not graphed: they are detected and labeled as unsupported.
+- The symbolic integrator has textbook-level scope: when it cannot find an antiderivative, the panel falls back to the numeric value. Improper integrals (limits at `±∞`) are labeled, not evaluated.
+- The crosshair and rail mode follow a single curve at a time and require it to be walkable as `y=f(x)`.
+- The visual behavior of functions with dense asymptotes (such as `sec(10x)`) at extreme zoom-out is inherent to the periodic nature of those functions.
 
 ---
 
@@ -200,22 +307,14 @@ private readonly OBS_SISTEMA_HABILITADO = false; // → true
 Requirements: Node.js, npm, TypeScript.
 
 ```bash
-npm run build
+npm run build       # compiles main.ts → main.js (esbuild)
+npm run test        # quick suite of pure-logic tests
+npm run test:zoom   # zoom sweep suite (slower, isolated separately)
 ```
 
-Recommended workflow: edit `main.ts` → compile → copy `main.js` into a test vault → verify → back up if it works, restore if it fails.
+Recommended workflow: edit the code → `npm run build` → copy `main.js` to a test vault → verify → back it up if it works, restore it if it fails.
 
-> **Important:** both `manifest.json` and `main.ts` must be saved as **UTF-8 without BOM**. A BOM at the beginning of either file may break parsing in Obsidian or cause silent compilation errors.
-
----
-
-## Roadmap
-
-* [ ] Re-enable and improve `obs-system` (zoom/pan performance).
-* [ ] Integrated information panel inside the graph (replace the current bottom panel).
-* [ ] Global settings panel in Obsidian (decimal precision, theme).
-* [ ] Trigonometric unit selector (degrees/radians/gradians).
-* [ ] Full support for enriched LaTeX input.
+> **Important:** both `manifest.json` and the `.ts` files must be saved in **UTF-8 without BOM**. A BOM at the start of any of these files can break parsing in Obsidian or produce silent build errors.
 
 ---
 
@@ -225,4 +324,4 @@ MIT — see [LICENSE](./LICENSE).
 
 ## Repository
 
-https://github.com/RughustDev/obsi-math
+[github.com/RughustDev/obsi-math](https://github.com/RughustDev/obsi-math)
