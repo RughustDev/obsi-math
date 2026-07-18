@@ -1,6 +1,6 @@
-# v1.1.0
+# 1.1.0
 
-🇪🇸 [Release en español](./release%20v1.1.0.es.md)
+🇪🇸 [Release en español](./release%201.1.0.es.md)
 
 ## New Features
 
