@@ -7,7 +7,7 @@ import { crearConsolaDev, NOMBRE_GLOBAL } from "./src/host-obsidian/consolaDev";
 import { fijarIdioma, t } from "./src/i18n";
 import {
   AJUSTES_POR_DEFECTO,
-  PestanaAjustesObsiMath,
+  PestanaAjustesLMath,
   type AjustesTransformaciones,
   type PluginConAjustes,
 } from "./src/host-obsidian/ajustes";
@@ -15,7 +15,7 @@ import {
 // ─────────────────────────────────────────────
 // Plugin principal
 // ─────────────────────────────────────────────
-export default class ObsiMathPlugin extends Plugin implements PluginConAjustes {
+export default class LMathPlugin extends Plugin implements PluginConAjustes {
   // Selector del motor para el bloque obs-graph. `true` → motor nuevo (src/motor/);
   // `false` → GraphEngine antiguo (intacto, reactivable con esta sola bandera).
   // El bloque obs-system usa SIEMPRE el motor nuevo: el SystemEngine antiguo, que
@@ -28,17 +28,17 @@ export default class ObsiMathPlugin extends Plugin implements PluginConAjustes {
   ajustes: AjustesTransformaciones = { ...AJUSTES_POR_DEFECTO };
 
   async onload() {
-    console.log("Obsi Math: plugin cargado");
+    console.log("LMath: plugin cargado");
 
     // Ajustes persistentes ANTES de registrar los motores (los capturan por referencia) y
     // ANTES de cualquier texto de interfaz: `cargarAjustes` fija el idioma activo (i18n) a
     // partir de la preferencia guardada, así el aviso y la pestaña ya salen en ese idioma.
     await this.cargarAjustes();
     new Notice(t().aviso.cargado);
-    this.addSettingTab(new PestanaAjustesObsiMath(this.app, this));
+    this.addSettingTab(new PestanaAjustesLMath(this.app, this));
 
     // Fuente Lora para el texto de la interfaz del plugin (se aplica en styles.css,
-    // acotada a .obsi-math-grafica). Sin await: no bloquea la carga; hasta que
+    // acotada a .lmath-grafica). Sin await: no bloquea la carga; hasta que
     // resuelve, la UI usa el fallback del stack CSS.
     void registrarFuenteLora(this);
 
@@ -88,15 +88,15 @@ export default class ObsiMathPlugin extends Plugin implements PluginConAjustes {
       (source, el, ctx) => motorIntegral.process(source, el, ctx)
     );
 
-    // Herramienta de desarrollo: global `obsiMath` en la consola de Obsidian (Ctrl+Shift+I)
+    // Herramienta de desarrollo: global `lmath` en la consola de Obsidian (Ctrl+Shift+I)
     // para trazar el pipeline de un bloque (grafica + LaTeX + diagnóstico) sin pintar nada.
-    // La MISMA maquinaria pura que la CLI `npm run trazar`. `obsiMath.ayuda()` lista el uso.
+    // La MISMA maquinaria pura que la CLI `npm run trazar`. `lmath.ayuda()` lista el uso.
     (window as unknown as Record<string, unknown>)[NOMBRE_GLOBAL] = crearConsolaDev();
-    console.log(`Obsi Math: consola de desarrollo lista → ${NOMBRE_GLOBAL}.ayuda()`);
+    console.log(`LMath: consola de desarrollo lista → ${NOMBRE_GLOBAL}.ayuda()`);
   }
 
   onunload() {
-    console.log("Obsi Math: plugin descargado:");
+    console.log("LMath: plugin descargado:");
     // Retira el global de consola para no dejar referencias colgando al recargar el plugin.
     delete (window as unknown as Record<string, unknown>)[NOMBRE_GLOBAL];
   }
@@ -128,4 +128,4 @@ export default class ObsiMathPlugin extends Plugin implements PluginConAjustes {
   }
 }
 
-// https://github.com/LubrieDev/obsi-math
+// https://github.com/LubrieDev/lmath

@@ -2,7 +2,7 @@ import { trazar, normalizarTipo, type Trazado } from "../herramientas/trazador";
 import { formatear, TODO, type Contenido } from "../herramientas/formato";
 
 // ─────────────────────────────────────────────
-// Consola de desarrollo (global `obsiMath` en DevTools de Obsidian)
+// Consola de desarrollo (global `lmath` en DevTools de Obsidian)
 // ─────────────────────────────────────────────
 //
 // Expone el trazador de transformaciones como un objeto global para la consola de Obsidian
@@ -12,7 +12,7 @@ import { formatear, TODO, type Contenido } from "../herramientas/formato";
 //
 // Vive en host-obsidian porque toca `window` (Ring 3). El núcleo (`herramientas/`) es puro.
 
-export const NOMBRE_GLOBAL = "obsiMath";
+export const NOMBRE_GLOBAL = "lmath";
 
 /** Ejecuta el trazado y lo imprime en consola con las facetas pedidas; devuelve el objeto. */
 function correr(entrada: string, tipoBruto: string, q: Contenido): Trazado {
@@ -22,22 +22,22 @@ function correr(entrada: string, tipoBruto: string, q: Contenido): Trazado {
 }
 
 const AYUDA = [
-  `obsiMath — trazador de transformaciones de Obsi Math`,
+  `lmath — trazador de transformaciones de LMath`,
   ``,
-  `  obsiMath.trazar(entrada, tipo)      todo (grafica + latex + diagnóstico)`,
-  `  obsiMath.grafica(entrada, tipo)     solo el string mathjs que grafica`,
-  `  obsiMath.latex(entrada, tipo)       solo el LaTeX que renderiza KaTeX`,
-  `  obsiMath.diagnostico(entrada, tipo) solo la clasificación`,
+  `  lmath.trazar(entrada, tipo)      todo (grafica + latex + diagnóstico)`,
+  `  lmath.grafica(entrada, tipo)     solo el string mathjs que grafica`,
+  `  lmath.latex(entrada, tipo)       solo el LaTeX que renderiza KaTeX`,
+  `  lmath.diagnostico(entrada, tipo) solo la clasificación`,
   ``,
   `  tipo: "obs-graph" (por defecto) | "obs-system" | "obs-derivate" | "obs-integral"`,
   `        (valen también "graph"/"sistema"/"derivada"/"integrar"…)`,
   `  entrada: una ecuación, o varias con [ec1/ec2] (el / separa DENTRO de los corchetes).`,
   ``,
-  `  Ej:  obsiMath.trazar("x^3+y^3=9")`,
-  `       obsiMath.trazar("[x^2/x^3]")            // dos curvas independientes`,
-  `       obsiMath.trazar("x-y=1\\nx+y=3", "obs-system")`,
-  `       obsiMath.derivada("\\\\frac{d}{dx}(x^2)") // obs-derivate`,
-  `       obsiMath.integral("\\\\int_{0}^{2}x^2\\\\,dx") // obs-integral`,
+  `  Ej:  lmath.trazar("x^3+y^3=9")`,
+  `       lmath.trazar("[x^2/x^3]")            // dos curvas independientes`,
+  `       lmath.trazar("x-y=1\\nx+y=3", "obs-system")`,
+  `       lmath.derivada("\\\\frac{d}{dx}(x^2)") // obs-derivate`,
+  `       lmath.integral("\\\\int_{0}^{2}x^2\\\\,dx") // obs-integral`,
 ].join("\n");
 
 /**

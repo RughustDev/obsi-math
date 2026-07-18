@@ -2812,7 +2812,7 @@ var require_seedrandom2 = __commonJS({
 // main.ts
 var main_exports = {};
 __export(main_exports, {
-  default: () => ObsiMathPlugin
+  default: () => LMathPlugin
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian4 = require("obsidian");
@@ -48326,7 +48326,7 @@ var GraphEngine = class {
     this.obsMathUpdateCount = 0;
   }
   async process(source, el, ctx) {
-    const contenedor = el.createDiv({ cls: "obsi-math-container" });
+    const contenedor = el.createDiv({ cls: "lmath-container" });
     const limpieza = new import_obsidian.MarkdownRenderChild(contenedor);
     ctx.addChild(limpieza);
     try {
@@ -48338,11 +48338,11 @@ var GraphEngine = class {
         const tex = limpiarTex(parse2(expr).toTex(OPCIONES_TEX));
         latex = "f(x)=" + (tex === "undefined" ? "\\text{[...]}" : tex);
       } catch (e3) {
-        console.warn("ObsiMath: no se pudo generar LaTeX para", expr, e3);
+        console.warn("LMath: no se pudo generar LaTeX para", expr, e3);
       }
-      const panelLatex = contenedor.createDiv({ cls: "obsi-math-latex" });
+      const panelLatex = contenedor.createDiv({ cls: "lmath-latex" });
       panelLatex.style.cssText = "position:relative; width:50%; height:261px; padding:0; overflow:hidden;";
-      const contenedorLatex = panelLatex.createDiv({ cls: "obsi-math-latex" });
+      const contenedorLatex = panelLatex.createDiv({ cls: "lmath-latex" });
       contenedorLatex.style.cssText = "width:100%; height:100%; padding:24px; box-sizing:border-box; display:flex; align-items:center; justify-content:safe center; overflow-x:hidden; overflow-y:hidden;";
       contenedorLatex.style.scrollbarWidth = "thin";
       contenedorLatex.style.scrollbarColor = "#3a3a3a #1e1e1e";
@@ -48390,7 +48390,7 @@ var GraphEngine = class {
       let W = 768;
       const H = 261;
       const dpr = Math.ceil(window.devicePixelRatio || 1);
-      const wrapGrafica = contenedor.createDiv({ cls: "obsi-math-grafica" });
+      const wrapGrafica = contenedor.createDiv({ cls: "lmath-grafica" });
       wrapGrafica.style.cssText = `position:relative; width:100%; height:${H}px;`;
       const canvasGL = wrapGrafica.createEl("canvas");
       const canvas2D = wrapGrafica.createEl("canvas");
@@ -49088,12 +49088,12 @@ var GraphEngine = class {
           popResumen.style.display = popResumen.style.display === "none" ? "block" : "none";
         });
       }
-      const infoBox = contenedor.createDiv({ cls: "obsi-math-info" });
+      const infoBox = contenedor.createDiv({ cls: "lmath-info" });
       let formaSimplificada = "";
       try {
         formaSimplificada = simplify(expr).toString();
       } catch (e3) {
-        console.warn("ObsiMath: no se pudo simplificar", expr, e3);
+        console.warn("LMath: no se pudo simplificar", expr, e3);
       }
       if (formaSimplificada === "0") {
         infoBox.createEl("p", { text: "Interseccion Y: (0, 0.0000)" });
@@ -55571,7 +55571,7 @@ var import_obsidian2 = require("obsidian");
 var IDIOMAS = ["en", "es"];
 var IDIOMA_POR_DEFECTO = "en";
 var EN = {
-  aviso: { cargado: "Obsi Math loaded successfully!" },
+  aviso: { cargado: "LMath loaded successfully!" },
   ajustes: {
     transformaciones: "Transformations",
     despejarAuto: {
@@ -55679,7 +55679,7 @@ var EN = {
   }
 };
 var ES = {
-  aviso: { cargado: "\xA1Obsi Math se ha cargado correctamente!" },
+  aviso: { cargado: "\xA1LMath se ha cargado correctamente!" },
   ajustes: {
     transformaciones: "Transformaciones",
     despejarAuto: {
@@ -55834,7 +55834,7 @@ var AJUSTES_POR_DEFECTO = {
   encuadreAuto: true,
   idioma: IDIOMA_POR_DEFECTO
 };
-var PestanaAjustesObsiMath = class extends import_obsidian2.PluginSettingTab {
+var PestanaAjustesLMath = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -55896,7 +55896,7 @@ var MotorExperimental = class {
   }
   async process(source, el, ctx) {
     var _a;
-    const contenedor = el.createDiv({ cls: "obsi-math-container" });
+    const contenedor = el.createDiv({ cls: "lmath-container" });
     const limpieza = new import_obsidian3.MarkdownRenderChild(contenedor);
     ctx.addChild(limpieza);
     const ecuaciones = dividirEcuaciones(source);
@@ -55914,7 +55914,7 @@ var MotorExperimental = class {
     else
       await this.montarPanelLatex(contenedor, visibles, ctx, limpieza);
     const H = 261;
-    const wrap = contenedor.createDiv({ cls: "obsi-math-grafica" });
+    const wrap = contenedor.createDiv({ cls: "lmath-grafica" });
     wrap.style.cssText = `position:relative; width:100%; height:${H}px;`;
     const badge = wrap.createDiv({ text: "\u2699" });
     badge.setAttribute(
@@ -56291,7 +56291,7 @@ var MotorExperimental = class {
     const HUECO = 10;
     const ALTO_TARJETA = (ALTO_PANEL - PAD_SUP - PAD_LADO - HUECO) / 2;
     const ALTO_TARJETA_MAX = ALTO_PANEL - 2 * PAD_SUP;
-    const panelLatex = contenedor.createDiv({ cls: "obsi-math-latex" });
+    const panelLatex = contenedor.createDiv({ cls: "lmath-latex" });
     panelLatex.style.cssText = `position:relative; width:50%; height:${ALTO_PANEL}px; padding:0; overflow:hidden;`;
     const zona = panelLatex.createDiv();
     zona.style.cssText = "position:absolute; inset:0; display:flex; flex-direction:column; box-sizing:border-box;";
@@ -56301,7 +56301,7 @@ var MotorExperimental = class {
       const flexMarco = compartirAlto ? "flex:1 1 0;" : `flex:0 0 auto; height:${ALTO_TARJETA}px;`;
       const marco = padre.createDiv();
       marco.style.cssText = "position:relative; overflow:hidden; min-height:0; " + flexMarco + (enmarcado ? " border:1px solid rgba(255,255,255,0.11); border-radius:12px; background:rgba(0,0,0,0.22);" : "");
-      const area = marco.createDiv({ cls: "obsi-math-latex" });
+      const area = marco.createDiv({ cls: "lmath-latex" });
       area.style.cssText = `width:100%; height:100%; box-sizing:border-box; padding:${enmarcado ? "8px 24px" : "24px"}; display:flex; align-items:safe center; justify-content:safe center; overflow-x:hidden; overflow-y:hidden;`;
       area.style.scrollbarWidth = "thin";
       area.style.scrollbarColor = "#3a3a3a #1e1e1e";
@@ -56949,7 +56949,7 @@ async function registrarFuenteLora(_plugin) {
       await cara.load();
       document.fonts.add(cara);
     } catch (e3) {
-      console.warn("Obsi Math: no se pudo cargar la fuente Lora", estilo, e3);
+      console.warn("LMath: no se pudo cargar la fuente Lora", estilo, e3);
     }
   }
 }
@@ -57148,29 +57148,29 @@ function formatear2(t2, q = TODO) {
 }
 
 // src/host-obsidian/consolaDev.ts
-var NOMBRE_GLOBAL = "obsiMath";
+var NOMBRE_GLOBAL = "lmath";
 function correr(entrada, tipoBruto, q) {
   const t2 = trazar(entrada, normalizarTipo(tipoBruto));
   console.log(formatear2(t2, q));
   return t2;
 }
 var AYUDA = [
-  `obsiMath \u2014 trazador de transformaciones de Obsi Math`,
+  `lmath \u2014 trazador de transformaciones de LMath`,
   ``,
-  `  obsiMath.trazar(entrada, tipo)      todo (grafica + latex + diagn\xF3stico)`,
-  `  obsiMath.grafica(entrada, tipo)     solo el string mathjs que grafica`,
-  `  obsiMath.latex(entrada, tipo)       solo el LaTeX que renderiza KaTeX`,
-  `  obsiMath.diagnostico(entrada, tipo) solo la clasificaci\xF3n`,
+  `  lmath.trazar(entrada, tipo)      todo (grafica + latex + diagn\xF3stico)`,
+  `  lmath.grafica(entrada, tipo)     solo el string mathjs que grafica`,
+  `  lmath.latex(entrada, tipo)       solo el LaTeX que renderiza KaTeX`,
+  `  lmath.diagnostico(entrada, tipo) solo la clasificaci\xF3n`,
   ``,
   `  tipo: "obs-graph" (por defecto) | "obs-system" | "obs-derivate" | "obs-integral"`,
   `        (valen tambi\xE9n "graph"/"sistema"/"derivada"/"integrar"\u2026)`,
   `  entrada: una ecuaci\xF3n, o varias con [ec1/ec2] (el / separa DENTRO de los corchetes).`,
   ``,
-  `  Ej:  obsiMath.trazar("x^3+y^3=9")`,
-  `       obsiMath.trazar("[x^2/x^3]")            // dos curvas independientes`,
-  `       obsiMath.trazar("x-y=1\\nx+y=3", "obs-system")`,
-  `       obsiMath.derivada("\\\\frac{d}{dx}(x^2)") // obs-derivate`,
-  `       obsiMath.integral("\\\\int_{0}^{2}x^2\\\\,dx") // obs-integral`
+  `  Ej:  lmath.trazar("x^3+y^3=9")`,
+  `       lmath.trazar("[x^2/x^3]")            // dos curvas independientes`,
+  `       lmath.trazar("x-y=1\\nx+y=3", "obs-system")`,
+  `       lmath.derivada("\\\\frac{d}{dx}(x^2)") // obs-derivate`,
+  `       lmath.integral("\\\\int_{0}^{2}x^2\\\\,dx") // obs-integral`
 ].join("\n");
 function crearConsolaDev() {
   const api = {
@@ -57191,7 +57191,7 @@ function crearConsolaDev() {
 }
 
 // main.ts
-var ObsiMathPlugin = class extends import_obsidian4.Plugin {
+var LMathPlugin = class extends import_obsidian4.Plugin {
   constructor() {
     super(...arguments);
     // Selector del motor para el bloque obs-graph. `true` → motor nuevo (src/motor/);
@@ -57205,10 +57205,10 @@ var ObsiMathPlugin = class extends import_obsidian4.Plugin {
     this.ajustes = { ...AJUSTES_POR_DEFECTO };
   }
   async onload() {
-    console.log("Obsi Math: plugin cargado");
+    console.log("LMath: plugin cargado");
     await this.cargarAjustes();
     new import_obsidian4.Notice(t().aviso.cargado);
-    this.addSettingTab(new PestanaAjustesObsiMath(this.app, this));
+    this.addSettingTab(new PestanaAjustesLMath(this.app, this));
     void registrarFuenteLora(this);
     const ajustes = () => this.ajustes;
     const graphEngine = new GraphEngine(this);
@@ -57233,10 +57233,10 @@ var ObsiMathPlugin = class extends import_obsidian4.Plugin {
       (source, el, ctx) => motorIntegral.process(source, el, ctx)
     );
     window[NOMBRE_GLOBAL] = crearConsolaDev();
-    console.log(`Obsi Math: consola de desarrollo lista \u2192 ${NOMBRE_GLOBAL}.ayuda()`);
+    console.log(`LMath: consola de desarrollo lista \u2192 ${NOMBRE_GLOBAL}.ayuda()`);
   }
   onunload() {
-    console.log("Obsi Math: plugin descargado:");
+    console.log("LMath: plugin descargado:");
     delete window[NOMBRE_GLOBAL];
   }
   /** Carga las preferencias (loadData) copiando SOLO las claves vigentes (las de

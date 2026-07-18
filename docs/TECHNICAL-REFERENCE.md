@@ -1,4 +1,4 @@
-# Obsi Math — Internal Technical Reference
+# LMath — Internal Technical Reference
 
 Reverse-engineered from the source tree as of v1.0.0. Every statement in this document is
 backed by code; file paths are given per section. Where something cannot be confirmed from
@@ -51,7 +51,7 @@ There are **two rendering engines** for `obs-graph`:
 
 ## 2. Entry point and block registration — `main.ts`
 
-`ObsiMathPlugin.onload()` performs, in order:
+`LMathPlugin.onload()` performs, in order:
 
 1. `cargarAjustes()` — loads persisted preferences via `loadData()`, copying **only** keys
    that exist in `AJUSTES_POR_DEFECTO` and with matching types. This whitelist-merge exists
@@ -59,7 +59,7 @@ There are **two rendering engines** for `obs-graph`:
    merge; fossil keys found on disk trigger an immediate re-save with the filtered object
    (`main.ts:109-123`). It also calls `fijarIdioma()` before any UI text is produced, so the
    load notice and settings tab already appear in the stored language.
-2. Registers the settings tab (`PestanaAjustesObsiMath`, §13.2).
+2. Registers the settings tab (`PestanaAjustesLMath`, §13.2).
 3. `registrarFuenteLora(this)` without `await` — non-blocking font registration (§13.4).
 4. Creates one `MotorExperimental` per block type and registers the four
    `registerMarkdownCodeBlockProcessor` callbacks. The constructor flags select the mode:
@@ -73,7 +73,7 @@ There are **two rendering engines** for `obs-graph`:
 
    `ajustes` is a **live getter** (`() => this.ajustes`), not a snapshot: a settings change
    affects any block that re-renders, without reloading the plugin.
-5. Installs the dev console global `window.obsiMath` (§14.2) and removes it in `onunload`.
+5. Installs the dev console global `window.lmath` (§14.2) and removes it in `onunload`.
 
 ---
 
@@ -984,7 +984,7 @@ esbuild flag `--loader:.ttf=dataurl` (package.json `build` script) embeds them i
 `main.js`, so the release keeps the standard Obsidian trio (main.js, manifest.json,
 styles.css). `registrarFuenteLora` registers the `FontFace`s idempotently and fails
 silently per face (CSS fallback `var(--font-interface)`). `styles.css` scopes the family
-to `.obsi-math-grafica` (the plot's DOM overlays) only — KaTeX keeps its own fonts — and
+to `.lmath-grafica` (the plot's DOM overlays) only — KaTeX keeps its own fonts — and
 neutralizes Obsidian's own math-block overflow wrappers so the plugin's scroller is the
 only scrollbar.
 
@@ -1020,7 +1020,7 @@ with facet flags.
 
 ### 14.2 Consumers
 
-- `src/host-obsidian/consolaDev.ts` — the `window.obsiMath` global in Obsidian's DevTools
+- `src/host-obsidian/consolaDev.ts` — the `window.lmath` global in Obsidian's DevTools
   (`trazar/grafica/latex/diagnostico` + per-block shortcuts + `ayuda()`).
 - `herramientas/trazar.ts` — the terminal CLI. Bundled once with `npm run trazar`,
   executed with plain `node` (the header documents why not `npm run … --` on Windows:

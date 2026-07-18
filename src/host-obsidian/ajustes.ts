@@ -5,7 +5,7 @@
 // Cuarentena Obsidian: la ÚNICA pieza (con MotorExperimental y fuentes) que toca la API
 // de Obsidian para la interfaz de configuración. Define las preferencias persistentes, sus
 // valores por defecto y la pestaña oficial (PluginSettingTab) que aparece junto al
-// interruptor del plugin en Ajustes → Complementos de la comunidad → Obsi Math.
+// interruptor del plugin en Ajustes → Complementos de la comunidad → LMath.
 //
 // Las preferencias las carga/guarda el plugin (loadData/saveData); esta pieza solo pinta la
 // UI y escribe en el objeto de ajustes. El motor las CONSUME vía un getter (ver
@@ -59,7 +59,7 @@ export interface PluginConAjustes extends Plugin {
  * se configura); el cambio escribe en `plugin.ajustes` y persiste con
  * `plugin.guardarAjustes()` (loadData/saveData por debajo).
  */
-export class PestanaAjustesObsiMath extends PluginSettingTab {
+export class PestanaAjustesLMath extends PluginSettingTab {
   constructor(app: App, private readonly plugin: PluginConAjustes) {
     super(app, plugin);
   }

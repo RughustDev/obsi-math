@@ -1,4 +1,4 @@
-.obsi-math-container {
+.lmath-container {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -10,7 +10,7 @@
   margin: 16px;
 }
 
-.obsi-math-latex {
+.lmath-latex {
   width: 50%;
   display: flex;
   align-items: center;
@@ -26,7 +26,7 @@
   cursor: default;
 }
 
-.obsi-math-latex .katex {
+.lmath-latex .katex {
   font-size: 1.6em !important;
 }
 
@@ -40,19 +40,19 @@
    el overflow propio de Obsidian/KaTeX: dejamos que el contenido fluya hasta el
    contenedor del plugin, que será el único (y sólo si desborda de verdad) en
    mostrar su barra fina. */
-.obsi-math-latex .markdown-rendered,
-.obsi-math-latex p,
-.obsi-math-latex .math,
-.obsi-math-latex .math-block,
-.obsi-math-latex .katex-display,
-.obsi-math-latex mjx-container,
-.obsi-math-latex mjx-math {
+.lmath-latex .markdown-rendered,
+.lmath-latex p,
+.lmath-latex .math,
+.lmath-latex .math-block,
+.lmath-latex .katex-display,
+.lmath-latex mjx-container,
+.lmath-latex mjx-math {
   overflow: visible !important;
   max-width: none !important;
   margin: 0 !important;
 }
 
-.obsi-math-grafica {
+.lmath-grafica {
   width: 50%;
   height: 261px;
   position: relative;
@@ -61,18 +61,18 @@
   box-sizing: border-box;
   /* Fuente Lora SOLO para el texto de la interfaz del plugin (popovers, etiquetas,
      botones): el plano aloja todos esos overlays DOM. Se acota aquí a propósito para
-     NO tocar el panel LaTeX (.obsi-math-latex, hermano) ni el resto de Obsidian. El
+     NO tocar el panel LaTeX (.lmath-latex, hermano) ni el resto de Obsidian. El
      LaTeX de KaTeX conserva su propia fuente aunque estuviera dentro (fija font-family
      en sus spans). La familia "Lora" la carga host-obsidian/fuentes.ts en runtime;
      var(--font-interface) es el fallback mientras carga o si falla. */
   font-family: "Lora", var(--font-interface);
 }
 
-.obsi-math-info {
+.lmath-info {
   display: none;
 }
 
-.obsi-math-aviso {
+.lmath-aviso {
   width: 100%;
   text-align: center;
   font-size: 24px;

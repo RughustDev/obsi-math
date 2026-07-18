@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────
 //
 // Registra la familia "Lora" para el TEXTO de la interfaz del plugin. La aplicación
-// de la fuente se hace en styles.css, acotada a `.obsi-math-grafica` (los overlays
+// de la fuente se hace en styles.css, acotada a `.lmath-grafica` (los overlays
 // DOM del plano); aquí solo se CARGA la familia.
 //
 // Los `.ttf` se IMPORTAN como Data URI: esbuild los incrusta en el bundle (main.js)
@@ -46,7 +46,7 @@ export async function registrarFuenteLora(_plugin?: Plugin): Promise<void> {
       await cara.load();
       document.fonts.add(cara);
     } catch (e) {
-      console.warn("Obsi Math: no se pudo cargar la fuente Lora", estilo, e);
+      console.warn("LMath: no se pudo cargar la fuente Lora", estilo, e);
     }
   }
 }

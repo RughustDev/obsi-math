@@ -43,4 +43,4 @@
 
 ## Note
 
-This release is not free of bugs. Obsi Math is still under active development, and some edge cases or unexpected behaviors may remain. If you encounter any issues, please report them.
+This release is not free of bugs. LMath is still under active development, and some edge cases or unexpected behaviors may remain. If you encounter any issues, please report them.

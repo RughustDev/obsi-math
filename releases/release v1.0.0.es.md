@@ -1,6 +1,6 @@
-# Obsi Math v1.0.0
+# LMath v1.0.0
 
-Obsi Math grafica funciones, sistemas, derivadas e integrales dentro de bloques de código de Obsidian: a la izquierda la fórmula en LaTeX, a la derecha un plano cartesiano interactivo.
+LMath grafica funciones, sistemas, derivadas e integrales dentro de bloques de código de Obsidian: a la izquierda la fórmula en LaTeX, a la derecha un plano cartesiano interactivo.
 
 La v0.5.0 terminaba con una promesa: *"el desarrollo continúa en un motor gráfico nuevo, construido desde cero, que busca resolver las limitaciones estructurales descritas arriba"*. **Ese motor ya está aquí, y es lo que ejecuta el plugin.**
 

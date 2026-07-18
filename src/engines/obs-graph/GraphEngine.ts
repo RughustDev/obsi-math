@@ -30,7 +30,7 @@ export class GraphEngine {
     el: HTMLElement,
     ctx: MarkdownPostProcessorContext
   ): Promise<void> {
-        const contenedor = el.createDiv({ cls: "obsi-math-container" });
+        const contenedor = el.createDiv({ cls: "lmath-container" });
 
         // Obsidian re-renderiza el bloque (editar, scroll, cambiar de nota…)
         // creando un contenedor nuevo cada vez. Sin liberar el contexto WebGL
@@ -60,14 +60,14 @@ export class GraphEngine {
             // Lo mostramos como marcador de "sin función": \text{[...]}.
             latex = "f(x)=" + (tex === "undefined" ? "\\text{[...]}" : tex);
           } catch (e) {
-            console.warn("ObsiMath: no se pudo generar LaTeX para", expr, e);
+            console.warn("LMath: no se pudo generar LaTeX para", expr, e);
           }
 
           // Panel izquierdo: contenedor posicionado que aloja el área de scroll
           // de la fórmula y el overlay de fade. El overlay tiene que ser hermano
           // del área scrolleable (no hijo): un elemento absolute dentro de un
           // scroller se desplaza junto al contenido y el fade "viajaría".
-          const panelLatex = contenedor.createDiv({ cls: "obsi-math-latex" });
+          const panelLatex = contenedor.createDiv({ cls: "lmath-latex" });
           panelLatex.style.cssText =
             "position:relative; width:50%; height:261px; padding:0; overflow:hidden;";
 
@@ -75,7 +75,7 @@ export class GraphEngine {
           // tamaño de fuente de KaTeX (no se reduce ni se escala el contenido).
           // `justify-content:safe center` centra la fórmula cuando cabe y la
           // alinea al inicio (totalmente scrolleable) cuando desborda.
-          const contenedorLatex = panelLatex.createDiv({ cls: "obsi-math-latex" });
+          const contenedorLatex = panelLatex.createDiv({ cls: "lmath-latex" });
           // overflow-x lo gestiona actualizarFade(): arranca en `hidden` y sólo
           // pasa a `auto` cuando hay desbordamiento real (ver tolerancia abajo).
           contenedorLatex.style.cssText =
@@ -166,7 +166,7 @@ export class GraphEngine {
           // solo un valor inicial de respaldo. H es la altura fija del panel.
           let W = 768; const H = 261;
           const dpr = Math.ceil(window.devicePixelRatio || 1);
-          const wrapGrafica = contenedor.createDiv({ cls: "obsi-math-grafica" });
+          const wrapGrafica = contenedor.createDiv({ cls: "lmath-grafica" });
           wrapGrafica.style.cssText = `position:relative; width:100%; height:${H}px;`;
 
           const canvasGL = wrapGrafica.createEl("canvas");
@@ -1016,7 +1016,7 @@ btnFijar.addEventListener("click", () => {
           // ── Fin motor gráfico ──────────────────────
 
           // ── Botón de resumen de puntos notables ──
-          // El panel inferior (.obsi-math-info) está oculto por CSS, así que
+          // El panel inferior (.lmath-info) está oculto por CSS, así que
           // cuando un grupo (raíces o vértices) NO está en estado normal —periódico
           // ("infinitas") o excesivo ("demasiadas"), por lo que no se dibujan sus
           // marcadores para no saturar el plano— el resumen se ofrece en un pequeño
@@ -1061,11 +1061,11 @@ btnFijar.addEventListener("click", () => {
           }
 
           // Análisis numérico - Cálculos
-          const infoBox = contenedor.createDiv({ cls: "obsi-math-info" });
+          const infoBox = contenedor.createDiv({ cls: "lmath-info" });
 
           let formaSimplificada = "";
           try { formaSimplificada = simplify(expr).toString(); }
-          catch (e) { console.warn("ObsiMath: no se pudo simplificar", expr, e); }
+          catch (e) { console.warn("LMath: no se pudo simplificar", expr, e); }
 
           if (formaSimplificada === "0") {
             infoBox.createEl("p", { text: "Interseccion Y: (0, 0.0000)" });

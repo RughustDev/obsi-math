@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Obsi Math — Architecture Overview</title>
+<title>LMath — Architecture Overview</title>
 </head>
 <body>
 <style>
@@ -83,7 +83,7 @@
 
 <div class="viewport"><div id="canvas">
   <div class="hdr">
-    <h1>OBSI&nbsp;MATH</h1>
+    <h1>LMATH</h1>
     <div class="sub">Architecture Overview — conceptual map</div>
     <p>All plugin files and how they relate: the <b>new engine</b> in rings (Clean Architecture),
     the <b>shared root code</b>, the Obsidian host, and the legacy fallback. The <b>Ring&nbsp;n</b>
@@ -137,7 +137,7 @@
 
     { id:"host", x:610, y:214, w:380, c:"violet", icon:"⚙", ring:"Ring 3",
       title:"Obsidian host", path:"main.ts · src/host-obsidian/",
-      desc:"Registers block processors, builds the LaTeX panel (KaTeX), buttons ⌖/ⓘ, settings, and font loading. Uses MOTOR_EXPERIMENTAL and exposes obsiMath in console.",
+      desc:"Registers block processors, builds the LaTeX panel (KaTeX), buttons ⌖/ⓘ, settings, and font loading. Uses MOTOR_EXPERIMENTAL and exposes lmath in console.",
       files:["main.ts","MotorExperimental.ts","ajustes.ts","fuentes.ts","consolaDev.ts"] },
 
     { id:"salida", x:1180, y:214, w:350, c:"blue", icon:"◎", ring:"Output",
@@ -155,7 +155,7 @@
     { id:"config", x:70, y:560, w:360, c:"grey", icon:"⛭", ring:"Root",
       title:"Plugin wrapper", path:"config · build · styles",
       desc:"Manifest and esbuild build; styles.css applies Lora to overlays; data.json stores settings.",
-      files:["manifest.json","package.json","package-lock.json","tsconfig.json","styles.css","data.json","main.js (artifact)","Obsi Math v1.0.0 release.md","Obsi Math v0.5.0 release.md"] },
+      files:["manifest.json","package.json","package-lock.json","tsconfig.json","styles.css","data.json","main.js (artifact)","LMath v1.0.0 release.md","LMath v0.5.0 release.md"] },
 
     { id:"raiz", x:490, y:474, w:620, c:"teal", icon:"ƒ", ring:"src/ root",
       title:"Shared root code", path:"src/ — reused by both engines and the host",
@@ -262,7 +262,7 @@
 
     { id:"herramientas", x:110, y:3140, w:1420, c:"grey", icon:"⌘", ring:"Dev",
       title:"Development tools — transform tracer", path:"src/herramientas/ (pure core) · herramientas/trazar.ts (CLI) · exposed via src/host-obsidian/consolaDev.ts",
-      desc:"Debugs the pipeline WITHOUT rendering: for each step (Original → Simplified → Solve-for-y; or Operator → Evaluated Derivative) it shows the mathjs string, the rendered LaTeX, and diagnostics. Reuses the SAME functions as the panel/engine. Console: obsiMath.trazar/grafica/latex/diagnostico(input, type). Terminal: node herramientas/.trazar.cjs (npm run trazar only compiles).",
+      desc:"Debugs the pipeline WITHOUT rendering: for each step (Original → Simplified → Solve-for-y; or Operator → Evaluated Derivative) it shows the mathjs string, the rendered LaTeX, and diagnostics. Reuses the SAME functions as the panel/engine. Console: lmath.trazar/grafica/latex/diagnostico(input, type). Terminal: node herramientas/.trazar.cjs (npm run trazar only compiles).",
       files:["herramientas/trazador.ts","herramientas/formato.ts","host-obsidian/consolaDev.ts","herramientas/trazar.ts (CLI)",".trazar.cjs (regenerable)"] }
   ];
 

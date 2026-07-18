@@ -1,11 +1,11 @@
 {
-  "id": "obsi-math",
-  "name": "Obsi Math",
+  "id": "lmath",
+  "name": "LMath",
   "version": "1.1.0",
   "minAppVersion": "1.5.0",
   "description": "Graph functions, systems, derivatives and integrals in interactive blocks.",
   "author": "Lenin",
-  "authorUrl": "https://github.com/RughustDev",
+  "authorUrl": "https://github.com/LubrieDev",
   "isDesktopOnly": false,
   "main": "main.js"
 }

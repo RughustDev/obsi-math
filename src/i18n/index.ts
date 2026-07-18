@@ -104,7 +104,7 @@ export interface Textos {
 
 // ── Inglés (idioma por defecto) ──────────────────────────────────────────────
 const EN: Textos = {
-  aviso: { cargado: "Obsi Math loaded successfully!" },
+  aviso: { cargado: "LMath loaded successfully!" },
   ajustes: {
     transformaciones: "Transformations",
     despejarAuto: {
@@ -236,7 +236,7 @@ const EN: Textos = {
 
 // ── Español ──────────────────────────────────────────────────────────────────
 const ES: Textos = {
-  aviso: { cargado: "¡Obsi Math se ha cargado correctamente!" },
+  aviso: { cargado: "¡LMath se ha cargado correctamente!" },
   ajustes: {
     transformaciones: "Transformaciones",
     despejarAuto: {

@@ -73,7 +73,7 @@ export class MotorExperimental {
     el: HTMLElement,
     ctx: MarkdownPostProcessorContext
   ): Promise<void> {
-    const contenedor = el.createDiv({ cls: "obsi-math-container" });
+    const contenedor = el.createDiv({ cls: "lmath-container" });
     const limpieza = new MarkdownRenderChild(contenedor);
     ctx.addChild(limpieza);
 
@@ -125,7 +125,7 @@ export class MotorExperimental {
     // pide width:50% y la gráfica width:100% inline; en el flex row del contenedor
     // eso reparte ⅓ para la fórmula y ⅔ para el plano (50 : 100).
     const H = 261;
-    const wrap = contenedor.createDiv({ cls: "obsi-math-grafica" });
+    const wrap = contenedor.createDiv({ cls: "lmath-grafica" });
     wrap.style.cssText = `position:relative; width:100%; height:${H}px;`;
 
     // Marca del motor experimental: badge discreto (el texto completo, en tooltip)
@@ -689,7 +689,7 @@ export class MotorExperimental {
     // barra de toggle; si ni así cabe, el área gana su propio scroll VERTICAL.
     const ALTO_TARJETA_MAX = ALTO_PANEL - 2 * PAD_SUP;
 
-    const panelLatex = contenedor.createDiv({ cls: "obsi-math-latex" });
+    const panelLatex = contenedor.createDiv({ cls: "lmath-latex" });
     panelLatex.style.cssText =
       `position:relative; width:50%; height:${ALTO_PANEL}px; padding:0; overflow:hidden;`;
 
@@ -745,7 +745,7 @@ export class MotorExperimental {
       // En caja enmarcada se recorta el padding vertical para dejar más alto útil. Llena
       // el marco (`height:100%`): el marco tiene siempre alto DEFINIDO (flex o `calc`),
       // así el interior —padding, centrado, scroll— es idéntico con una o varias tarjetas.
-      const area = marco.createDiv({ cls: "obsi-math-latex" });
+      const area = marco.createDiv({ cls: "lmath-latex" });
       // `safe center` TAMBIÉN en vertical: si la fórmula desborda a lo alto (gana
       // scroll-Y), el inicio queda alcanzable en vez de recortado por el centrado.
       area.style.cssText =
@@ -1565,7 +1565,7 @@ export class MotorExperimental {
     let idénticamenteCero = false;
     try { idénticamenteCero = simplify(expr).toString() === "0"; } catch { /* no simplificable */ }
 
-    // Cada línea es texto plano (fuente Lora, heredada de `.obsi-math-grafica`); si
+    // Cada línea es texto plano (fuente Lora, heredada de `.lmath-grafica`); si
     // lleva `tex`, esa parte MATEMÁTICA se renderiza con KaTeX a continuación del
     // texto. Así el prefijo "Raíces:" queda como texto normal (Lora) y solo la
     // expresión del conjunto (`x∈(1,∞)`) va en LaTeX.

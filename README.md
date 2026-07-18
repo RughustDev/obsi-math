@@ -1,6 +1,6 @@
-# Obsi Math
+# LMath
 
-Obsi Math is an [Obsidian](https://obsidian.md) plugin for graphing functions, systems of equations, derivatives and integrals directly inside your notes: each block shows the formula rendered in LaTeX (KaTeX) on the left, and an interactive Cartesian plane (pan, zoom, crosshair, rail mode) on the right.
+LMath is an [Obsidian](https://obsidian.md) plugin for graphing functions, systems of equations, derivatives and integrals directly inside your notes: each block shows the formula rendered in LaTeX (KaTeX) on the left, and an interactive Cartesian plane (pan, zoom, crosshair, rail mode) on the right.
 
 ---
 
@@ -50,7 +50,7 @@ Obsi Math is an [Obsidian](https://obsidian.md) plugin for graphing functions, s
 ## Cover
 
 <figure>
-	<img src="assets/images/demo-heart.png" alt="Obsi Math tracing a heart-shaped implicit curve on a Cartesian plane">
+	<img src="assets/images/demo-heart.png" alt="LMath tracing a heart-shaped implicit curve on a Cartesian plane">
 	<figcaption><strong>Cover.</strong> Heart-shaped implicit curve traced on a Cartesian plane, with the formula rendered in the side panel.</figcaption>
 </figure>
 
@@ -61,40 +61,40 @@ Obsi Math is an [Obsidian](https://obsidian.md) plugin for graphing functions, s
 ### Basic graphing
 
 <figure>
-	<img src="assets/images/demo-explicit.png" alt="Obsi Math graphing an explicit function with the rendered formula and the curve on the plane">
+	<img src="assets/images/demo-explicit.png" alt="LMath graphing an explicit function with the rendered formula and the curve on the plane">
 	<figcaption><strong>Explicit function.</strong> Explicit function rendered in the panel and traced on the plane with axes and interactive markers.</figcaption>
 </figure>
 
 ### Systems
 
 <figure>
-	<img src="assets/images/demo-system.png" alt="Obsi Math solving a system of equations and showing its curves and intersections on the plane">
+	<img src="assets/images/demo-system.png" alt="LMath solving a system of equations and showing its curves and intersections on the plane">
 	<figcaption><strong>Systems of equations.</strong> System of equations traced with differently colored curves and highlighted intersections on the plane.</figcaption>
 </figure>
 
 ### Derivatives
 
 <figure>
-	<img src="assets/images/demo-derivative.png" alt="Obsi Math showing the symbolic derivative and its linear graph in a split view">
+	<img src="assets/images/demo-derivative.png" alt="LMath showing the symbolic derivative and its linear graph in a split view">
 	<figcaption><strong>Derivatives.</strong> Symbolic derivative shown in a split view, with the operator and the result displayed separately.</figcaption>
 </figure>
 
 ### Integrals
 
 <figure>
-	<img src="assets/images/demo-integral.png" alt="Obsi Math showing a definite integral with a shaded region and an evaluated antiderivative">
+	<img src="assets/images/demo-integral.png" alt="LMath showing a definite integral with a shaded region and an evaluated antiderivative">
 	<figcaption><strong>Definite integrals.</strong> Definite integral with a shaded region, evaluated antiderivative and the area reading in the panel.</figcaption>
 </figure>
 
 ### Special curves
 
 <figure>
-	<img src="assets/images/demo-parametric.png" alt="Obsi Math graphing a parametric curve with its component-wise equation">
+	<img src="assets/images/demo-parametric.png" alt="LMath graphing a parametric curve with its component-wise equation">
 	<figcaption><strong>Parametric curves.</strong> Parametric curve traced from its components, with the corresponding notation in the panel.</figcaption>
 </figure>
 
 <figure>
-	<img src="assets/images/demo-polar.png" alt="Obsi Math graphing a polar curve with the r of theta notation in the panel">
+	<img src="assets/images/demo-polar.png" alt="LMath graphing a polar curve with the r of theta notation in the panel">
 	<figcaption><strong>Polar curves.</strong> Polar curve traced with the <code>r(θ)</code> notation in the panel and its corresponding geometry on the plane.</figcaption>
 </figure>
 
@@ -105,15 +105,15 @@ Obsi Math is an [Obsidian](https://obsidian.md) plugin for graphing functions, s
 ### Manual
 
 1. Download `main.js`, `manifest.json` and `styles.css` from the latest release.
-2. Create the `obsi-math` folder inside `<your-vault>/.obsidian/plugins/`.
+2. Create the `lmath` folder inside `<your-vault>/.obsidian/plugins/`.
 3. Copy the files there.
-4. In Obsidian: **Settings → Community plugins** → enable **Obsi Math**.
+4. In Obsidian: **Settings → Community plugins** → enable **LMath**.
 
 ### From source
 
 ```bash
-git clone https://github.com/LubrieDev/obsi-math.git
-cd obsi-math
+git clone https://github.com/LubrieDev/lmath.git
+cd lmath
 npm install
 npm run build
 ```
@@ -280,7 +280,7 @@ The plugin normalizes different formats before evaluating them with [mathjs](htt
 
 ## Settings
 
-The plugin adds a settings tab (**Settings → Obsi Math**):
+The plugin adds a settings tab (**Settings → LMath**):
 
 - **Language** — language selector for the interface text (English / Spanish; English by default).
 - **Solve automatically** — when rendering, it directly shows the solved result (`y = f(x)`) without pressing the "Solve" button.
@@ -325,4 +325,4 @@ MIT — see [LICENSE](./LICENSE).
 
 ## Repository
 
-[github.com/LubrieDev/obsi-math](https://github.com/LubrieDev/obsi-math)
+[github.com/LubrieDev/lmath](https://github.com/LubrieDev/lmath)
