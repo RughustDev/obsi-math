@@ -57176,7 +57176,6 @@ function crearConsolaDev() {
     sistema: (entrada) => correr(entrada, "system", TODO),
     derivada: (entrada) => correr(entrada, "derivate", TODO),
     integral: (entrada) => correr(entrada, "integral", TODO),
-    // eslint-disable-next-line no-console -- Intentional developer console.
     ayuda: () => {
       console.log(AYUDA);
     }

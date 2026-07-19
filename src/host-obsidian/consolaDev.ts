@@ -17,7 +17,6 @@ export const NOMBRE_GLOBAL = "lmath";
 /** Ejecuta el trazado y lo imprime en consola con las facetas pedidas; devuelve el objeto. */
 function correr(entrada: string, tipoBruto: string, q: Contenido): Trazado {
   const t = trazar(entrada, normalizarTipo(tipoBruto));
-  // eslint-disable-next-line no-console -- Intentional developer console.
   console.log(formatear(t, q));
   return t;
 }
@@ -59,7 +58,6 @@ export function crearConsolaDev() {
     sistema: (entrada: string) => correr(entrada, "system", TODO),
     derivada: (entrada: string) => correr(entrada, "derivate", TODO),
     integral: (entrada: string) => correr(entrada, "integral", TODO),
-    // eslint-disable-next-line no-console -- Intentional developer console.
     ayuda: () => { console.log(AYUDA); },
   };
   return api;

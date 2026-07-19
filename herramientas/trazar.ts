@@ -44,7 +44,6 @@ function main(argv: readonly string[]): number {
   const posic = argv.filter((a) => !a.startsWith("--"));
 
   if (banderas.includes("help") || banderas.includes("ayuda") || posic.length === 0) {
-    // eslint-disable-next-line no-console -- Intentional terminal CLI output.
     console.log(AYUDA);
     return posic.length === 0 && !banderas.includes("help") && !banderas.includes("ayuda") ? 1 : 0;
   }
@@ -62,7 +61,6 @@ function main(argv: readonly string[]): number {
     diagnostico: pedidas.includes("diagnostico"),
   };
 
-  // eslint-disable-next-line no-console -- Intentional terminal CLI output.
   console.log(formatear(trazar(entrada, normalizarTipo(tipoBruto)), q));
   return 0;
 }
