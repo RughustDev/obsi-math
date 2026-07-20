@@ -55847,6 +55847,115 @@ var PestanaAjustesLMath = class extends import_obsidian2.PluginSettingTab {
     super(app, plugin);
     this.plugin = plugin;
   }
+  /**
+   * Definición declarativa de la pestaña (Obsidian ≥1.13). Espeja `display()`: mismas
+   * secciones y controles. Los `key` son las propias claves de `AjustesTransformaciones`,
+   * que `getControlValue`/`setControlValue` resuelven contra `plugin.ajustes`.
+   */
+  getSettingDefinitions() {
+    const txt = t();
+    return [
+      // Idioma PRIMERO: cambiarlo repinta la pestaña (via update()) en el nuevo idioma.
+      {
+        type: "group",
+        heading: txt.ajustes.idioma.seccion,
+        items: [
+          {
+            name: txt.ajustes.idioma.nombre,
+            desc: txt.ajustes.idioma.desc,
+            control: {
+              type: "dropdown",
+              key: "idioma",
+              options: {
+                en: txt.ajustes.idioma.opcionEn,
+                es: txt.ajustes.idioma.opcionEs
+              }
+            }
+          }
+        ]
+      },
+      {
+        type: "group",
+        heading: txt.ajustes.transformaciones,
+        items: [
+          {
+            name: txt.ajustes.despejarAuto.etiqueta,
+            desc: txt.ajustes.despejarAuto.detalle,
+            control: { type: "toggle", key: "despejarAuto" }
+          }
+        ]
+      },
+      {
+        type: "group",
+        heading: txt.ajustes.plano,
+        items: [
+          {
+            name: txt.ajustes.puntosNotables.etiqueta,
+            desc: txt.ajustes.puntosNotables.detalle,
+            control: { type: "toggle", key: "puntosNotables" }
+          },
+          {
+            name: txt.ajustes.encuadreAuto.etiqueta,
+            desc: txt.ajustes.encuadreAuto.detalle,
+            control: { type: "toggle", key: "encuadreAuto" }
+          }
+        ]
+      }
+    ];
+  }
+  /** Lee el valor actual de un control declarativo desde `plugin.ajustes` (API ≥1.13). */
+  getControlValue(key) {
+    switch (key) {
+      case "idioma":
+        return this.plugin.ajustes.idioma;
+      case "despejarAuto":
+        return this.plugin.ajustes.despejarAuto;
+      case "puntosNotables":
+        return this.plugin.ajustes.puntosNotables;
+      case "encuadreAuto":
+        return this.plugin.ajustes.encuadreAuto;
+      default:
+        return void 0;
+    }
+  }
+  /**
+   * Persiste el cambio de un control declarativo (API ≥1.13). Espeja los `onChange` de
+   * `display()`: escribe en `plugin.ajustes` y guarda. Para el idioma, además fija el
+   * idioma activo.
+   *
+   * (No se repinta la pestaña al vuelo al cambiar de idioma: `update()`/`refreshDomState()`
+   * son API de 1.13.0 y `minAppVersion` es 1.12.7, así que referenciarlas sería
+   * `no-unsupported-api`. En 1.13+ las etiquetas se muestran en el idioma nuevo al reabrir
+   * Ajustes; el motor declarativo controla el ciclo de render. El fallback `display()` sí
+   * repinta en el acto, que es donde ocurre en la versión soportada hoy.)
+   */
+  async setControlValue(key, value) {
+    switch (key) {
+      case "idioma": {
+        const idioma = value === "es" ? "es" : "en";
+        this.plugin.ajustes.idioma = idioma;
+        fijarIdioma(idioma);
+        await this.plugin.guardarAjustes();
+        return;
+      }
+      case "despejarAuto":
+        this.plugin.ajustes.despejarAuto = value === true;
+        break;
+      case "puntosNotables":
+        this.plugin.ajustes.puntosNotables = value === true;
+        break;
+      case "encuadreAuto":
+        this.plugin.ajustes.encuadreAuto = value === true;
+        break;
+      default:
+        return;
+    }
+    await this.plugin.guardarAjustes();
+  }
+  /**
+   * Fallback imperativo para Obsidian 1.5.0–1.12.x (deprecado en 1.13; en 1.13+ NO se
+   * llama, se usa `getSettingDefinitions()`). Mantener espejado con la vía declarativa.
+   */
   display() {
     const { containerEl } = this;
     containerEl.empty();
