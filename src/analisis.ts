@@ -257,8 +257,8 @@ export function analizarFuncion(
   const delta = (max - min) / pasos;
 
   // Muestreo uniforme único, reutilizado por raíces y vértices.
-  const xs: number[] = new Array(pasos + 1);
-  const ys: number[] = new Array(pasos + 1);
+  const xs: number[] = new Array<number>(pasos + 1);
+  const ys: number[] = new Array<number>(pasos + 1);
   for (let i = 0; i <= pasos; i++) {
     const x = min + i * delta;
     xs[i] = x;

@@ -177,7 +177,7 @@ export class TrazadorContinuacion implements ITrazadorContinuacion {
     ];
 
     const ramas: Rama[] = [];
-    const visitada = new Array(semillas.length).fill(false);
+    const visitada: boolean[] = new Array<boolean>(semillas.length).fill(false);
     let puntosEmitidos = 0;
 
     // Las semillas se PROYECTAN sobre la curva antes de nada. Nacen de interpolar F linealmente

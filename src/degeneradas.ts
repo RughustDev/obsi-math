@@ -29,7 +29,7 @@ export function clasificarDegenerada(
       if (Number.isFinite(v)) reales++;
       else if (v === Infinity || v === -Infinity) infinitos++;
       // NaN: no se cuenta (es el caso por defecto)
-    } else if (v && typeof v === "object" && typeof (v as any).im === "number") {
+    } else if (v && typeof v === "object" && typeof (v as { im?: unknown }).im === "number") {
       complejos++;
     }
   };

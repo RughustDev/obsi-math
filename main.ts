@@ -3,7 +3,6 @@ import { Plugin, Notice } from "obsidian";
 import { GraphEngine } from "./src/engines/obs-graph/GraphEngine";
 import { MotorExperimental } from "./src/host-obsidian/MotorExperimental";
 import { registrarFuenteLora } from "./src/host-obsidian/fuentes";
-import { crearConsolaDev, NOMBRE_GLOBAL } from "./src/host-obsidian/consolaDev";
 import { fijarIdioma, t } from "./src/i18n";
 import {
   AJUSTES_POR_DEFECTO,
@@ -86,16 +85,6 @@ export default class LMathPlugin extends Plugin implements PluginConAjustes {
       "obs-integral",
       (source, el, ctx) => motorIntegral.process(source, el, ctx)
     );
-
-    // Herramienta de desarrollo: global `lmath` en la consola de Obsidian (Ctrl+Shift+I)
-    // para trazar el pipeline de un bloque (grafica + LaTeX + diagnóstico) sin pintar nada.
-    // La MISMA maquinaria pura que la CLI `npm run trazar`. `lmath.ayuda()` lista el uso.
-    (window as unknown as Record<string, unknown>)[NOMBRE_GLOBAL] = crearConsolaDev();
-  }
-
-  onunload() {
-    // Retira el global de consola para no dejar referencias colgando al recargar el plugin.
-    delete (window as unknown as Record<string, unknown>)[NOMBRE_GLOBAL];
   }
 
   /** Carga las preferencias (loadData) copiando SOLO las claves vigentes (las de

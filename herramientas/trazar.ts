@@ -44,7 +44,7 @@ function main(argv: readonly string[]): number {
   const posic = argv.filter((a) => !a.startsWith("--"));
 
   if (banderas.includes("help") || banderas.includes("ayuda") || posic.length === 0) {
-    console.log(AYUDA);
+    process.stdout.write(AYUDA + "\n");
     return posic.length === 0 && !banderas.includes("help") && !banderas.includes("ayuda") ? 1 : 0;
   }
 
@@ -61,7 +61,7 @@ function main(argv: readonly string[]): number {
     diagnostico: pedidas.includes("diagnostico"),
   };
 
-  console.log(formatear(trazar(entrada, normalizarTipo(tipoBruto)), q));
+  process.stdout.write(formatear(trazar(entrada, normalizarTipo(tipoBruto)), q) + "\n");
   return 0;
 }
 

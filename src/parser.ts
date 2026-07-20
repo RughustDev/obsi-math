@@ -682,7 +682,7 @@ export function normalizarEntrada(raw: string): string {
   // por base aquí; cae a `convertirExponentes` como `abs(y)^(1/2)`, que el despeje ya invierte.
   expr = expr.replace(
     /([a-zA-Z][a-zA-Z0-9._]*|\d+(?:\.\d+)?|(?<![a-zA-Z])\([^()]+\))\^\{\s*\(?\s*(\d+)\s*\)?\s*\/\s*\(?\s*(\d+)\s*\)?\s*\}/g,
-    (_, base, m, n) => {
+    (_: string, base: string, m: string, n: string) => {
       const radicando = m === "1" ? base : `${base}^${m}`;
       return n === "2" ? `sqrt(${radicando})` : `nthRoot(${radicando},${n})`;
     }

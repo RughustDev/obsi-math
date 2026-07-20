@@ -10,14 +10,18 @@
   margin: 16px;
 }
 
-.lmath-latex {
+.lmath-container .lmath-latex {
   width: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
   box-sizing: border-box;
-  font-size: 24px !important;
+  /* `font-size` fija la base desde la que MathJax escala la fórmula. No lleva
+     !important: una declaración directa sobre el elemento gana a la herencia,
+     y el prefijo `.lmath-container` sube la especificidad por si Obsidian fija
+     un tamaño en un ancestro con selector de una sola clase. */
+  font-size: 24px;
   /* La fórmula es de solo lectura: mostramos el cursor normal (flecha) en vez
      del I-beam de texto que el navegador pone por defecto sobre el texto
      seleccionable de KaTeX. `cursor` se hereda, así que fijarlo aquí cubre todo
@@ -26,8 +30,8 @@
   cursor: default;
 }
 
-.lmath-latex .katex {
-  font-size: 1.6em !important;
+.lmath-container .lmath-latex .katex {
+  font-size: 1.6em;
 }
 
 /* Obsidian envuelve las matemáticas de bloque ($$…$$) en un elemento con su
@@ -39,17 +43,19 @@
    (overflow controlado por JS + fades + rueda), así que anulamos por completo
    el overflow propio de Obsidian/KaTeX: dejamos que el contenido fluya hasta el
    contenedor del plugin, que será el único (y sólo si desborda de verdad) en
-   mostrar su barra fina. */
-.lmath-latex .markdown-rendered,
-.lmath-latex p,
-.lmath-latex .math,
-.lmath-latex .math-block,
-.lmath-latex .katex-display,
-.lmath-latex mjx-container,
-.lmath-latex mjx-math {
-  overflow: visible !important;
-  max-width: none !important;
-  margin: 0 !important;
+   mostrar su barra fina. El prefijo `.lmath-container` sube la especificidad a
+   3 clases para ganarle a las reglas de Obsidian/MathJax (≤2 clases o clase +
+   atributos) sin recurrir a !important. */
+.lmath-container .lmath-latex .markdown-rendered,
+.lmath-container .lmath-latex p,
+.lmath-container .lmath-latex .math,
+.lmath-container .lmath-latex .math-block,
+.lmath-container .lmath-latex .katex-display,
+.lmath-container .lmath-latex .MathJax,
+.lmath-container .lmath-latex .MJX-TEX {
+  overflow: visible;
+  max-width: none;
+  margin: 0;
 }
 
 .lmath-grafica {
