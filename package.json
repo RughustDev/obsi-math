@@ -1,6 +1,6 @@
 {
   "name": "lmath",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Graph functions, systems, derivatives and integrals in interactive blocks.",
   "main": "main.js",
   "scripts": {

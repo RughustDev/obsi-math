@@ -15,7 +15,7 @@ LMath is an [Obsidian](https://obsidian.md) plugin for graphing functions, syste
 - [Input syntax](#input-syntax)
 - [Settings](#settings)
 - [Known limitations](#known-limitations)
-- [Development](#development)
+- [Contributing](#contributing)
 - [License](#license)
 
 ---
@@ -307,21 +307,13 @@ The plugin adds a settings tab (**Settings → LMath**):
 
 ---
 
-## Development
+## Contributing
 
-Architecture and engine internals are documented in the [Technical Reference](https://github.com/LubrieDev/lmath/blob/main/docs/TECHNICAL-REFERENCE.md).
-
-Requirements: Node.js, npm, TypeScript.
-
-```bash
-npm run build       # compiles main.ts → main.js (esbuild)
-npm run test        # quick suite of pure-logic tests
-npm run test:zoom   # zoom sweep suite (slower, isolated separately)
-```
-
-Recommended workflow: edit the code → `npm run build` → copy `main.js` to a test vault → verify → back it up if it works, restore it if it fails.
-
-> **Important:** both `manifest.json` and the `.ts` files must be saved in **UTF-8 without BOM**. A BOM at the start of any of these files can break parsing in Obsidian or produce silent build errors.
+Bug reports, feature requests and pull requests are welcome — see
+[CONTRIBUTING.md](https://github.com/LubrieDev/lmath/blob/main/CONTRIBUTING.md) for how to
+build, test and send changes, and the
+[Technical Reference](https://github.com/LubrieDev/lmath/blob/main/docs/TECHNICAL-REFERENCE.md)
+for the engine internals.
 
 ---
 

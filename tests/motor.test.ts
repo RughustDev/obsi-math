@@ -30,6 +30,7 @@ import { yEnRamas, avanzarPorArco, factorRampaVerticalidad, existeRamaVecina, re
 import { analizarPuntosNotables, resumenPuntosNotables } from "../src/motor/analysis/puntosNotablesDeRama";
 import { estadoGrupo, analizarFuncion, raicesALatex } from "../src/analisis";
 import { despejarEcuaciones, despejarY } from "../src/despejar";
+import { simplificarCondiciones } from "../src/condiciones";
 import { clasificarDespeje, tieneFamilia } from "../src/despejeInverso";
 import { simplificarEcuaciones } from "../src/simplificar";
 import { costeExpansion, rationalizeSeguro, LIMITE_EXPANSION, type Nodo } from "../src/formatoExpr";
@@ -565,16 +566,16 @@ describe("Transformaciones del panel: Despejar y / Simplificar", () => {
     igual(despLatex("2|y| = -x"), "y=\\pm \\frac{- x}{2},\\quad x \\le 0", "2|y|=−x → y=±(−x/2), x≤0");
     igual(despLatex("|y|^{2} = x"), "y=\\pm \\sqrt{x},\\quad x \\ge 0", "|y|²=x → y=±√x, x≥0");
     // El argumento del ± con una SUMA necesita paréntesis: `\pm x-1` se leería `(\pm x)-1`.
-    igual(despLatex("|y| = x - 1"), "y=\\pm\\left( x-1\\right),\\quad x-1 \\ge 0", "|y|=x−1 → y=±(x−1), x−1≥0");
+    igual(despLatex("|y| = x - 1"), "y=\\pm\\left( x-1\\right),\\quad x \\ge 1", "|y|=x−1 → y=±(x−1), x≥1");
     // RAÍZ / exponente FRACCIONARIO de |y|: se invierte ELEVANDO (|y|=R^{1/e}), no se toma
     // `abs` por variable. `|y|^{1/2}` (antes se normalizaba a `abssqrt((y))`: abs colgando) y
     // `√|y|` = `sqrt(abs(y))` llevan al MISMO despeje y = ±R². El radicando en orden canónico.
-    igual(despLatex("|y|^{1/2}+x^2=2"), "y=\\pm {\\left(-x^{2}+2\\right)}^{2},\\quad -x^{2}+2 \\ge 0",
-      "|y|^{1/2}+x²=2 → y=±(−x²+2)², −x²+2≥0 (√|y|=R exige R≥0, |x|≤√2)");
+    igual(despLatex("|y|^{1/2}+x^2=2"), "y=\\pm {\\left(-x^{2}+2\\right)}^{2},\\quad -\\sqrt{2} \\le x \\le \\sqrt{2}",
+      "|y|^{1/2}+x²=2 → y=±(−x²+2)², −√2≤x≤√2 (√|y|=R exige R≥0; el sistema se resuelve en x)");
     igual(despLatex(String.raw`\sqrt{|y|}+\tan{x}=2`), "y=\\pm {\\left(2-\\tan x\\right)}^{2},\\quad 2-\\tan x \\ge 0",
       "√|y|+tan x=2 → y=±(2−tan x)², 2−tan x≥0");
-    igual(despLatex("|y|^{1/3}+x=1"), "y=\\pm {\\left(- x+1\\right)}^{3},\\quad - x+1 \\ge 0",
-      "|y|^{1/3}+x=1 → y=±(−x+1)³, −x+1≥0 (índice 3 → cubo)");
+    igual(despLatex("|y|^{1/3}+x=1"), "y=\\pm {\\left(- x+1\\right)}^{3},\\quad x \\le 1",
+      "|y|^{1/3}+x=1 → y=±(−x+1)³, x≤1 (índice 3 → cubo)");
   });
 
   test("Keystone Stage 2: la guarda de dominio (dom) hace fieles las inversas de rango restringido", () => {
@@ -677,16 +678,40 @@ describe("Transformaciones del panel: Despejar y / Simplificar", () => {
     // vez de aislar y. Ahora se eleva al cuadrado → parábola completa.
     // Índice PAR (√): la inversión (elevar al cuadrado) solo vale donde el radicando es ≥0 →
     // GUARDA DE DOMINIO `, R≥0`. Índice IMPAR (∛): biyección en ℝ, exacta sin guarda.
-    igual(despLatex("x-\\sqrt{y}=27"), "y={\\left( x-27\\right)}^{2},\\quad x-27 \\ge 0", "x−√y=27 → y=(x−27)², x−27≥0");
-    igual(despLatex("\\sqrt{y}=x-3"), "y={\\left( x-3\\right)}^{2},\\quad x-3 \\ge 0", "√y=x−3 → y=(x−3)², x−3≥0");
+    igual(despLatex("x-\\sqrt{y}=27"), "y={\\left( x-27\\right)}^{2},\\quad x \\ge 27", "x−√y=27 → y=(x−27)², x≥27");
+    igual(despLatex("\\sqrt{y}=x-3"), "y={\\left( x-3\\right)}^{2},\\quad x \\ge 3", "√y=x−3 → y=(x−3)², x≥3");
     igual(despLatex("x-\\sqrt[3]{y}=1"), "y={\\left( x-1\\right)}^{3}", "cúbica (impar): x−∛y=1 → y=(x−1)³, sin guarda");
     igual(despLatex("2\\sqrt{y}=x"), "y=\\left({\\frac{x}{2}}\\right)^{2},\\quad x \\ge 0", "coef: 2√y=x → y=(x/2)², x≥0");
     // Encadenado con Simplificar: la potencia queda FACTORIZADA dentro de la guarda (`dom` es
-    // opaca a rationalize, no se expande) → `(x−27)²`, que además lee mejor junto a `, x−27≥0`.
+    // opaca a rationalize, no se expande) → `(x−27)²`, que además lee mejor junto a `, x≥27`.
     const d = despejarEcuaciones(["x+y=2", "x-\\sqrt{y}=27"]);
     igual(bloqueALatex(simplificarEcuaciones(d)),
-      "\\begin{cases}\\begin{aligned}y&=- x+2\\\\[1ex]y&={\\left( x-27\\right)}^{2},\\quad x-27 \\ge 0\\end{aligned}\\end{cases}",
-      "sistema Despejar→Simplificar: y=-x+2 ; y=(x−27)², x−27≥0");
+      "\\begin{cases}\\begin{aligned}y&=- x+2\\\\[1ex]y&={\\left( x-27\\right)}^{2},\\quad x \\ge 27\\end{aligned}\\end{cases}",
+      "sistema Despejar→Simplificar: y=-x+2 ; y=(x−27)², x≥27");
+  });
+
+  test("Condiciones: el SISTEMA de guardas se resuelve, no se lista", () => {
+    // Las guardas nacen sueltas (una por capa invertida / por elevación al cuadrado) pero son
+    // desigualdades sobre la MISMA x: el simplificador las resuelve por tabla de signos, interseca
+    // y devuelve el intervalo. Los puntos críticos salen en forma CERRADA (√3, no 1.7320508).
+    const rango = (cs: string[]): string => {
+      const r = simplificarCondiciones(cs);
+      if (r === null) return "null";
+      if (r.tipo !== "rango") return r.tipo;
+      const { min, max } = r.rango;
+      return `${min ? `${min.expr}${min.cerrado ? "<=" : "<"}` : ""}x${max ? `${max.cerrado ? "<=" : "<"}${max.expr}` : ""}`;
+    };
+    igual(rango(["(x^2+3)/(2*x)", "(x^2-3)/(2*x)"]), "sqrt(3)<=x",
+      "las dos guardas de √(y+1)+√(y−2)=x son, juntas, x≥√3");
+    igual(rango(["x-27"]), "27<=x", "signo despejado: x−27≥0 ⇔ x≥27");
+    igual(rango(["-x+1"]), "x<=1", "coeficiente negativo: invierte el sentido");
+    igual(rango(["-x^2+2"]), "-sqrt(2)<=x<=sqrt(2)", "cuadrática → intervalo con raíces exactas");
+    igual(rango(["x", "x-3"]), "3<=x", "REDUNDANCIA: la condición implicada no recorta");
+    igual(rango(["x-1", "-x+1/2"]), "imposible", "CONTRADICCIÓN: intersección vacía");
+    igual(rango(["x^2+1"]), "siempre", "trivialmente cierta → sin coletilla");
+    // Frontera declarada: lo que no sabe reducir NO lo toca (quien llama conserva las guardas).
+    igual(rango(["2-tan(x)"]), "null", "no racional en x → fuera de alcance");
+    igual(rango(["x^2-3"]), "null", "dos componentes inconexas: una unión no se lee de un vistazo");
   });
 
   test("Despejar y: expresión SUELTA con y libre se despeja como expr=0", () => {

@@ -3,9 +3,11 @@ import { parse, simplify } from "mathjs";
 import { trigDeY, inversionTrig, familiaPeriodica, despejeTrigCuadratico, type TrigInvertible } from "./despejeInverso";
 import { normalizarEntrada, contieneYLibre } from "./parser";
 import { insertarProductoImplicito } from "./motor/parsing/productoImplicito";
-import { ramaDoble } from "./motor/parsing/dobleSigno";
+import { ramaDoble, expandirDobleSigno } from "./motor/parsing/dobleSigno";
 import { componenteParametrica } from "./motor/parsing/componentesParametricas";
 import { bloqueALatex } from "./latex";
+import { compilarFuncion } from "./evaluador";
+import { simplificarCondiciones } from "./condiciones";
 import { simplificarExpr } from "./simplificar";
 import {
   contieneVariable, terminos, factores, flip, renderTerminos, renderCanonico,
@@ -39,6 +41,13 @@ import {
 //     invertirla: `x−√y=27` → `y = (x−27)²` (completo). Inverso de la raíz principal.
 //   • lado-y = (factores con y)·(factores libres de y) → se dividen los factores libres
 //     al otro lado: `tan(y)·(x²+1) = √(x+1)` → `tan(y) = √(x+1)/(x²+1)` (incompleto).
+//   • y en un DENOMINADOR → se multiplica por él y se re-despeja lo polinómico:
+//     `(y−1)/(y+2) = x` → `y = (2x+1)/(1−x)` (completo).
+//   • ecuación AFÍN en y con coeficiente cualquiera → A y B por evaluación:
+//     `y − (y+2)eˣ − 1 = 0` → `y = (2eˣ+1)/(1−eˣ)` (completo).
+//   • RAÍCES cuadradas repartidas → se aísla una y se eleva al cuadrado, tantas veces como
+//     haga falta, arrastrando la guarda de dominio de cada paso: `√(y+1)+√(y−2) = x` →
+//     `y = (x⁴+2x²+9)/(4x²)` con su condición (completo, validado numéricamente).
 //   • lado-y NO lineal irreducible (y^y, sin y + y²…) → `lado-y = …` sin más (incompleto).
 
 const contieneY = (n: Nodo): boolean => contieneVariable(n, "y");
@@ -834,15 +843,347 @@ function despejeCuadratico(D0: Nodo, DVal: Nodo = D0): { ecuacion: string; compl
 }
 
 // ─────────────────────────────────────────────
-// Inversión estructural: y en UNA sola posición, anidada (keystone)
+// Lineal en y por EVALUACIÓN: A(x)·y + B(x) = 0 (keystone)
+// ─────────────────────────────────────────────
+//
+// El despeje lineal de arriba lee el coeficiente de la y de la ESTRUCTURA del término, así que
+// exige la y como factor desnudo, y la vía cuadrática necesita que `rationalize` expanda —lo que
+// solo hace con polinomios—. Entre las dos se cuela cualquier ecuación afín en y cuyo coeficiente
+// NO sea polinómico: `y − (y+2)eˣ − 1 = 0`, `y·ln x + y = 3`, `y sin x = y + 1`.
+//
+// Pero una función afín está determinada por dos valores: A = D|_{y=1} − D|_{y=0} y B = D|_{y=0},
+// y esas dos evaluaciones son SUSTITUCIONES, no expansión algebraica —funcionan con cualquier
+// coeficiente—. La afinidad, que es lo único que hay que suponer, se comprueba numéricamente
+// (una D no afín, `y²−x`, daría A y B igualmente: el filtro es lo que la distingue).
+
+/** La expresión con y sustituida por una constante, simplificada. */
+function enY(D: Nodo, valor: number): string {
+  try {
+    return simpDesp(D.transform((n: Nodo) =>
+      n.type === "SymbolNode" && n.name === "y" ? parse(String(valor)) as unknown as Nodo : n
+    ).toString());
+  } catch { return ""; }
+}
+
+/** Ternas de y EQUIESPACIADAS donde se mide la afinidad. A ambos lados del 0 y con varios
+ *  espaciados a propósito: `|y|` es perfectamente afín en cualquier terna de y positivos, y con
+ *  una muestra así de ingenua `|y| = −3` se "despejaba" a `y = −3`. Los quiebros (`|·|`, raíces,
+ *  escalones) solo se delatan si la terna los cruza. */
+const TERNAS_Y: ReadonlyArray<readonly [number, number, number]> = [
+  [-2.5, -0.5, 1.5], [-1.3, 0.7, 2.7], [-3.1, -1.1, 0.9], [-0.6, 1.9, 4.4],
+];
+
+/** ¿`D(x,y)` es AFÍN en y (una recta en y para cada x)? Sobre una malla del plano: en una terna
+ *  equiespaciada, la segunda diferencia de una recta es 0. Los puntos donde D no es finita
+ *  (dominios parciales) se saltan; se exigen varios para no aceptar por vacuidad. */
+function esAfinEnY(D: Nodo): boolean {
+  let f: (x: number, y: number) => unknown;
+  try { const c = D.compile(); f = (x, y) => { try { return c.evaluate({ x, y }); } catch { return NaN; } }; }
+  catch { return false; }
+  let comprobados = 0;
+  for (const x of [-3.7, -1.3, -0.4, 0.6, 1.9, 4.2]) {
+    for (const terna of TERNAS_Y) {
+      const [a, b, c2] = terna.map((y) => f(x, y));
+      if (![a, b, c2].every((d) => typeof d === "number" && Number.isFinite(d))) continue;
+      const [va, vb, vc] = [a as number, b as number, c2 as number];
+      if (Math.abs((vc - vb) - (vb - va)) > 1e-7 * (1 + Math.abs(va) + Math.abs(vb) + Math.abs(vc)))
+        return false;
+      comprobados++;
+    }
+  }
+  return comprobados >= 4;
+}
+
+/** Pares de y donde MEDIR la recta. Cualquier par fijo puede caer en una singularidad —`y=1` en
+ *  `(y²−1)/(y−1)`, que evalúa 0/0—, y de ahí salían coeficientes `Infinity` que se colaban hasta
+ *  la fórmula (`y = ∞x + ∞`). Se prueba el siguiente par hasta dar con uno limpio. */
+const PARES_Y: ReadonlyArray<readonly [number, number]> = [[0, 1], [3, 4], [-4, -3], [5, 7]];
+
+/** ¿La expresión evaluó a algo utilizable? Un `Infinity`/`NaN` en el string delata que la
+ *  sustitución cayó en un polo: ese par de y no sirve para medir la recta. */
+function expresionUtil(s: string): boolean {
+  return s !== "" && !/(?<![a-zA-Z0-9_])(Infinity|NaN)(?![a-zA-Z0-9_])/.test(s);
+}
+
+/** Despeje de una ecuación AFÍN en y con coeficientes cualesquiera: `y = −B/A`. null si no es
+ *  afín, si el coeficiente A es idénticamente nulo (la y no queda determinada), si ningún par de
+ *  y da coeficientes limpios o si la solución NO reproduce la ecuación de partida.
+ *
+ *  Esa última validación es la que respeta los AGUJEROS: `(y²−4)/(y+2) = x` es afín en y en todo
+ *  su dominio y da `y = x+2`, pero la curva no contiene el punto y=−2 (allí la original es 0/0),
+ *  o sea que le falta el hueco en x=−4. Como `dom` no sabe expresar un `≠`, la fórmula sería más
+ *  laxa que la curva: se descarta y la ecuación se queda como está. */
+function despejeLinealEnY(D: Nodo): { ecuacion: string; completo: boolean } | null {
+  if (!contieneY(D) || !esAfinEnY(D)) return null;
+  const evalD = evaluadorDe(D);
+  if (evalD === null) return null;
+  for (const [y0, y1] of PARES_Y) {
+    const D0 = enY(D, y0), D1 = enY(D, y1);
+    if (!expresionUtil(D0) || !expresionUtil(D1)) continue;
+    const A = simpDesp(`((${D1}) - (${D0}))/(${y1 - y0})`);   // pendiente en y
+    if (A === "0" || !expresionUtil(A)) continue;
+    const B = simpDesp(`(${D0}) - (${y0})*(${A})`);           // D(x,y) = A·y + B
+    if (!expresionUtil(B)) continue;
+    const rhs = limpiarRHS(`(-(${B}))/(${A})`);
+    if (solucionValida(rhs, evalD)) return { ecuacion: `y = ${rhs}`, completo: true };
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────
+// Racionalización de RADICALES: aislar y elevar al cuadrado (keystone)
+// ─────────────────────────────────────────────
+//
+// Una raíz cuadrada suelta ya la invierte `despejeRaiz`/`aislarInversion`, pero con DOS raíces
+// —o una raíz más la y fuera— la y no está agrupada y ninguna capa se deja pelar:
+// `√(y+1) + √(y−2) = x`, `√(y+1) + y = x`. El método de manual es aislar UNA raíz y elevar al
+// cuadrado, repitiendo hasta que no queden; lo que sale es polinómico en y y lo remata la
+// maquinaria de siempre (lineal o cuadrática):
+//   √(y+1) = x − √(y−2)  ⇒  y+1 = x² − 2x√(y−2) + y−2  ⇒  2x√(y−2) = x²−3
+//   4x²(y−2) = (x²−3)²   ⇒  y = (x⁴+2x²+9)/(4x²)
+//
+// ELEVAR AL CUADRADO NO ES EQUIVALENTE: `A = B` ⟺ `A² = B²` **y** `B ≥ 0` (A es una raíz, luego
+// no negativa). Sin esa condición aparece la rama fantasma —arriba, todo x < 0—, así que cada
+// elevación APUNTA su guarda `B ≥ 0` y todas viajan al resultado como centinelas `dom`, que es
+// la misma pieza con que el motor ya marca el dominio de `√y = R`. Las guardas se escriben en
+// función de x sustituyendo hacia atrás lo que cada paso posterior averiguó (el paso 2 dice que
+// √(y−2) vale (x²−3)/(2x), y con eso la guarda del paso 1 deja de tener y). Al final, la
+// candidata se valida NUMÉRICAMENTE contra la ecuación original dentro de su propio dominio: si
+// no la reproduce, se descarta entera.
+
+const MAX_ELEVACIONES = 3; // dos raíces necesitan dos pasadas; una tercera cubre el resto
+
+/** Radicando de una raíz CUADRADA que contiene y, si el factor lo es (exponente +1). */
+function radicandoDeY(f: Factor): Nodo | null {
+  if (f.exp !== 1) return null;
+  const n = desParen(f.nodo);
+  return n.type === "FunctionNode" && n.fn?.name === "sqrt" && n.args.length === 1 && contieneY(n)
+    ? n.args[0] : null;
+}
+
+/** Término partido en `coef · √(rad)`: `rad` null si el término no lleva raíz con y. Con VARIAS
+ *  raíces en el mismo término, la primera es la aislada y las demás se quedan en el coeficiente
+ *  (elevar al cuadrado las racionaliza igual, solo que en otra pasada). */
+function partirRadical(t: Termino): { coef: string; rad: Nodo | null } {
+  const fs = factores(t.nodo);
+  const i = fs.findIndex((f) => radicandoDeY(f) !== null);
+  const rad = i === -1 ? null : radicandoDeY(fs[i]);
+  const resto = i === -1 ? fs : fs.filter((_, j) => j !== i);
+  const coef = renderProducto(resto);
+  return { coef: t.signo === 1 ? coef : `-(${coef})`, rad };
+}
+
+/** Cuadrado de una suma de términos, EXPANDIDO a mano: `(Σtᵢ)² = ΣᵢΣⱼ tᵢtⱼ`. mathjs no
+ *  desarrolla `(√u − x)²` (deja la potencia intacta) y sin desarrollar no hay términos que
+ *  aislar en la siguiente pasada. Al multiplicar dos raíces del MISMO radicando se escribe el
+ *  radicando: es justo la cancelación que hace avanzar el método. */
+function cuadradoExpandido(ts: Termino[]): string {
+  const ps = ts.map(partirRadical);
+  const trozos: string[] = [];
+  for (let i = 0; i < ps.length; i++) {
+    for (let j = 0; j < ps.length; j++) {
+      const a = ps[i], b = ps[j];
+      const raices = a.rad === null ? (b.rad === null ? "1" : `sqrt(${b.rad.toString()})`)
+        : b.rad === null ? `sqrt(${a.rad.toString()})`
+        : a.rad.toString() === b.rad.toString() ? `(${a.rad.toString()})`
+        : `sqrt(${a.rad.toString()})*sqrt(${b.rad.toString()})`;
+      trozos.push(`(${a.coef})*(${b.coef})*(${raices})`);
+    }
+  }
+  return trozos.length ? trozos.join(" + ") : "0";
+}
+
+/** Una elevación al cuadrado: aísla el primer término con raíz de y (`c·√u = −resto`) y devuelve
+ *  la diferencia elevada (`c²u − resto²`) junto con lo que el paso AVERIGUA —`√u = −resto/c`—,
+ *  que sirve a la vez de guarda de dominio y de sustitución para las guardas anteriores.
+ *  null si ya no queda ninguna raíz con y. */
+function elevarAlCuadrado(D: Nodo): { D: Nodo; radical: string; valor: string } | null {
+  const ts = terminos(D);
+  const i = ts.findIndex((t) => partirRadical(t).rad !== null);
+  if (i === -1) return null;
+  const { coef, rad } = partirRadical(ts[i]);
+  if (rad === null) return null;
+  const resto = ts.filter((_, j) => j !== i);
+  const valor = `-(${renderTerminos(resto)})/(${coef})`;
+  let out: Nodo;
+  try {
+    out = simplify(`(${coef})^2*(${rad.toString()}) - (${cuadradoExpandido(resto)})`) as unknown as Nodo;
+  } catch { return null; }
+  return { D: out, radical: `sqrt(${rad.toString()})`, valor };
+}
+
+/** Sustituye en `expr` cada radical por el valor que un paso posterior le asignó (y, si aun así
+ *  queda y, la propia solución) para que la guarda quede en función de x. String simplificado. */
+function guardaEnX(expr: string, pasos: Array<{ radical: string; valor: string }>, yFinal: string): string {
+  let s = expr;
+  for (const p of pasos) s = s.split(p.radical).join(`(${p.valor})`);
+  let n: Nodo;
+  try { n = parse(s) as unknown as Nodo; } catch { return s; }
+  if (contieneY(n)) {
+    try {
+      n = n.transform((z: Nodo) =>
+        z.type === "SymbolNode" && z.name === "y" ? parse(`(${yFinal})`) as unknown as Nodo : z);
+    } catch { return s; }
+  }
+  return simpDesp(n.toString());
+}
+
+/** ¿La solución `y = f(x)` cumple la ecuación ORIGINAL allí donde sus guardas se cumplen? Los x
+ *  fuera del dominio (guarda falsa → `dom` evalúa NaN) no son fallos: ahí la fórmula no afirma
+ *  nada. Exige ≥2 puntos válidos para no aceptar por vacuidad una fórmula que nunca existe. */
+function solucionValida(rhs: string, evalD: (x: number, y: number) => number): boolean {
+  // Cada rama del ± por separado: `expandirDobleSigno` es quien las enumera para graficar, así
+  // que validar sobre ellas comprueba EXACTAMENTE lo que el motor va a dibujar (evaluar el `pm`
+  // a secas solo mediría la rama principal y la otra entraría sin comprobar).
+  //
+  // Ninguna rama puede CONTRADECIR la ecuación; que una quede VACÍA no es un fallo (su guarda de
+  // dominio la anula en todo x, que es justo lo que le toca a la rama extraña que introduce el
+  // elevar al cuadrado). Basta con que entre todas haya curva.
+  let total = 0;
+  for (const rama of expandirDobleSigno(rhs)) {
+    const n = puntosValidos(rama, evalD);
+    if (n === null) return false;
+    total += n;
+  }
+  return total >= 2;
+}
+
+/** Evaluador numérico de una diferencia `D(x,y)` (NaN donde no esté definida). */
+function evaluadorDe(D: Nodo): ((x: number, y: number) => number) | null {
+  try {
+    const c = D.compile();
+    return (x, y) => { try { return c.evaluate({ x, y }); } catch { return NaN; } };
+  } catch { return null; }
+}
+
+/** Puntos de la rama que cumplen la ecuación original, o null si alguno la CONTRADICE. */
+function puntosValidos(rhs: string, evalD: (x: number, y: number) => number): number | null {
+  // Con el scope del motor: el RHS lleva centinelas `dom`, que NO son funciones de mathjs sino
+  // del evaluador —compilarlo a pelo daría símbolo libre y descartaría la solución entera.
+  let f: (x: number) => unknown;
+  try { f = compilarFuncion(rhs, "x"); }
+  catch { return null; }
+  let validos = 0;
+  for (let i = 0; i <= 120; i++) {
+    const x = -6 + (i * 12) / 120;
+    let y: unknown;
+    try { y = f(x); } catch { continue; }
+    if (typeof y !== "number" || !Number.isFinite(y)) continue;
+    const d = evalD(x, y);
+    if (!Number.isFinite(d) || Math.abs(d) > 1e-6 * (1 + x * x * x * x + y * y * y * y)) return null;
+    validos++;
+  }
+  return validos;
+}
+
+/** Despeje por elevaciones sucesivas al cuadrado, con las guardas de dominio de cada paso y
+ *  validación numérica contra la ecuación original. null si no hay raíces de y, si tras el tope
+ *  de pasadas queda alguna, si la ecuación racionalizada no se completa o si la candidata no
+ *  reproduce la curva. */
+function despejeRadicales(D0: Nodo, DVal: Nodo): { ecuacion: string; completo: boolean } | null {
+  let D = D0;
+  const pasos: Array<{ radical: string; valor: string }> = [];
+  for (let i = 0; i < MAX_ELEVACIONES; i++) {
+    const paso = elevarAlCuadrado(D);
+    if (paso === null) break;
+    pasos.push({ radical: paso.radical, valor: paso.valor });
+    D = paso.D;
+  }
+  if (pasos.length === 0) return null;                 // no había radicales de y: otra vía
+  if (elevarAlCuadrado(D) !== null) return null;       // quedan raíces: fuera de alcance
+  if (!contieneY(D)) return null;                      // la y se canceló: la ecuación no la fija
+
+  // Lo racionalizado suele quedar afín en y con la y repartida entre paréntesis (`x²(4(y−2)+6)`):
+  // recolectar el coeficiente por evaluación da la fracción ÚNICA `(x⁴+2x²+9)/(4x²)`, mientras
+  // que el despeje estructural iría pelando capa a capa y dejaría fracciones anidadas.
+  const rhsCrudo = rhsCompleto(despejeLinealEnY(D) ?? despejarAnidado(`${D.toString()} = 0`));
+  if (rhsCrudo === null) return null;
+
+  // Guardas de FUERA hacia dentro: cada una se escribe con lo que los pasos POSTERIORES
+  // averiguaron (por eso se recorren al revés y cada guarda solo usa los pasos que la siguen).
+  let rhs = rhsCrudo;
+  const guardas: string[] = [];
+  for (let i = pasos.length - 1; i >= 0; i--) {
+    const cond = guardaEnX(pasos[i].valor, pasos.slice(i + 1), rhsCrudo);
+    const conG = conDominio(rhs, cond);
+    if (conG === null) return null; // guarda imposible por sí sola: no hay curva real
+    if (conG !== rhs) guardas.push(cond);  // (si `conDominio` la absorbió, era trivialmente cierta)
+    rhs = conG;
+  }
+  // Guardas INCOMPATIBLES entre sí: cada una puede ser satisfacible y el sistema no. `conDominio`
+  // solo mira una cada vez, así que la contradicción se busca resolviendo el sistema entero.
+  if (simplificarCondiciones(guardas)?.tipo === "imposible") return null;
+
+  const evalD = evaluadorDe(DVal);
+  return evalD !== null && solucionValida(rhs, evalD)
+    ? { ecuacion: `y = ${rhs}`, completo: true } : null;
+}
+
+// ─────────────────────────────────────────────
+// Eliminación de DENOMINADORES con y (keystone)
+// ─────────────────────────────────────────────
+//
+// Con la y en un denominador, ninguna estrategia aditiva la alcanza: `terminos`/`factores` la ven
+// en un factor de exponente −1 y `despejeReciproco` solo cubre el caso puro `(libres)/E`. Pero
+// multiplicar por los denominadores es el primer paso de cualquier despeje de manual y deja una
+// ecuación POLINÓMICA que la maquinaria de siempre ya sabe rematar: `(y−1)/(y+2) = x` pasa a
+// `y − 1 − x(y+2) = 0`, lineal en y repartida en dos términos → `y = (2x+1)/(1−x)`.
+//
+// PERO no es una transformación gratuita: multiplicar por `q` solo conserva la curva donde q≠0, y
+// donde q se anula la ecuación original ni siquiera está definida. La ecuación limpia SÍ está
+// definida ahí, así que puede traerse soluciones que no existen: `(y²−1)/(y−1) = x` limpia a
+// `y²−1 = x(y−1)`, cuyas raíces son `y = x−1` **y** `y = 1`, y esta última no es curva (en y=1 la
+// original es 0/0). El despeje se lo creería entero.
+//
+// La condición `q ≠ 0` no se puede escribir con el centinela `dom` (que expresa `≥ 0`), así que se
+// COMPRUEBA en vez de arrastrarse: la candidata se valida rama a rama contra la ecuación ORIGINAL
+// —la de antes de multiplicar—, que es la única que sabe de sus propios agujeros. Si alguna rama
+// la contradice, se descarta el despeje entero y la ecuación se queda como estaba. Solo se acepta
+// si además la re-entrada COMPLETA el despeje.
+
+/** Denominadores DISTINTOS que contienen y (factores de exponente −1 de cualquier término). */
+function denominadoresConY(D: Nodo): string[] {
+  const dens = new Set<string>();
+  for (const t of terminos(D))
+    for (const f of factores(t.nodo))
+      if (f.exp === -1 && contieneY(f.nodo)) dens.add(f.nodo.toString());
+  return [...dens];
+}
+
+/** Despeje tras MULTIPLICAR por los denominadores que contienen y. null si no hay ninguno, si la
+ *  multiplicación no los cancela (no se ha ganado nada: sin esta guarda la re-entrada sería
+ *  circular) o si la ecuación resultante no se completa. */
+function despejeSinDenominadores(D: Nodo): { ecuacion: string; completo: boolean } | null {
+  const dens = denominadoresConY(D);
+  if (dens.length === 0) return null;
+  let limpio: Nodo;
+  try {
+    const prod = dens.map((d) => `(${d})`).join("*");
+    limpio = simplify(`(${D.toString()})*(${prod})`) as unknown as Nodo;
+  } catch { return null; }
+  if (!contieneY(limpio) || denominadoresConY(limpio).length > 0) return null;
+  const rhs = rhsCompleto(despejarAnidado(`${limpio.toString()} = 0`));
+  if (rhs === null) return null;
+  // Contra la ecuación de ANTES de multiplicar: es la que tiene los agujeros que la limpia perdió.
+  const evalD = evaluadorDe(D);
+  return evalD !== null && solucionValida(rhs, evalD)
+    ? { ecuacion: `y = ${rhs}`, completo: true } : null;
+}
+
+// ─────────────────────────────────────────────
+// Inversión estructural: la y AGRUPADA bajo una torre invertible (keystone)
 // ─────────────────────────────────────────────
 //
 // Las estrategias de arriba cubren cada una UNA capa concreta alrededor de la y (yⁿ, ⁿ√y,
-// T(y) desnuda, 1/y…). Cuando la y aparece UNA sola vez pero envuelta en una COMPOSICIÓN
-// —o en una función sin estrategia propia— ninguna encaja: `log(y)=x`, `e^{y}=x`, `sin(2y)=x`,
-// `(y+1)³=x`, `e^{y³}=x`. Aquí se aísla pelando la composición de FUERA hacia dentro: en cada
-// nodo, la inversa EXACTA de la operación externa pasa al otro lado y se recurre sobre el hijo
-// que contiene la y. Completo para cualquier torre de operaciones invertibles (una sola y).
+// T(y) desnuda, 1/y…). Cuando la y va envuelta en una COMPOSICIÓN —o en una función sin
+// estrategia propia— ninguna encaja: `log(y)=x`, `e^{y}=x`, `sin(2y)=x`, `(y+1)³=x`, `e^{y³}=x`.
+// Aquí se aísla pelando la composición de FUERA hacia dentro: en cada nodo, la inversa EXACTA de
+// la operación externa pasa al otro lado y se recurre sobre el hijo que contiene la y.
+//
+// Lo que se pela es la capa ENTERA, así que la y no tiene por qué aparecer una sola vez: basta
+// con que un solo hijo la contenga en cada nivel. Si la torre se ATASCA (la y se reparte entre
+// las dos ramas, `ln((y−1)/(y+2)) = x`), lo pelado es una ecuación equivalente y más simple, y
+// se re-despeja desde cero. Completo para cualquier torre de operaciones invertibles.
 //
 // FIDELIDAD AL DOMINIO: solo se aplican inversas EXACTAS. Las INYECTIVAS (log/exp, aˣ,
 // hiperbólicas, raíz IMPAR) pasan sin más; donde la ecuación no tiene solución, la inversa da
@@ -854,10 +1195,24 @@ function despejeCuadratico(D0: Nodo, DVal: Nodo = D0): { ecuacion: string; compl
 // Lo que NO tiene inversa exacta (arcos, y en dos posiciones, exponente no entero) sigue
 // devolviendo null: la ecuación se queda como está antes que inventar una rama.
 
-/** Nº de apariciones (hojas) del símbolo y en un árbol. */
-function contarY(n: Nodo): number {
-  return n.filter((nn: Nodo) => nn.type === "SymbolNode" && nn.name === "y").length;
+// ── Re-entrada controlada en el despejador ───────────────────────────────────
+//
+// Varias estrategias TRANSFORMAN la ecuación en otra equivalente y más simple (pelar una capa,
+// quitar el denominador, elevar al cuadrado) y necesitan volver a empezar sobre la nueva. Cada
+// transformación reduce la estructura, así que la recursión termina sola; el tope es una red de
+// seguridad barata frente a una transformación que devolviera algo equivalente a su entrada.
+
+const MAX_ANIDAMIENTO = 6;
+let anidamiento = 0;
+
+/** `despejar` re-entrante con tope de profundidad. null al pasarse (la ecuación se queda como
+ *  esté en el nivel de arriba, que es la forma parcial de siempre). */
+function despejarAnidado(ecuacion: string): { ecuacion: string; completo: boolean } | null {
+  if (anidamiento >= MAX_ANIDAMIENTO) return null;
+  anidamiento++;
+  try { return despejar(ecuacion); } finally { anidamiento--; }
 }
+
 
 /** Inversa EXACTA (inyectiva) de una función unaria: dado el objetivo `t` al que iguala la
  *  función, el string al que iguala su argumento. Solo funciones cuya inversa es fiel al
@@ -883,25 +1238,45 @@ const TRIG_PERIODICA = new Set<string>(["sin", "cos", "tan", "cot", "sec", "csc"
 const objetivoConGuarda = (cuerpo: string, target: string): string | null =>
   conDominio(cuerpo, target);
 
-/** Aísla la y de `nodo` (que la contiene EXACTAMENTE una vez) igualándola a `target` (string
- *  mathjs), pelando la composición externa con inversas fieles al dominio. Devuelve el RHS de
- *  `y = …` o null si topa con una capa sin inversa exacta. */
-function aislarInversion(nodo: Nodo, target: string): string | null {
+/** Qué hacer cuando el pelado se ATASCA: la capa externa ya no tiene inversa exacta, o la y se
+ *  reparte entre las dos ramas del operador. Lo pelado hasta ahí es una ecuación EQUIVALENTE y
+ *  más simple, así que se delega en el despejador completo (ver `despejePorInversion`). */
+interface ContextoPelado {
+  /** Resuelve `resto = target` y devuelve el RHS de `y = …`, o null si no lo completa. */
+  alTope: (resto: Nodo, target: string) => string | null;
+  /** Capas ya peladas. En el nivel 0 NO se llama a `alTope`: sería la ecuación de partida
+   *  otra vez (recursión infinita). Solo con algo pelado el residuo es un problema nuevo. */
+  nivel: number;
+}
+
+/** Aísla la y de `nodo` igualándola a `target` (string mathjs), pelando la composición externa
+ *  con inversas fieles al dominio. Devuelve el RHS de `y = …` o null si topa con una capa sin
+ *  inversa exacta (y `ctx` no rescata el residuo). */
+function aislarInversion(nodo: Nodo, target: string, ctx?: ContextoPelado): string | null {
   const n = desParen(nodo);
+  const pelado = pelarCapa(n, target, ctx);
+  if (pelado !== null) return pelado;
+  return ctx && ctx.nivel > 0 && contieneY(n) ? ctx.alTope(n, target) : null;
+}
+
+/** Una capa del pelado de `aislarInversion` (misma semántica; null = capa no invertible). */
+function pelarCapa(n: Nodo, target: string, ctx?: ContextoPelado): string | null {
+  const dentro = ctx && { alTope: ctx.alTope, nivel: ctx.nivel + 1 };
+  const aislar = (hijo: Nodo, t: string): string | null => aislarInversion(hijo, t, dentro);
   if (n.type === "SymbolNode" && n.name === "y") return target;
 
   if (n.type === "OperatorNode") {
-    if (n.args.length === 1 && n.op === "-") return aislarInversion(n.args[0], `-(${target})`);
+    if (n.args.length === 1 && n.op === "-") return aislar(n.args[0], `-(${target})`);
     if (n.args.length === 2) {
       const [a, b] = n.args;
       const enA = contieneY(a), enB = contieneY(b);
       if (enA === enB) return null; // 0 o 2 apariciones en este nivel: no aplicable
       const sa = a.toString(), sb = b.toString();
       switch (n.op) {
-        case "+": return enA ? aislarInversion(a, `(${target}) - (${sb})`) : aislarInversion(b, `(${target}) - (${sa})`);
-        case "-": return enA ? aislarInversion(a, `(${target}) + (${sb})`) : aislarInversion(b, `(${sa}) - (${target})`);
-        case "*": return enA ? aislarInversion(a, `(${target}) / (${sb})`) : aislarInversion(b, `(${target}) / (${sa})`);
-        case "/": return enA ? aislarInversion(a, `(${target}) * (${sb})`) : aislarInversion(b, `(${sa}) / (${target})`);
+        case "+": return enA ? aislar(a, `(${target}) - (${sb})`) : aislar(b, `(${target}) - (${sa})`);
+        case "-": return enA ? aislar(a, `(${target}) + (${sb})`) : aislar(b, `(${sa}) - (${target})`);
+        case "*": return enA ? aislar(a, `(${target}) / (${sb})`) : aislar(b, `(${target}) / (${sa})`);
+        case "/": return enA ? aislar(a, `(${target}) * (${sb})`) : aislar(b, `(${sa}) / (${target})`);
         case "^": {
           if (enA) {
             const k = exponenteEntero(b);
@@ -910,14 +1285,14 @@ function aislarInversion(nodo: Nodo, target: string): string | null {
               // uᵏ = t con k PAR ⇒ u = ±ᵏ√t donde t ≥ 0 (`e^{y²}=x` ⇒ y = ±√(ln x), ln x ≥ 0).
               const pm = ramaDoble(k === 2 ? `sqrt(${target})` : `nthRoot(${target}, ${k})`, target);
               const conG = pm === null ? null : objetivoConGuarda(pm, target);
-              return conG === null ? null : aislarInversion(a, conG);
+              return conG === null ? null : aislar(a, conG);
             }
             const raiz = k === 1 ? target : k === 3 ? `cbrt(${target})` : `nthRoot(${target}, ${k})`;
-            return aislarInversion(a, raiz);
+            return aislar(a, raiz);
           }
           // y en el EXPONENTE (base libre de y): a^y = t ⇒ y = ln t / ln a (e^y ⇒ y = ln t).
           const div = sa === "e" ? `log(${target})` : `log(${target}) / log(${sa})`;
-          return aislarInversion(b, div);
+          return aislar(b, div);
         }
         default: return null;
       }
@@ -928,23 +1303,23 @@ function aislarInversion(nodo: Nodo, target: string): string | null {
   if (n.type === "FunctionNode") {
     const fn = n.fn?.name ?? "";
     if (n.args.length === 1) {
-      if (INVERSA_INYECTIVA[fn]) return aislarInversion(n.args[0], INVERSA_INYECTIVA[fn](target));
+      if (INVERSA_INYECTIVA[fn]) return aislar(n.args[0], INVERSA_INYECTIVA[fn](target));
       if (TRIG_PERIODICA.has(fn)) {
         // cos/sec/sin/csc emiten su propio `pm` (las dos raíces del período); tan/cot no.
         // `inversionTrig` ya aplica el presupuesto de ramas y devuelve null si no cabe.
         const inv = inversionTrig(fn as TrigInvertible, target);
-        return inv === null ? null : aislarInversion(n.args[0], inv);
+        return inv === null ? null : aislar(n.args[0], inv);
       }
       // √u = t ⇒ u = t² donde t ≥ 0 (`√(tan y+1)=x` ⇒ y = arctan(x²−1)+kπ, x ≥ 0).
       if (fn === "sqrt") {
         const conG = objetivoConGuarda(`(${target})^2`, target);
-        return conG === null ? null : aislarInversion(n.args[0], conG);
+        return conG === null ? null : aislar(n.args[0], conG);
       }
       // |u| = t ⇒ u = ±t donde t ≥ 0.
       if (fn === "abs") {
         const pm = ramaDoble(target, target);
         const conG = pm === null ? null : objetivoConGuarda(pm, target);
-        return conG === null ? null : aislarInversion(n.args[0], conG);
+        return conG === null ? null : aislar(n.args[0], conG);
       }
       return null; // acos/asin/… (rango restringido de dos lados, no expresable con `dom`)
     }
@@ -954,22 +1329,37 @@ function aislarInversion(nodo: Nodo, target: string): string | null {
       // Índice PAR: ⁿ√u = t ⇒ u = tⁿ donde t ≥ 0 (la raíz par nunca es negativa). Impar: directo.
       if (k % 2 === 0) {
         const conG = objetivoConGuarda(`(${target})^${k}`, target);
-        return conG === null ? null : aislarInversion(n.args[0], conG);
+        return conG === null ? null : aislar(n.args[0], conG);
       }
-      return aislarInversion(n.args[0], `(${target})^${k}`);
+      return aislar(n.args[0], `(${target})^${k}`);
     }
   }
   return null;
 }
 
-/** Despeje por inversión estructural cuando la y aparece UNA sola vez en la ecuación
- *  (contando ambos lados). null si aparece 0 o ≥2 veces, o si la torre topa con una capa de
- *  rango restringido. Completo siempre (la inversión aísla y del todo). */
+/** RHS de un despeje COMPLETO (`y = …`) devuelto por la recursión, o null si no completó. */
+function rhsCompleto(r: { ecuacion: string; completo: boolean } | null): string | null {
+  if (!r || !r.completo) return null;
+  const m = r.ecuacion.match(/^y\s*=\s*([\s\S]+)$/);
+  return m ? m[1] : null;
+}
+
+/** Despeje por inversión estructural: toda la y de la ecuación está a UN lado, y ese lado es una
+ *  torre de capas invertibles. No hace falta que la y aparezca una sola vez: lo que se pela es la
+ *  capa ENTERA, así que basta con que un solo hijo la contenga en cada nivel. Cuando la torre se
+ *  atasca —la y se reparte entre las dos ramas (`(y−1)/(y+2)`) o la capa no tiene inversa— lo
+ *  pelado ya es una ecuación EQUIVALENTE y más simple, y se re-despeja: `ln((y−1)/(y+2)) = x`
+ *  pela el logaritmo y delega `(y−1)/(y+2) = eˣ`, que se resuelve quitando el denominador.
+ *  Completo siempre (o null: nunca devuelve una forma a medias). */
 function despejePorInversion(L: Nodo, R: Nodo): { ecuacion: string; completo: boolean } | null {
-  if (contarY(L) + contarY(R) !== 1) return null;
-  const conY = contarY(L) === 1 ? L : R;
-  const otro = conY === L ? R : L;
-  const rhs = aislarInversion(conY, `(${otro.toString()})`);
+  const enL = contieneY(L), enR = contieneY(R);
+  if (enL === enR) return null; // y en los DOS lados (o en ninguno): no es una torre
+  const conY = enL ? L : R;
+  const otro = enL ? R : L;
+  const rhs = aislarInversion(conY, `(${otro.toString()})`, {
+    nivel: 0,
+    alTope: (resto, target) => rhsCompleto(despejarAnidado(`${resto.toString()} = ${target}`)),
+  });
   return rhs === null ? null : { ecuacion: `y = ${rhs}`, completo: true };
 }
 
@@ -1064,10 +1454,21 @@ function despejar(ecuacion: string): { ecuacion: string; completo: boolean } | n
     }
   }
 
+  // DENOMINADORES con y: se multiplica por ellos y se re-despeja la ecuación ya polinómica
+  // (`(y−1)/(y+2) = x` → `y − 1 − x(y+2) = 0` → lineal repartida). Va antes que la cuadrática,
+  // que necesita los términos-y en el numerador para leer sus potencias.
+  const sinDen = despejeSinDenominadores(D);
+  if (sinDen) return sinDen;
+
   // Varios términos-y: ¿es CUADRÁTICA en y^g (bicuadrática/cuadrática)? → fórmula reducida.
   // `(x²+y²)²−2(x²−y²)=0` → `y=±√(−(x²+1)+√(4x²+1))`. Validada numéricamente contra la original.
   const cuad = despejeCuadratico(D, DVal);
   if (cuad) return cuad;
+
+  // AFÍN en y con coeficiente no polinómico (`y − (y+2)eˣ − 1 = 0`): A y B por evaluación.
+  // Tras la cuadrática, que ya cubre —con mejor tipografía— todo lo polinómico.
+  const linEval = despejeLinealEnY(D);
+  if (linEval) return linEval;
 
   // ¿CUADRÁTICA EN cos(y) tras expandir la trig de argumentos compuestos (cos(x±y),
   // cos(2y)…)? → fórmula general en u=cos y e inversión y = ±arccos(u) + 2kπ (familia).
@@ -1080,6 +1481,12 @@ function despejar(ecuacion: string): { ecuacion: string; completo: boolean } | n
   // fieles al dominio. Va al final: solo cuando ninguna estrategia específica la aisló.
   const inv = despejePorInversion(L, R);
   if (inv) return inv;
+
+  // RADICALES repartidos (`√(y+1)+√(y−2)=x`, `√(y+1)+y=x`): elevaciones sucesivas al cuadrado
+  // con la guarda de dominio de cada paso. La última de la lista: es la única que introduce
+  // condiciones, así que solo se recurre a ella cuando ninguna vía exacta ha servido.
+  const rad = despejeRadicales(D, DVal);
+  if (rad) return rad;
 
   // No lineal irreducible o varios términos-y: forma aislada (RHS en orden canónico).
   return { ecuacion: `${renderTerminos(conY)} = ${renderCanonico(derecha)}`, completo: false };

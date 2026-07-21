@@ -3,6 +3,7 @@ import { parse } from "mathjs";
 import { opNodo, simboloNodo, funcNodo, esNoNegativo, type Nodo } from "./formatoExpr";
 import { normalizarEntrada, contieneYLibre } from "./parser";
 import { parametrosDeFamilia } from "./despejeInverso";
+import { simplificarCondiciones, type ExtremoCond, type ResultadoCond } from "./condiciones";
 import { insertarProductoImplicito } from "./motor/parsing/productoImplicito";
 import { funcionDelParametro } from "./motor/parsing/componentesParametricas";
 import { CENTINELAS_SIGNO } from "./motor/parsing/dobleSigno";
@@ -506,6 +507,16 @@ function coletillaDominio(rhs: string): string {
   try { nodo = parse(insertarProductoImplicito(normalizarEntrada(rhs.trim()))) as unknown as Nodo; }
   catch { return ""; }
   const doms = nodo.filter((n: Nodo) => n.type === "FunctionNode" && n.fn?.name === "dom" && n.args.length === 2);
+
+  // Las guardas nacen de una en una (cada capa invertida, cada elevación al cuadrado añade la
+  // suya), pero son un SISTEMA de desigualdades sobre la misma x: se resuelve entero antes de
+  // pintarlo. `(x²+3)/(2x) ≥ 0` y `(x²−3)/(2x) ≥ 0` dicen juntas `x ≥ √3`, y así es como se lee.
+  const resuelto = simplificarCondiciones(doms.map((d: Nodo) => d.args[1].toString()));
+  if (resuelto !== null) return coletillaRango(resuelto);
+
+  // Fuera del alcance del simplificador (una guarda con `tan x`, `|x|`, un polinomio que no se
+  // deja factorizar): se listan tal cual, cada una tras su `\quad`. Son independientes y omitir
+  // cualquiera haría la fórmula más laxa que la curva.
   const vistas = new Set<string>();
   let out = "";
   for (const d of doms) {
@@ -515,6 +526,24 @@ function coletillaDominio(rhs: string): string {
     out += `${SEPARADOR_COLETILLA}${cond}`;
   }
   return out;
+}
+
+/** El rango resuelto como coletilla: `x ≥ a`, `x ≤ b`, `a ≤ x ≤ b` (con `<` donde el extremo no
+ *  entra). Sin coletilla si se cumple siempre; tampoco la hay si es imposible —ese caso no debería
+ *  llegar aquí (el despeje se descarta antes), y si llega, mejor callar que afirmar un dominio. */
+function coletillaRango(r: NonNullable<ResultadoCond>): string {
+  if (r.tipo !== "rango") return "";
+  const { min, max } = r.rango;
+  const x = "x";
+  const lado = (e: ExtremoCond): string => ladoALatex(e.expr);
+  // Intervalo degenerado (`x ≥ 0` y `x ≤ 0`): es un punto, y se lee como tal.
+  if (min !== null && max !== null && min.expr === max.expr && min.cerrado && max.cerrado)
+    return `${SEPARADOR_COLETILLA}${x} = ${lado(min)}`;
+  if (min !== null && max !== null)
+    return `${SEPARADOR_COLETILLA}${lado(min)} ${min.cerrado ? "\\le" : "<"} ${x} ${max.cerrado ? "\\le" : "<"} ${lado(max)}`;
+  if (min !== null) return `${SEPARADOR_COLETILLA}${x} ${min.cerrado ? "\\ge" : ">"} ${lado(min)}`;
+  if (max !== null) return `${SEPARADOR_COLETILLA}${x} ${max.cerrado ? "\\le" : "<"} ${lado(max)}`;
+  return "";
 }
 
 /** Convierte una ecuación de texto a LaTeX (opcionalmente con `&=` para alineación). */

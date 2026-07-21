@@ -1,4 +1,4 @@
-import { derivative, parse, simplify, type MathNode } from "mathjs";
+import { derivative, parse, simplify, type MathNode, type SimplifyRule } from "mathjs";
 
 import { normalizarEntrada } from "./parser";
 import { insertarProductoImplicito } from "./motor/parsing/productoImplicito";
@@ -31,6 +31,25 @@ const VAR = "x";
 // Muestra para la guarda numérica: valores "anodinos" (no enteros, ambos signos, cerca y
 // lejos del 0) para no caer en raíces, simetrías ni singularidades típicas (ídem derivar.ts).
 const MUESTRAS = [-7.3, -2.6, -1.2, -0.7, -0.3, 0.4, 1.1, 2.7, 5.8, 11.4];
+
+/**
+ * Canonicalización TRIGONOMÉTRICA: reescribe el integrando en el alfabeto mínimo `sin`/`cos` y
+ * abre el ángulo doble. Es la reescritura que convierte expresiones "de identidad" en algo que
+ * las reglas estructurales de abajo sí reconocen: `1/(csc 2x − cot 2x)` → `sin 2x/(1−cos 2x)` →
+ * `cos x/sin x`, que ya es una derivada logarítmica. Se usa SOLO como reintento (ver
+ * `integrarExpr`): la forma original va primero, para que `∫sin(2x)` siga saliendo `−cos(2x)/2`
+ * y no la versión desarrollada. Las reglas propias van ANTES de las de mathjs para que actúen
+ * sobre el árbol antes de que la simplificación genérica lo reordene.
+ */
+const REGLAS_TRIG: SimplifyRule[] = [
+  { l: "csc(n1)", r: "1/sin(n1)" },
+  { l: "sec(n1)", r: "1/cos(n1)" },
+  { l: "cot(n1)", r: "cos(n1)/sin(n1)" },
+  { l: "tan(n1)", r: "sin(n1)/cos(n1)" },
+  { l: "sin(2*n1)", r: "2*sin(n1)*cos(n1)" },
+  { l: "cos(2*n1)", r: "1-2*sin(n1)^2" },
+  ...simplify.rules,
+];
 
 /** ¿La expresión contiene la variable de integración `x`? (un factor sin x es constante). */
 function dependeDeX(n: Nodo): boolean {
@@ -122,6 +141,56 @@ function integrarArcotangente(q: Nodo): string | null {
   }
 }
 
+/**
+ * Constante numérica en su forma "de libro": racional de denominador pequeño si lo admite con
+ * holgura de máquina (`0.5` → `(1)/(2)`), y si no el decimal tal cual. Evita que una razón
+ * calculada por diferencias finitas se imprima como `0.4999999999`.
+ */
+function constanteLegible(c: number): string {
+  for (let den = 1; den <= 24; den++) {
+    const num = Math.round(c * den);
+    if (Math.abs(c * den - num) < 1e-9) return den === 1 ? `${num}` : `(${num})/(${den})`;
+  }
+  return `${c}`;
+}
+
+/**
+ * DERIVADA LOGARÍTMICA: `∫ (c·q'/q) dx = c·ln|q|`. Es el caso que faltaba del cociente con x en
+ * numerador Y denominador —hasta ahora null— y de él cuelga una familia entera: `∫tan = ∫sin/cos`,
+ * `∫cot = ∫cos/sin`, `∫2x/(x²+1)`, `∫f'/f` en general.
+ *
+ * La razón `p/q'` se mide NUMÉRICAMENTE (diferencias finitas centradas, como la guarda) en vez de
+ * derivar q con mathjs: así no depende de que mathjs sepa derivar `csc`, `abs` y compañía, y basta
+ * con que la razón sea la MISMA constante en toda la muestra. Se saltan los puntos donde algo no
+ * es finito o `q'` casi se anula (la razón ahí es ruido). Como toda candidata, pasa después por la
+ * guarda numérica global, que es quien garantiza la corrección.
+ */
+function integrarDerivadaLogaritmica(p: Nodo, q: Nodo): string | null {
+  let fp: (v: number) => unknown, fq: (v: number) => unknown;
+  try {
+    fp = compilarFuncion(p.toString(), VAR);
+    fq = compilarFuncion(q.toString(), VAR);
+  } catch {
+    return null;
+  }
+  const h = 1e-6;
+  let c: number | null = null;
+  let comparables = 0;
+  for (const x of MUESTRAS) {
+    const vp = fp(x), q1 = fq(x + h), q0 = fq(x - h);
+    if (typeof vp !== "number" || !Number.isFinite(vp)) continue;
+    if (typeof q1 !== "number" || typeof q0 !== "number" || !Number.isFinite(q1) || !Number.isFinite(q0)) continue;
+    const dq = (q1 - q0) / (2 * h);
+    if (Math.abs(dq) < 1e-6) continue; // q' ≈ 0: la razón no es informativa
+    const razon = vp / dq;
+    if (c === null) c = razon;
+    else if (Math.abs(razon - c) > 1e-6 * (1 + Math.abs(c))) return null; // no es constante ⇒ no es f'/f
+    comparables++;
+  }
+  if (c === null || comparables < 3) return null;
+  return `(${constanteLegible(c)})*log(abs(${q.toString()}))`;
+}
+
 /** `∫ b^u dx` con base `b` constante y exponente `u` AFÍN: `b^u/(a·ln b)` (b=e ⇒ ln b=1). */
 function integrarExponencial(base: Nodo, exp: Nodo): string | null {
   const a = coefLineal(exp);
@@ -140,6 +209,9 @@ function integrarFuncion(nombre: string, arg: Nodo): string | null {
     case "cos": return `sin(${u})/(${a})`;
     case "exp": return `exp(${u})/(${a})`;
     case "tan": return `-log(abs(cos(${u})))/(${a})`; // ∫tan = −ln|cos|
+    case "cot": return `log(abs(sin(${u})))/(${a})`; // ∫cot = ln|sin|
+    case "sec": return `log(abs(sec(${u})+tan(${u})))/(${a})`;
+    case "csc": return `-log(abs(csc(${u})+cot(${u})))/(${a})`;
     case "sinh": return `cosh(${u})/(${a})`;
     case "cosh": return `sinh(${u})/(${a})`;
     case "sqrt": return `(2*(${u})^(3/2))/(3*(${a}))`; // ∫√u = (2/3)u^{3/2}/a
@@ -197,7 +269,7 @@ function integrar(n: Nodo): string | null {
         const I = integrarReciproco(q); // ∫(const/q) = const·∫(1/q)
         return I !== null ? `(${p.toString()})*(${I})` : null;
       }
-      return null; // p y q dependen de x: fuera de alcance
+      return integrarDerivadaLogaritmica(p, q); // p y q con x: solo si p = c·q' (⇒ c·ln|q|)
     }
 
     // Potencia.
@@ -262,7 +334,18 @@ export function integrarExpr(expr: string): string | null {
   } catch {
     return null;
   }
-  const cruda = integrar(raiz);
+  // Forma ORIGINAL primero (conserva la tipografía natural: `∫sin(2x) = −cos(2x)/2`); si no la
+  // cubre, se reintenta sobre la canonicalización trigonométrica, que resuelve las expresiones
+  // escritas "por identidad" (`1/(csc 2x − cot 2x)` es `cot x`). La guarda de abajo compara
+  // siempre contra el integrando ORIGINAL, así que el reintento no puede colar una primitiva mala.
+  let cruda = integrar(raiz);
+  if (cruda === null) {
+    try {
+      cruda = integrar(simplify(norm, REGLAS_TRIG) as unknown as Nodo);
+    } catch {
+      return null;
+    }
+  }
   if (cruda === null) return null;
 
   // Limpieza (fracciones colapsadas, constantes reducidas: log(e)→1, etc.) y RE-SIMBOLIZACIÓN

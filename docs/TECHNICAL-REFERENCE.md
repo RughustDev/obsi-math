@@ -1,9 +1,9 @@
 # LMath — Internal Technical Reference
 
-Reverse-engineered from the source tree as of v1.0.0. Every statement in this document is
+Reverse-engineered from the source tree as of v1.2.4. Every statement in this document is
 backed by code; file paths are given per section. Where something cannot be confirmed from
 the code, it is stated explicitly. This is a reference manual for the internals, not
-onboarding material.
+onboarding material — for how to build, test and contribute, see `CONTRIBUTING.md`.
 
 Naming note: the codebase is written with Spanish identifiers and comments. This document
 uses the actual identifiers (`Escena`, `ProveedorGeometria`, `despejar`…) so that text and
@@ -24,7 +24,7 @@ Internally the code is organized in **rings** (the term appears in
 |---|---|---|---|
 | 0 | `src/motor/contracts/*` — types only, zero logic, zero deps | no | no |
 | 1 | Numeric geometry: `src/motor/{tracing,discovery,analysis,scene,rendering,interaction}` | no | Canvas 2D only (rendering/interaction) |
-| 2 | Symbolic/parsing layer: `src/parser.ts`, `src/evaluador.ts`, `src/motor/parsing/*`, `src/motor/fields/*`, `src/{latex,simplificar,despejar,derivar,integral,integrar,formatoExpr,analisis,degeneradas,constantes}.ts` | yes (quarantined) | no |
+| 2 | Symbolic/parsing layer: `src/parser.ts`, `src/evaluador.ts`, `src/motor/parsing/*`, `src/motor/fields/*`, `src/{latex,simplificar,despejar,despejeInverso,condiciones,derivar,integral,integrar,formatoExpr,analisis,degeneradas,constantes}.ts` | yes (quarantined) | no |
 | 3 | Host: `main.ts`, `src/host-obsidian/*`, `src/engines/obs-graph/GraphEngine.ts` | indirectly | yes |
 
 Two hard quarantines follow from this:
@@ -73,7 +73,8 @@ There are **two rendering engines** for `obs-graph`:
 
    `ajustes` is a **live getter** (`() => this.ajustes`), not a snapshot: a settings change
    affects any block that re-renders, without reloading the plugin.
-5. Installs the dev console global `window.lmath` (§14.2) and removes it in `onunload`.
+There is no step 5: the dev-console global that used to be installed here was removed in
+1.1.8 (§14.2).
 
 ---
 
@@ -364,6 +365,56 @@ is validated by substitution into the **original** equation (`DVal`), so an inco
 reduction cannot survive. Everything returns `{ecuacion, completo}` — `completo=false`
 means "solved as far as possible, honestly".
 
+Four further strategies are **rewrites of the equation** rather than inversions of one
+layer, and each re-enters the solver on the result (`despejarAnidado`, depth-capped; every
+rewrite strictly reduces the tree, so the recursion terminates on its own):
+
+- **Structural inversion** (`despejePorInversion` + `pelarCapa`) peels the outermost
+  operation and applies its exact inverse to the other side, recursing into the child that
+  holds `y`. Because the whole layer is inverted at once, `y` need not occur only once —
+  it is enough that a single child contains it. When the tower gets stuck (`y` split across
+  both branches, as in `\ln\frac{y-1}{y+2}=x`), what has been peeled is an equivalent,
+  simpler equation and is re-solved from scratch. Only exact inverses are used: injective
+  ones pass through, periodic trig carries its `fam` family, and restricted-range layers
+  (even root/power, `abs`) carry the `dom` guard plus the `±`.
+- **Denominator clearing** (`despejeSinDenominadores`) multiplies by every denominator that
+  contains `y` and re-solves the polynomial result.
+- **Affine-in-`y` by evaluation** (`despejeLinealEnY`) recovers `A` and `B` in `A·y+B = 0`
+  by *substituting* two values of `y`, which works with any coefficient — no expansion, so
+  it reaches what `rationalize` cannot (`y-(y+2)e^x-1=0`). Affinity itself is verified
+  numerically over a grid, on triples that straddle 0 (a `|y|` is affine on any all-positive
+  triple, and a naive sample "solved" `|y|=-3`). Several sampling pairs are tried so a
+  singular `y` value cannot leak an `Infinity` into the formula.
+- **Radical rationalization** (`despejeRadicales`) isolates one square root and squares,
+  repeatedly, until the equation is polynomial. Squaring is *not* an equivalence —
+  `A=B ⟺ A²=B²` **and** `B≥0` — so every step records its guard, and the guards are
+  rewritten in terms of `x` by substituting back what later steps determined.
+
+Because the last three can gain solutions the original never had (a cleared denominator is
+defined where the original is `0/0`; squaring adds a branch), their results are validated
+**branch by branch** (`solucionValida` over `expandirDobleSigno`, so what is checked is
+exactly what the engine will draw) against the equation *as it was before the rewrite*. A
+branch emptied by its own domain guard is not a failure; a branch that contradicts the
+equation drops the whole solution back to partial. This is also why a removable hole
+(`\frac{y^2-4}{y+2}=x`, missing its point at `x=-4`) is left unsolved rather than stated
+more loosely than it is true: the `dom` sentinel expresses `≥ 0` and has no way to say `≠`.
+
+**`src/condiciones.ts`** — the condition simplifier. Guards are emitted one at a time (one
+per restricted-range layer, one per squaring step) but they are a *system* of inequalities
+over the same `x`. `simplificarCondiciones` resolves each `c(x) ≥ 0` by its **sign table**
+— the zeros of numerator and denominator split the line into constant-sign runs, so
+locating them and probing one point per run yields a union of intervals — and intersects
+the results. Redundant conditions vanish on their own (they do not cut), adjacent runs
+merge, and a contradiction appears as an empty intersection (used by `despejeRadicales` to
+reject a solution whose guards are jointly unsatisfiable, which the per-guard check in
+`conDominio` cannot see). Critical points are computed **symbolically**, because they are
+what gets displayed: the root of `x²−3` must read `√3`, not `1.7320508`. Declared reach:
+rational conditions whose roots have closed form — degree 1, degree 2 by the general formula
+(square factor pulled out of the radical, `√12 = 2√3`), higher degrees only where integer
+roots deflate them. Everything else returns `null` and the caller keeps the guards verbatim;
+the failure mode is "I don't simplify", never "I simplify wrongly". It is **presentation
+only** — the engine keeps evaluating the original `dom` guards, so nothing plotted changes.
+
 **`src/derivar.ts`** — described in §11.
 
 ### 5.5 Numeric analysis of f(x): `src/analisis.ts`
@@ -409,6 +460,12 @@ toTex(OPCIONES_TEX) → limpiarTex`.
   that collide with unit names in upright font), `\cdot` collapse to juxtaposition (kept
   between two digits), brace protection for `\pi{x}`, stray-brace collapse, and promotion
   of all parentheses to `\left(\right)`.
+- Trailing clauses carry the information that does not belong inside the expression:
+  `, k∈ℤ` per family parameter (`parametrosDeFamilia`) and the **domain**. The domain clause
+  is not a per-guard listing: `coletillaDominio` collects every `dom` sentinel in the RHS and
+  hands the whole set to `simplificarCondiciones` (§5.4), printing the resolved range
+  (`x ≥ \sqrt3`, `-\sqrt2 ≤ x ≤ \sqrt2`, `x = 0`); only when the system falls outside that
+  module's reach does it fall back to listing each `cond ≥ 0` after its own `\quad`.
 - `bloqueALatex` renders a block: `cases`+`aligned` for systems; per line it declares the
   dependence the engine actually uses — parametric tuples as
   `\left(x(t),\ y(t)\right)=…`, single components as `x(t)=…`, polars as `r(θ)=…`
@@ -922,9 +979,19 @@ the scope honestly: a calculus-textbook repertoire, not a general engine — the
 problem is undecidable). Structural recursion: constants, linearity, products with exactly
 one x-dependent factor, `const/q` reciprocals (power of affine base / affine log /
 pure-quadratic arctangent `1/(kx²+m)`), constant-base exponentials `b^u`, a function
-table (sin, cos, exp, tan, sinh, cosh, sqrt) — all with the **linear substitution**
-`∫f(ax+b)dx = F(ax+b)/a` detected by constant derivative of the argument (`coefLineal`),
-which is what makes `sin(2x)`, `e^{3x}`, `(2x+1)^5` reachable.
+table (sin, cos, exp, tan, cot, sec, csc, sinh, cosh, sqrt) — all with the **linear
+substitution** `∫f(ax+b)dx = F(ax+b)/a` detected by constant derivative of the argument
+(`coefLineal`), which is what makes `sin(2x)`, `e^{3x}`, `(2x+1)^5` reachable.
+
+Two rules widen this beyond the table. The **logarithmic derivative**
+(`integrarDerivadaLogaritmica`) covers the quotient with `x` in *both* parts: if `p = c·q'`
+then `∫p/q = c·ln|q|`. The ratio is measured by finite differences rather than by symbolic
+differentiation, so it does not depend on mathjs being able to differentiate `csc` or `abs`
+— this is what reaches `∫2x/(x²+1)`, `∫cot`, `∫f'/f` in general. And **trigonometric
+canonicalization** (`REGLAS_TRIG`) rewrites `csc/sec/cot/tan` in `sin`/`cos` and opens the
+double angle, which collapses expressions written "by identity"
+(`∫1/(csc 2x − cot 2x) = ∫cot x = ln|sin x|`). It runs only as a *retry*: the original form
+is integrated first, so `∫sin 2x` still yields `−cos(2x)/2` rather than the expanded form.
 
 The correctness philosophy: *a wrong antiderivative is worse than none*. Every candidate
 must pass `verificaNumerica` — its **finite-difference** derivative (independent of
@@ -1020,11 +1087,14 @@ with facet flags.
 
 ### 14.2 Consumers
 
-- `src/host-obsidian/consolaDev.ts` — the `window.lmath` global in Obsidian's DevTools
-  (`trazar/grafica/latex/diagnostico` + per-block shortcuts + `ayuda()`).
-- `herramientas/trazar.ts` — the terminal CLI. Bundled once with `npm run trazar`,
-  executed with plain `node` (the header documents why not `npm run … --` on Windows:
-  cmd.exe corrupts `^` and parentheses).
+- `herramientas/trazar.ts` — the terminal CLI, and since 1.1.8 the only consumer. Bundled
+  once with `npm run trazar`, executed with plain `node`
+  (`node herramientas/.trazar.cjs <block-type> "<input>" [--grafica|--latex|--diagnostico]`;
+  the header documents why not `npm run … --` on Windows: cmd.exe corrupts `^` and
+  parentheses).
+- A `window.lmath` DevTools global used to exist (`src/host-obsidian/consolaDev.ts`); it was
+  removed in 1.1.8 (commit `d75536d`) while clearing the Obsidian review warnings. The tracer
+  core is unaffected — it is reachable from the CLI and directly from tests.
 
 ### 14.3 Tests
 
@@ -1033,14 +1103,25 @@ a new block belongs to). Two suites:
 
 - `tests/motor.test.ts` (`npm run test`, ~30 s, run on every change): sampler parity vs
   the legacy reference, continuation cases, cache behavior, geometry reading, notable
-  points, solve/simplify/derive/integral units, expansion-guard limits, tracer tool.
+  points, solve/simplify/derive/integral units, condition-system reduction,
+  expansion-guard limits, tracer tool.
 - `tests/zoom.test.ts` (`npm run test:zoom`, ~80 s): the anti-regression sweep for "the
   curve disappears / flickers when zooming out" — each bounded curve traced across ~150
   viewports × 2 canvas sizes × 2 passes, asserting **traced world length** (branch count
   was tried and let the bug through: the same drawing can come out as 2 or 4 polylines).
 
-`npm run test:todo` chains both. Build is esbuild, bundling `main.ts` → CJS `main.js`
-(target es2018, `obsidian` external).
+`npm run test:todo` chains both. Two further harnesses target the solver specifically and
+are not part of that chain because they are slow:
+
+- `tests/fuzz-despeje.ts` (`npm run fuzz`, several minutes): a **differential fuzzer** for
+  *soundness* — it generates equations per strategy family (fixed seed) and asserts that
+  every result marked `completo` satisfies its original equation numerically, honoring the
+  emitted domain guards. The only column that may never be non-zero is `UNSOUND`.
+- `tests/bateria-cas.ts` (`npm run bateria`): a **graduated battery** for *completeness* —
+  generated inversion towers, checking that every real root of the original is claimed by
+  the solved form, plus domain, representation and simplification.
+
+Build is esbuild, bundling `main.ts` → CJS `main.js` (target es2018, `obsidian` external).
 
 ---
 
@@ -1064,20 +1145,26 @@ cited):
 5. **`parametro` gates per-x interaction** — present ⇔ branch is x-monotone; consumers
    (`yEnRamas`, `curvaRecorrible`) rely on it rather than on curve type.
 6. **Formal algebra never overrides numerics** — every symbolic rewrite (simplify, solve
-   branches, derivative candidates, antiderivatives, odd-root reductions) is validated by
-   numeric sampling with domain fidelity before being shown or plotted
-   (`formasEquivalentes`, `ramaReal`, `derivadasEquivalentes`, `verificaNumerica`,
-   `despejeCuadratico(DVal)`).
-7. **Determinism over timeouts** — all budgets are counts (expansion monomials,
+   branches, derivative candidates, antiderivatives, odd-root reductions, cleared
+   denominators, squared radicals) is validated by numeric sampling with domain fidelity
+   before being shown or plotted (`formasEquivalentes`, `ramaReal`, `derivadasEquivalentes`,
+   `verificaNumerica`, `despejeCuadratico(DVal)`, `solucionValida`).
+7. **A transformation that is not an equivalence states its condition or is rejected** —
+   restricted-range inversions carry a `dom` guard; rewrites that can *gain* solutions
+   (clearing a denominator, squaring) are validated against the equation as it stood before
+   the rewrite. Where the needed condition cannot be expressed (`dom` says `≥ 0`, never
+   `≠`), the solver returns the partial form rather than a formula laxer than the curve
+   (`conDominio`, `despejeRadicales`, `despejeSinDenominadores`, `despejeLinealEnY`).
+8. **Determinism over timeouts** — all budgets are counts (expansion monomials,
    evaluations, subdivisions, points, intersection caps), never wall-clock
    (`formatoExpr.ts`, `TrazadorContinuacion`, `DescubrimientoMuestreado`,
    `interseccionesRamas`).
-8. **Fail visibly, fail flat** — unrecognized commands, degenerate functions and absent
+9. **Fail visibly, fail flat** — unrecognized commands, degenerate functions and absent
    values produce a *labelled* veil or a saturation message; over-cap enumerations are
    dropped entirely rather than shown as a biased subset (`comandosNoSoportados`,
    `clasificarBloque`, `interseccionesSaturadas`).
-9. **Ring discipline** — contracts import nothing; Ring 1 never imports mathjs or
+10. **Ring discipline** — contracts import nothing; Ring 1 never imports mathjs or
    Obsidian; mathjs enters only through `fields/` + Ring 2; Obsidian only through Ring 3.
-10. **Diagnostics have one home** — for `obs-integral`, all verdict labels render on the
+11. **Diagnostics have one home** — for `obs-integral`, all verdict labels render on the
     plot; the formula panel shows formulas only (`cuerpoAreaLatexExacto`,
     `etiquetaIntegral`, `clasificarBloque`).
