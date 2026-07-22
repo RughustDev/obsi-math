@@ -1,7 +1,7 @@
 {
   "id": "lmath",
   "name": "LMath",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "minAppVersion": "1.12.7",
   "description": "Graph functions, systems, derivatives and integrals in interactive blocks.",
   "author": "Lenin",

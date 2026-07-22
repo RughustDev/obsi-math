@@ -46281,42 +46281,37 @@ function contieneYLibre(exprNorm) {
 }
 
 // src/compiladorNativo.ts
+var MAX_VARIABLES = 2;
 var FUNCIONES_MATH = {
-  sin: "Math.sin",
-  cos: "Math.cos",
-  tan: "Math.tan",
-  asin: "Math.asin",
-  acos: "Math.acos",
-  atan: "Math.atan",
-  atan2: "Math.atan2",
-  sinh: "Math.sinh",
-  cosh: "Math.cosh",
-  tanh: "Math.tanh",
-  asinh: "Math.asinh",
-  acosh: "Math.acosh",
-  atanh: "Math.atanh",
-  exp: "Math.exp",
-  abs: "Math.abs",
-  sign: "Math.sign",
-  sqrt: "Math.sqrt",
-  cbrt: "Math.cbrt",
-  log10: "Math.log10",
-  log2: "Math.log2",
-  min: "Math.min",
-  max: "Math.max"
-};
-var OPERADORES = {
-  add: "+",
-  subtract: "-",
-  multiply: "*",
-  divide: "/"
+  sin: Math.sin,
+  cos: Math.cos,
+  tan: Math.tan,
+  asin: Math.asin,
+  acos: Math.acos,
+  atan: Math.atan,
+  atan2: Math.atan2,
+  sinh: Math.sinh,
+  cosh: Math.cosh,
+  tanh: Math.tanh,
+  asinh: Math.asinh,
+  acosh: Math.acosh,
+  atanh: Math.atanh,
+  exp: Math.exp,
+  abs: Math.abs,
+  sign: Math.sign,
+  sqrt: Math.sqrt,
+  cbrt: Math.cbrt,
+  log10: Math.log10,
+  log2: Math.log2,
+  min: Math.min,
+  max: Math.max
 };
 var CONSTANTES = {
-  pi: "Math.PI",
-  e: "Math.E",
-  tau: "(2*Math.PI)",
-  Infinity: "Infinity",
-  NaN: "NaN"
+  pi: Math.PI,
+  e: Math.E,
+  tau: 2 * Math.PI,
+  Infinity: Infinity,
+  NaN: NaN
 };
 var SIGNO_CENTINELA = new Map(CENTINELAS_SIGNO.map(([n, s]) => [n, s]));
 var PUNTOS_SONDA = [
@@ -46361,95 +46356,6 @@ var PUNTOS_SONDA = [
   123.456,
   -987.654
 ];
-function generar(nodo, variables) {
-  var _a, _b, _c, _d;
-  const n = nodo;
-  switch (n.type) {
-    case "ConstantNode": {
-      const v = typeof n.value === "number" ? n.value : NaN;
-      if (typeof n.value !== "number" || !Number.isFinite(v))
-        return null;
-      return `(${v})`;
-    }
-    case "SymbolNode": {
-      const nombre = (_a = n.name) != null ? _a : "";
-      if (variables.has(nombre))
-        return nombre;
-      const cte = CONSTANTES[nombre];
-      return cte != null ? cte : null;
-    }
-    case "ParenthesisNode":
-      return generar(n.content, variables);
-    case "OperatorNode": {
-      const args = ((_b = n.args) != null ? _b : []).map((a) => generar(a, variables));
-      if (args.length === 0 || args.some((a) => a === null))
-        return null;
-      const fn = typeof n.fn === "string" ? n.fn : "";
-      if (fn === "unaryMinus")
-        return args.length === 1 ? `(-${args[0]})` : null;
-      if (fn === "unaryPlus")
-        return args.length === 1 ? `(+${args[0]})` : null;
-      if (fn === "pow")
-        return args.length === 2 ? `Math.pow(${args[0]},${args[1]})` : null;
-      if (fn === "mod")
-        return args.length === 2 ? `__mod(${args[0]},${args[1]})` : null;
-      const op = OPERADORES[fn];
-      if (!op || args.length < 2)
-        return null;
-      return `(${args.join(op)})`;
-    }
-    case "FunctionNode": {
-      const ref = n.fn;
-      const nombre = typeof ref === "string" ? ref : (_c = ref == null ? void 0 : ref.name) != null ? _c : "";
-      const args = ((_d = n.args) != null ? _d : []).map((a) => generar(a, variables));
-      if (args.some((a) => a === null))
-        return null;
-      const signo2 = SIGNO_CENTINELA.get(nombre);
-      if (signo2 !== void 0) {
-        return args.length === 1 ? signo2 > 0 ? `(${args[0]})` : `(-${args[0]})` : null;
-      }
-      if (nombre === "dom") {
-        return args.length === 2 ? `((${args[1]})>=0?(${args[0]}):NaN)` : null;
-      }
-      if (nombre === "sec")
-        return args.length === 1 ? `(1/Math.cos(${args[0]}))` : null;
-      if (nombre === "csc")
-        return args.length === 1 ? `(1/Math.sin(${args[0]}))` : null;
-      if (nombre === "cot")
-        return args.length === 1 ? `(1/Math.tan(${args[0]}))` : null;
-      if (nombre === "acot")
-        return args.length === 1 ? `(Math.PI/2-Math.atan(${args[0]}))` : null;
-      if (nombre === "acsc")
-        return args.length === 1 ? `Math.asin(1/(${args[0]}))` : null;
-      if (nombre === "asec")
-        return args.length === 1 ? `Math.acos(1/(${args[0]}))` : null;
-      if (nombre === "floor")
-        return args.length === 1 ? `__floor(${args[0]})` : null;
-      if (nombre === "ceil")
-        return args.length === 1 ? `__ceil(${args[0]})` : null;
-      if (nombre === "log") {
-        if (args.length === 1)
-          return `Math.log(${args[0]})`;
-        if (args.length === 2)
-          return `(Math.log(${args[0]})/Math.log(${args[1]}))`;
-        return null;
-      }
-      if (nombre === "nthRoot") {
-        if (args.length === 1)
-          return `Math.cbrt(${args[0]})`;
-        if (args.length === 2)
-          return `__nthRoot(${args[0]},${args[1]})`;
-        return null;
-      }
-      const f = FUNCIONES_MATH[nombre];
-      if (!f || args.length === 0)
-        return null;
-      return `${f}(${args.join(",")})`;
-    }
-    default:
-      return null;
-  }
-}
 function modNativo(a, b) {
   return a - b * Math.floor(a / b);
 }
@@ -46457,6 +46363,137 @@ function nthRootNativo(x, n) {
   if (x < 0)
     return Math.abs(n % 2) === 1 ? -Math.pow(-x, 1 / n) : NaN;
   return Math.pow(x, 1 / n);
+}
+var floorRapido = FUNCIONES_ESCALON_RAPIDAS.floor;
+var ceilRapido = FUNCIONES_ESCALON_RAPIDAS.ceil;
+function binario(fn, p, q) {
+  switch (fn) {
+    case "add":
+      return (a, b) => p(a, b) + q(a, b);
+    case "subtract":
+      return (a, b) => p(a, b) - q(a, b);
+    case "multiply":
+      return (a, b) => p(a, b) * q(a, b);
+    case "divide":
+      return (a, b) => p(a, b) / q(a, b);
+    default:
+      return null;
+  }
+}
+function compilarNodo(nodo, variables) {
+  var _a, _b;
+  const n = nodo;
+  switch (n.type) {
+    case "ConstantNode": {
+      const v = n.value;
+      if (typeof v !== "number" || !Number.isFinite(v))
+        return null;
+      return () => v;
+    }
+    case "SymbolNode": {
+      const nombre = (_a = n.name) != null ? _a : "";
+      const i2 = variables.indexOf(nombre);
+      if (i2 === 0)
+        return (a) => a;
+      if (i2 === 1)
+        return (_a2, b) => b;
+      if (!(nombre in CONSTANTES))
+        return null;
+      const k = CONSTANTES[nombre];
+      return () => k;
+    }
+    case "ParenthesisNode":
+      return compilarNodo(n.content, variables);
+    case "OperatorNode": {
+      const args = compilarArgs(n.args, variables);
+      if (args === null || args.length === 0)
+        return null;
+      const fn = typeof n.fn === "string" ? n.fn : "";
+      const [p, q] = args;
+      if (fn === "unaryMinus")
+        return args.length === 1 ? (a, b) => -p(a, b) : null;
+      if (fn === "unaryPlus")
+        return args.length === 1 ? p : null;
+      if (fn === "pow")
+        return args.length === 2 ? (a, b) => Math.pow(p(a, b), q(a, b)) : null;
+      if (fn === "mod")
+        return args.length === 2 ? (a, b) => modNativo(p(a, b), q(a, b)) : null;
+      if (args.length < 2)
+        return null;
+      let acc = binario(fn, p, q);
+      for (let i2 = 2; i2 < args.length && acc !== null; i2++)
+        acc = binario(fn, acc, args[i2]);
+      return acc;
+    }
+    case "FunctionNode": {
+      const ref = n.fn;
+      const nombre = typeof ref === "string" ? ref : (_b = ref == null ? void 0 : ref.name) != null ? _b : "";
+      const args = compilarArgs(n.args, variables);
+      if (args === null)
+        return null;
+      const [p, q] = args;
+      const unaria = args.length === 1;
+      const signo2 = SIGNO_CENTINELA.get(nombre);
+      if (signo2 !== void 0) {
+        if (!unaria)
+          return null;
+        return signo2 > 0 ? p : (a, b) => -p(a, b);
+      }
+      if (nombre === "dom") {
+        return args.length === 2 ? (a, b) => q(a, b) >= 0 ? p(a, b) : NaN : null;
+      }
+      if (nombre === "sec")
+        return unaria ? (a, b) => 1 / Math.cos(p(a, b)) : null;
+      if (nombre === "csc")
+        return unaria ? (a, b) => 1 / Math.sin(p(a, b)) : null;
+      if (nombre === "cot")
+        return unaria ? (a, b) => 1 / Math.tan(p(a, b)) : null;
+      if (nombre === "acot")
+        return unaria ? (a, b) => Math.PI / 2 - Math.atan(p(a, b)) : null;
+      if (nombre === "acsc")
+        return unaria ? (a, b) => Math.asin(1 / p(a, b)) : null;
+      if (nombre === "asec")
+        return unaria ? (a, b) => Math.acos(1 / p(a, b)) : null;
+      if (nombre === "floor")
+        return unaria ? (a, b) => floorRapido(p(a, b)) : null;
+      if (nombre === "ceil")
+        return unaria ? (a, b) => ceilRapido(p(a, b)) : null;
+      if (nombre === "log") {
+        if (unaria)
+          return (a, b) => Math.log(p(a, b));
+        if (args.length === 2)
+          return (a, b) => Math.log(p(a, b)) / Math.log(q(a, b));
+        return null;
+      }
+      if (nombre === "nthRoot") {
+        if (unaria)
+          return (a, b) => Math.cbrt(p(a, b));
+        if (args.length === 2)
+          return (a, b) => nthRootNativo(p(a, b), q(a, b));
+        return null;
+      }
+      const f = FUNCIONES_MATH[nombre];
+      if (!f || args.length === 0)
+        return null;
+      if (unaria)
+        return (a, b) => f(p(a, b));
+      if (args.length === 2)
+        return (a, b) => f(p(a, b), q(a, b));
+      return (a, b) => f(...args.map((g) => g(a, b)));
+    }
+    default:
+      return null;
+  }
+}
+function compilarArgs(args, variables) {
+  const salida = [];
+  for (const arg2 of args != null ? args : []) {
+    const c = compilarNodo(arg2, variables);
+    if (c === null)
+      return null;
+    salida.push(c);
+  }
+  return salida;
 }
 function equivalentes(a, b) {
   const va = typeof a === "number" ? a : NaN;
@@ -46468,24 +46505,14 @@ function equivalentes(a, b) {
   return Math.abs(va - b) <= 1e-12 * Math.max(1, Math.abs(va), Math.abs(b));
 }
 function compilarNativo(expr, variables, referencia) {
+  if (variables.length > MAX_VARIABLES)
+    return null;
   let candidata;
   try {
-    const cuerpo = generar(parse2(expr), new Set(variables));
-    if (cuerpo === null)
+    const raiz = compilarNodo(parse2(expr), variables);
+    if (raiz === null)
       return null;
-    const fabrica = new Function(
-      "__mod",
-      "__nthRoot",
-      "__floor",
-      "__ceil",
-      `"use strict";return function(${variables.join(",")}){return ${cuerpo};};`
-    );
-    candidata = fabrica(
-      modNativo,
-      nthRootNativo,
-      FUNCIONES_ESCALON_RAPIDAS.floor,
-      FUNCIONES_ESCALON_RAPIDAS.ceil
-    );
+    candidata = variables.length === 2 ? (x, y) => raiz(x, y) : (x) => raiz(x, 0);
   } catch (e3) {
     return null;
   }
@@ -57595,7 +57622,7 @@ function localizarVelo(velo) {
 // src/host-obsidian/ajustes.ts
 var AJUSTES_POR_DEFECTO = {
   despejarAuto: false,
-  puntosNotables: true,
+  puntosNotables: false,
   encuadreAuto: true,
   idioma: IDIOMA_POR_DEFECTO
 };

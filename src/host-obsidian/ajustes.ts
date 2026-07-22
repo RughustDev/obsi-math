@@ -40,11 +40,11 @@ export interface AjustesTransformaciones {
 }
 
 /** Valores por defecto (no despejar automáticamente; simplificar SIEMPRE se aplica;
- *  los puntos notables se pintan, que es el comportamiento histórico del plugin; el idioma
- *  por defecto es inglés, ver i18n.IDIOMA_POR_DEFECTO). */
+ *  los puntos notables NO se pintan, para que el plano salga limpio de entrada —el resumen
+ *  del ⓘ los sigue listando—; el idioma por defecto es inglés, ver i18n.IDIOMA_POR_DEFECTO). */
 export const AJUSTES_POR_DEFECTO: AjustesTransformaciones = {
   despejarAuto: false,
-  puntosNotables: true,
+  puntosNotables: false,
   encuadreAuto: true,
   idioma: IDIOMA_POR_DEFECTO,
 };
